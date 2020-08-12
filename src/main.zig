@@ -1,69 +1,15 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const print = std.debug.print;
 
-fn Ast(comptime T: type) type {
-    return struct {
-        content: T,
-
-        parent: ?*@This() = null,
-        prev: ?*@This() = null,
-        next: ?*@This() = null,
-        first_child: ?*@This() = null,
-        last_child: ?*@This() = null,
-    };
-}
-
-const Node = struct {
-    value: NodeValue,
-    start_line: u32,
-
-    content: []u8,
-    open: bool,
-    last_line_blank: bool,
-};
-
-const NodeValue = union(enum) {
-    Document,
-    BlockQuote,
-    // List
-    // Item
-    // DescriptionList
-    // DescriptionItem
-    // DescriptionTerm
-    // DescriptionDetails
-    // CodeBlock
-    // HtmlBlock
-    Paragraph,
-    Heading: NodeHeading,
-    ThematicBreak,
-    // FootnoteDefinition
-    // Table
-    // TableRow
-    // TableCell
-    Text: []u8,
-    // TaskItem
-    SoftBreak,
-    LineBreak,
-    Code: []u8,
-    // HtmlInline
-    Emph,
-    Strong,
-    Strikethrough,
-    // Link
-    // Image
-    // FootnoteReference
-};
-
-const NodeHeading = struct {
-    level: u32,
-    setext: bool,
-};
+const strings = @import("strings.zig");
+const ast = @import("ast.zig");
 
 const Parser = struct {
     allocator: *std.mem.Allocator,
     arena: *std.mem.Allocator,
-    root: *Ast(Node),
-    current: *Ast(Node),
+    root: *ast.Ast(ast.Node),
+    current: *ast.Ast(ast.Node),
     line_number: u32,
     offset: usize,
     column: usize,
@@ -78,12 +24,13 @@ const Parser = struct {
         var i: usize = 0;
         var sz = s.len;
         var linebuf = std.ArrayList(u8).init(self.allocator);
+        defer linebuf.deinit();
 
         while (i < sz) {
             var process = true;
             var eol = i;
             while (eol < sz) {
-                if (s[eol] == 13 or s[eol] == 10) {
+                if (strings.isLineEndChar(s[eol])) {
                     break;
                 }
                 if (s[eol] == 0) {
@@ -96,12 +43,12 @@ const Parser = struct {
             if (process) {
                 if (linebuf.items.len != 0) {
                     try linebuf.appendSlice(s[i..eol]);
-                    // self.process_line(&linebuf);
+                    try self.processLine(linebuf.span());
                     linebuf.items.len = 0;
                 } else if (sz > eol and s[eol] == '\n') {
-                    // self.process_line(&s[i .. eol + 1]);
+                    try self.processLine(s[i .. eol + 1]);
                 } else {
-                    // self.process_line(&s[i..eol]);
+                    try self.processLine(s[i..eol]);
                 }
 
                 i = eol;
@@ -113,11 +60,15 @@ const Parser = struct {
                 }
             } else {
                 assert(eol < sz and s[eol] == 0);
-                // linebuf += s[i..eol];
-                // linebuf += "\u{fffd}";
+                try linebuf.appendSlice(s[i..eol]);
+                try linebuf.appendSlice("\u{fffd}");
                 i = eol + 1;
             }
         }
+    }
+
+    fn processLine(self: Parser, s: []const u8) !void {
+        print("processLine: {}\n", .{s});
     }
 };
 
@@ -125,8 +76,8 @@ pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
-    var root = Ast(Node){
-        .content = Node{
+    var root = ast.Ast(ast.Node){
+        .content = .{
             .value = .Document,
             .content = "",
             .start_line = 0,
