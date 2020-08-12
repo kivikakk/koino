@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 fn Ast(comptime T: type) type {
     return struct {
@@ -60,6 +61,7 @@ const NodeHeading = struct {
 
 const Parser = struct {
     allocator: *std.mem.Allocator,
+    arena: *std.mem.Allocator,
     root: *Ast(Node),
     current: *Ast(Node),
     line_number: u32,
@@ -72,7 +74,51 @@ const Parser = struct {
     partially_consumed_tab: bool,
     last_line_length: usize,
 
-    fn feed(self: Parser, s: []const u8) void {}
+    fn feed(self: Parser, s: []const u8) !void {
+        var i: usize = 0;
+        var sz = s.len;
+        var linebuf = std.ArrayList(u8).init(self.allocator);
+
+        while (i < sz) {
+            var process = true;
+            var eol = i;
+            while (eol < sz) {
+                if (s[eol] == 13 or s[eol] == 10) {
+                    break;
+                }
+                if (s[eol] == 0) {
+                    process = false;
+                    break;
+                }
+                eol += 1;
+            }
+
+            if (process) {
+                if (linebuf.items.len != 0) {
+                    try linebuf.appendSlice(s[i..eol]);
+                    // self.process_line(&linebuf);
+                    linebuf.items.len = 0;
+                } else if (sz > eol and s[eol] == '\n') {
+                    // self.process_line(&s[i .. eol + 1]);
+                } else {
+                    // self.process_line(&s[i..eol]);
+                }
+
+                i = eol;
+                if (i < sz and s[i] == '\r') {
+                    i += 1;
+                }
+                if (i < sz and s[i] == '\n') {
+                    i += 1;
+                }
+            } else {
+                assert(eol < sz and s[eol] == 0);
+                // linebuf += s[i..eol];
+                // linebuf += "\u{fffd}";
+                i = eol + 1;
+            }
+        }
+    }
 };
 
 pub fn main() anyerror!void {
@@ -89,8 +135,11 @@ pub fn main() anyerror!void {
         },
     };
 
+    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
+
     const parser = Parser{
-        .allocator = &arena.allocator,
+        .allocator = &allocator.allocator,
+        .arena = &arena.allocator,
         .root = &root,
         .current = &root,
         .line_number = 0,
@@ -103,5 +152,5 @@ pub fn main() anyerror!void {
         .partially_consumed_tab = false,
         .last_line_length = 0,
     };
-    parser.feed("hello, world!\n\nthis is **yummy**!\n");
+    try parser.feed("hello, world!\n\nthis is **yummy**!\n");
 }
