@@ -172,6 +172,7 @@ const Parser = struct {
                         return .{ .container = container };
                     }
                 },
+                .Item => unreachable,
                 .CodeBlock => {
                     switch (self.parseCodeBlockPrefix(line, container)) {
                         .DoNotContinue => {
@@ -278,7 +279,7 @@ const Parser = struct {
             switch (container.data.value) {
             .BlockQuote, .Heading, .ThematicBreak => false,
             .CodeBlock => |ncb| !ncb.fenced,
-            // .Item
+            .Item => container.first_child != null or container.data.start_line != self.line_number,
             else => true,
         };
 
@@ -362,6 +363,9 @@ const Parser = struct {
                 unreachable;
             },
             .HtmlBlock => |nhb| {
+                unreachable;
+            },
+            .List => {
                 unreachable;
             },
             else => {},

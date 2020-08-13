@@ -35,7 +35,6 @@ pub fn Ast(comptime T: type) type {
                 assert(parent.last_child == self);
                 parent.last_child = self.prev;
             }
-            unreachable;
 
             if (self.next) |next| {
                 next.prev = self.prev;
@@ -47,6 +46,7 @@ pub fn Ast(comptime T: type) type {
 
             self.prev = null;
             self.next = null;
+            unreachable;
         }
 
         pub fn lastChildIsOpen(self: @This()) bool {
@@ -72,8 +72,8 @@ pub const AstNode = Ast(Node);
 pub const NodeValue = union(enum) {
     Document,
     BlockQuote,
-    // List
-    // Item
+    List: NodeList,
+    Item: NodeList,
     // DescriptionList
     // DescriptionItem
     // DescriptionTerm
@@ -92,12 +92,12 @@ pub const NodeValue = union(enum) {
     SoftBreak,
     LineBreak,
     Code: []u8,
-    // HtmlInline
+    HtmlInline: []u8,
     Emph,
     Strong,
     Strikethrough,
-    // Link
-    // Image
+    Link: NodeLink,
+    Image: NodeLink,
     // FootnoteReference
 
     pub fn acceptsLines(self: NodeValue) bool {
@@ -113,22 +113,50 @@ pub const NodeValue = union(enum) {
         }
 
         return switch (self) {
-            .Document, .BlockQuote => child.block() and true, // XXX ITem
-            .Paragraph,
-            .Heading,
-            .Emph,
-            .Strong,
-            => !child.block(),
+            .Document, .BlockQuote, .Item => child.block() and switch (child) {
+                .Item => false,
+                else => true,
+            },
+            .List => switch (child) {
+                .Item => true,
+                else => false,
+            },
+            .Paragraph, .Heading, .Emph, .Strong, .Link, .Image => !child.block(),
             else => false,
         };
     }
 
     pub fn block(self: NodeValue) bool {
         return switch (self) {
-            .Document, .BlockQuote, .CodeBlock, .HtmlBlock, .Paragraph, .Heading, .ThematicBreak => true,
+            .Document, .BlockQuote, .List, .Item, .CodeBlock, .HtmlBlock, .Paragraph, .Heading, .ThematicBreak => true,
             else => false,
         };
     }
+};
+
+pub const NodeLink = struct {
+    url: []u8,
+    title: []u8,
+};
+
+pub const ListType = enum {
+    Bullet,
+    Ordered,
+};
+
+pub const ListDelimType = enum {
+    Period,
+    Paren,
+};
+
+pub const NodeList = struct {
+    list_type: ListType,
+    marker_offset: usize,
+    padding: usize,
+    start: usize,
+    delimiter: ListDelimType,
+    bullet_char: u8,
+    tight: bool,
 };
 
 pub const NodeHtmlBlock = struct {
