@@ -7,6 +7,7 @@ const print = std.debug.print;
 const strings = @import("strings.zig");
 const ast = @import("ast.zig");
 const scanners = @import("scanners.zig");
+const inlines = @import("inlines.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -257,8 +258,6 @@ const Parser = struct {
                 .value = value,
                 .start_line = self.line_number,
                 .content = std.ArrayList(u8).init(self.allocator),
-                .open = true,
-                .last_line_blank = false,
             },
         };
         parent.append(node);
@@ -348,6 +347,20 @@ const Parser = struct {
         }
     }
 
+    fn finish(self: *Parser) *ast.AstNode {
+        self.finalizeDocument();
+        return self.root;
+    }
+
+    fn finalizeDocument(self: *Parser) void {
+        while (self.current != self.root) {
+            self.current = self.finalize(self.current).?;
+        }
+
+        _ = self.finalize(self.root);
+        self.processInlines();
+    }
+
     fn finalize(self: *Parser, node: *ast.AstNode) ?*ast.AstNode {
         assert(node.data.open);
         node.data.open = false;
@@ -372,6 +385,32 @@ const Parser = struct {
         }
 
         return parent;
+    }
+
+    fn processInlines(self: *Parser) void {
+        self.processInlinesNode(self.root);
+    }
+
+    fn processInlinesNode(self: *Parser, node: *ast.AstNode) void {
+        if (node.data.value.containsInlines()) {
+            self.parseInlines(node);
+        }
+        var child = node.first_child;
+        while (child) |ch| {
+            self.processInlinesNode(ch);
+            child = ch.next;
+        }
+    }
+
+    fn parseInlines(self: *Parser, node: *ast.AstNode) void {
+        var delimiter_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer delimiter_arena.deinit();
+
+        var content = strings.rtrim(node.data.content.span());
+        var subj = inlines.Subject.init(self.allocator, self.arena, content, &delimiter_arena.allocator);
+        while (subj.parseInline(node)) {}
+        subj.processEmphasis(null);
+        while (subj.popBracket()) {}
     }
 
     fn advanceOffset(self: *Parser, line: []const u8, in_count: usize, columns: bool) void {
@@ -447,9 +486,6 @@ pub fn main() anyerror!void {
         .data = .{
             .value = .Document,
             .content = std.ArrayList(u8).init(&allocator.allocator),
-            .start_line = 0,
-            .open = true,
-            .last_line_blank = false,
         },
     };
 
@@ -469,4 +505,5 @@ pub fn main() anyerror!void {
         .last_line_length = 0,
     };
     try parser.feed("hello, world!\n\nthis is **yummy**!\n");
+    var doc = parser.finish();
 }

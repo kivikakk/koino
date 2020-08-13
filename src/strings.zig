@@ -22,3 +22,7 @@ pub fn isBlank(s: []const u8) bool {
     }
     return true;
 }
+
+pub fn rtrim(s: []const u8) []u8 {
+    unreachable;
+}

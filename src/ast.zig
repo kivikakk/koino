@@ -60,11 +60,11 @@ pub fn Ast(comptime T: type) type {
 
 pub const Node = struct {
     value: NodeValue,
-    start_line: u32,
+    start_line: u32 = 0,
 
     content: std.ArrayList(u8),
-    open: bool,
-    last_line_blank: bool,
+    open: bool = true,
+    last_line_blank: bool = false,
 };
 
 pub const AstNode = Ast(Node);
@@ -122,6 +122,13 @@ pub const NodeValue = union(enum) {
                 else => false,
             },
             .Paragraph, .Heading, .Emph, .Strong, .Link, .Image => !child.block(),
+            else => false,
+        };
+    }
+
+    pub fn containsInlines(self: NodeValue) bool {
+        return switch (self) {
+            .Paragraph, .Heading => true,
             else => false,
         };
     }
