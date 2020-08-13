@@ -487,6 +487,7 @@ pub fn main() anyerror!void {
     defer arena.deinit();
 
     var allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = allocator.deinit();
 
     var root = ast.AstNode{
         .data = .{
@@ -512,5 +513,7 @@ pub fn main() anyerror!void {
     };
     try parser.feed("hello, world\n\nthis is yummy\n");
     var doc = try parser.finish();
-    try html.print(doc);
+
+    var stdout_stream = std.io.getStdOut().outStream();
+    try html.print(stdout_stream, doc);
 }
