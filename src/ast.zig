@@ -1,12 +1,19 @@
 pub fn Ast(comptime T: type) type {
     return struct {
-        content: T,
+        data: T,
 
         parent: ?*@This() = null,
         prev: ?*@This() = null,
         next: ?*@This() = null,
         first_child: ?*@This() = null,
         last_child: ?*@This() = null,
+
+        pub fn lastChildIsOpen(self: @This()) bool {
+            if (self.last_child) |n| {
+                return n.data.open;
+            }
+            return false;
+        }
     };
 }
 
@@ -19,6 +26,8 @@ pub const Node = struct {
     last_line_blank: bool,
 };
 
+pub const AstNode = Ast(Node);
+
 pub const NodeValue = union(enum) {
     Document,
     BlockQuote,
@@ -28,8 +37,8 @@ pub const NodeValue = union(enum) {
     // DescriptionItem
     // DescriptionTerm
     // DescriptionDetails
-    // CodeBlock
-    // HtmlBlock
+    CodeBlock: NodeCodeBlock,
+    HtmlBlock: NodeHtmlBlock,
     Paragraph,
     Heading: NodeHeading,
     ThematicBreak,
@@ -49,6 +58,27 @@ pub const NodeValue = union(enum) {
     // Link
     // Image
     // FootnoteReference
+
+    pub fn acceptsLines(self: NodeValue) bool {
+        return switch (self) {
+            .Paragraph, .Heading, .CodeBlock => true,
+            else => false,
+        };
+    }
+};
+
+pub const NodeHtmlBlock = struct {
+    block_type: u8,
+    literal: []u8,
+};
+
+pub const NodeCodeBlock = struct {
+    fenced: bool,
+    fence_char: u8,
+    fence_length: usize,
+    fence_offset: usize,
+    info: []u8,
+    literal: []u8,
 };
 
 pub const NodeHeading = struct {
