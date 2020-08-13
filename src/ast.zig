@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub fn Ast(comptime T: type) type {
     return struct {
         data: T,
@@ -21,7 +23,7 @@ pub const Node = struct {
     value: NodeValue,
     start_line: u32,
 
-    content: []u8,
+    content: std.ArrayList(u8),
     open: bool,
     last_line_blank: bool,
 };

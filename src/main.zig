@@ -129,7 +129,7 @@ const Parser = struct {
             const current = self.current;
             const container = self.openNewBlocks(last_matched_container, line, result.all_matched);
             if (current == self.current) {
-                self.addTextToContainer(container, last_matched_container, line);
+                try self.addTextToContainer(container, last_matched_container, line);
             }
         }
 
@@ -247,7 +247,7 @@ const Parser = struct {
         unreachable;
     }
 
-    fn addTextToContainer(self: *Parser, container: *ast.AstNode, last_matched_container: *ast.AstNode, line: []const u8) void {
+    fn addTextToContainer(self: *Parser, container: *ast.AstNode, last_matched_container: *ast.AstNode, line: []const u8) !void {
         self.findFirstNonspace(line);
 
         if (self.blank) {
@@ -256,6 +256,60 @@ const Parser = struct {
             }
         }
 
+        container.data.last_line_blank = self.blank and
+            switch (container.data.value) {
+            .BlockQuote, .Heading, .ThematicBreak => false,
+            .CodeBlock => |ncb| !ncb.fenced,
+            // .Item
+            else => true,
+        };
+
+        var tmp = container;
+        while (tmp.parent) |parent| {
+            parent.data.last_line_blank = false;
+            tmp = parent;
+        }
+
+        if (self.current != last_matched_container and container == last_matched_container and !self.blank and self.current.data.value == .Paragraph) {
+            try self.addLine(self.current, line);
+            return;
+        }
+
+        while (self.current != last_matched_container) {
+            self.current = self.finalize(self.current).?;
+        }
+
+        const AddTextResult = union(enum) {
+            CodeBlock,
+            HtmlBlock: u8,
+            Otherwise,
+        };
+
+        const result: AddTextResult = switch (container.data.value) {
+            .CodeBlock => .CodeBlock,
+            .HtmlBlock => |nhb| .{ .HtmlBlock = nhb.block_type },
+            else => .Otherwise,
+        };
+
+        unreachable;
+    }
+
+    fn addLine(self: *Parser, node: *ast.AstNode, line: []const u8) !void {
+        assert(node.data.open);
+        if (self.partially_consumed_tab) {
+            self.offset += 1;
+            var chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
+            while (chars_to_tab > 0) : (chars_to_tab -= 1) {
+                try node.data.content.append(' ');
+            }
+        }
+        if (self.offset < line.len) {
+            try node.data.content.appendSlice(line[self.offset..line.len]);
+        }
+    }
+
+    fn finalize(self: *Parser, node: *ast.AstNode) ?*ast.AstNode {
+        assert(node.data.open);
         unreachable;
     }
 
@@ -326,17 +380,17 @@ pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
+    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
+
     var root = ast.AstNode{
         .data = .{
             .value = .Document,
-            .content = "",
+            .content = std.ArrayList(u8).init(&allocator.allocator),
             .start_line = 0,
             .open = true,
             .last_line_blank = false,
         },
     };
-
-    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
 
     var parser = Parser{
         .allocator = &allocator.allocator,
