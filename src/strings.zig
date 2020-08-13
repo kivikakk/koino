@@ -1,3 +1,5 @@
+const ctype = @import("ctype.zig");
+
 pub fn isLineEndChar(ch: u8) bool {
     return switch (ch) {
         '\n', '\r' => true,
@@ -23,6 +25,10 @@ pub fn isBlank(s: []const u8) bool {
     return true;
 }
 
-pub fn rtrim(s: []const u8) []u8 {
-    unreachable;
+pub fn rtrim(s: []const u8) []const u8 {
+    var len = s.len;
+    while (len > 0 and ctype.isspace(s[len - 1])) {
+        len -= 1;
+    }
+    return s[0..len];
 }

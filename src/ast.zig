@@ -1,17 +1,26 @@
 const std = @import("std");
+const mem = std.mem;
 const assert = std.debug.assert;
 
 pub fn Ast(comptime T: type) type {
     return struct {
+        const Self = @This();
+
         data: T,
 
-        parent: ?*@This() = null,
-        prev: ?*@This() = null,
-        next: ?*@This() = null,
-        first_child: ?*@This() = null,
-        last_child: ?*@This() = null,
+        parent: ?*Self = null,
+        prev: ?*Self = null,
+        next: ?*Self = null,
+        first_child: ?*Self = null,
+        last_child: ?*Self = null,
 
-        pub fn append(self: *@This(), child: *@This()) void {
+        pub fn create(allocator: *mem.Allocator, data: T) !*Self {
+            var obj = try allocator.create(Self);
+            obj.* = .{ .data = data };
+            return obj;
+        }
+
+        pub fn append(self: *Self, child: *Self) void {
             child.parent = self;
 
             if (self.last_child) |last_child| {
@@ -24,7 +33,7 @@ pub fn Ast(comptime T: type) type {
             self.last_child = child;
         }
 
-        pub fn detach(self: *@This()) void {
+        pub fn detach(self: *Self) void {
             const parent = self.parent.?;
 
             if (self.prev == null) {
@@ -49,11 +58,27 @@ pub fn Ast(comptime T: type) type {
             unreachable;
         }
 
-        pub fn lastChildIsOpen(self: @This()) bool {
+        pub fn lastChildIsOpen(self: *Self) bool {
             if (self.last_child) |n| {
                 return n.data.open;
             }
             return false;
+        }
+
+        pub const ReverseChildrenIterator = struct {
+            next_value: ?*Self,
+
+            pub fn next(self: *@This()) ?*Self {
+                var to_return = self.next_value;
+                if (to_return) |n| {
+                    self.next_value = n.prev;
+                }
+                return to_return;
+            }
+        };
+
+        pub fn reverseChildrenIterator(self: *Self) ReverseChildrenIterator {
+            return .{ .next_value = self.last_child };
         }
     };
 }
@@ -87,7 +112,7 @@ pub const NodeValue = union(enum) {
     // Table
     // TableRow
     // TableCell
-    Text: []u8,
+    Text: std.ArrayList(u8),
     // TaskItem
     SoftBreak,
     LineBreak,

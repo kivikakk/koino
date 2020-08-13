@@ -8,6 +8,7 @@ const strings = @import("strings.zig");
 const ast = @import("ast.zig");
 const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
+const html = @import("html.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -119,7 +120,7 @@ const Parser = struct {
         self.blank = false;
         self.partially_consumed_tab = false;
 
-        if (self.line_number == 0 and line.len >= 3 and mem.eql(u8, line[0..2], "\u{feff}")) {
+        if (self.line_number == 0 and line.len >= 3 and mem.eql(u8, line[0..3], "\u{feff}")) {
             self.offset += 3;
         }
 
@@ -252,14 +253,11 @@ const Parser = struct {
             parent = self.finalize(parent).?;
         }
 
-        var node = try self.arena.create(ast.AstNode);
-        node.* = .{
-            .data = .{
-                .value = value,
-                .start_line = self.line_number,
-                .content = std.ArrayList(u8).init(self.allocator),
-            },
-        };
+        var node = try ast.AstNode.create(self.arena, .{
+            .value = value,
+            .start_line = self.line_number,
+            .content = std.ArrayList(u8).init(self.allocator),
+        });
         parent.append(node);
         return node;
     }
@@ -343,22 +341,22 @@ const Parser = struct {
             }
         }
         if (self.offset < line.len) {
-            try node.data.content.appendSlice(line[self.offset..line.len]);
+            try node.data.content.appendSlice(line[self.offset..]);
         }
     }
 
-    fn finish(self: *Parser) *ast.AstNode {
-        self.finalizeDocument();
+    fn finish(self: *Parser) !*ast.AstNode {
+        try self.finalizeDocument();
         return self.root;
     }
 
-    fn finalizeDocument(self: *Parser) void {
+    fn finalizeDocument(self: *Parser) !void {
         while (self.current != self.root) {
             self.current = self.finalize(self.current).?;
         }
 
         _ = self.finalize(self.root);
-        self.processInlines();
+        try self.processInlines();
     }
 
     fn finalize(self: *Parser, node: *ast.AstNode) ?*ast.AstNode {
@@ -387,28 +385,36 @@ const Parser = struct {
         return parent;
     }
 
-    fn processInlines(self: *Parser) void {
-        self.processInlinesNode(self.root);
+    fn processInlines(self: *Parser) !void {
+        try self.processInlinesNode(self.root);
     }
 
-    fn processInlinesNode(self: *Parser, node: *ast.AstNode) void {
+    fn processInlinesNode(self: *Parser, node: *ast.AstNode) mem.Allocator.Error!void {
         if (node.data.value.containsInlines()) {
-            self.parseInlines(node);
+            try self.parseInlines(node);
         }
         var child = node.first_child;
         while (child) |ch| {
-            self.processInlinesNode(ch);
+            try self.processInlinesNode(ch);
             child = ch.next;
         }
+
+        // TODO:
+        // var it = node.descendantsIterator();
+        // while (it.next()) |descendant| {
+        //     if (descendant.data.value.containsInlines()) {
+        //         try self.parseInlines(descendant);
+        //     }
+        // }
     }
 
-    fn parseInlines(self: *Parser, node: *ast.AstNode) void {
+    fn parseInlines(self: *Parser, node: *ast.AstNode) !void {
         var delimiter_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
         defer delimiter_arena.deinit();
 
         var content = strings.rtrim(node.data.content.span());
         var subj = inlines.Subject.init(self.allocator, self.arena, content, &delimiter_arena.allocator);
-        while (subj.parseInline(node)) {}
+        while (try subj.parseInline(node)) {}
         subj.processEmphasis(null);
         while (subj.popBracket()) {}
     }
@@ -504,6 +510,7 @@ pub fn main() anyerror!void {
         .partially_consumed_tab = false,
         .last_line_length = 0,
     };
-    try parser.feed("hello, world!\n\nthis is **yummy**!\n");
-    var doc = parser.finish();
+    try parser.feed("hello, world\n\nthis is yummy\n");
+    var doc = try parser.finish();
+    try html.print(doc);
 }
