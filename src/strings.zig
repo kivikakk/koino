@@ -11,3 +11,14 @@ pub fn isSpaceOrTab(ch: u8) bool {
         else => false,
     };
 }
+
+pub fn isBlank(s: []const u8) bool {
+    for (s) |c| {
+        switch (c) {
+            '\n', '\r' => return true,
+            ' ', '\t' => {},
+            else => return false,
+        }
+    }
+    return true;
+}

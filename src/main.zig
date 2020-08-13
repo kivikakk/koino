@@ -6,6 +6,7 @@ const print = std.debug.print;
 
 const strings = @import("strings.zig");
 const ast = @import("ast.zig");
+const scanners = @import("scanners.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -127,7 +128,7 @@ const Parser = struct {
         const result = self.checkOpenBlocks(line);
         if (result.container) |last_matched_container| {
             const current = self.current;
-            const container = self.openNewBlocks(last_matched_container, line, result.all_matched);
+            const container = try self.openNewBlocks(last_matched_container, line, result.all_matched);
             if (current == self.current) {
                 try self.addTextToContainer(container, last_matched_container, line);
             }
@@ -205,7 +206,7 @@ const Parser = struct {
         };
     }
 
-    fn openNewBlocks(self: *Parser, input_container: *ast.AstNode, line: []const u8, all_matched: bool) *ast.AstNode {
+    fn openNewBlocks(self: *Parser, input_container: *ast.AstNode, line: []const u8, all_matched: bool) !*ast.AstNode {
         var container = input_container;
         var maybe_lazy = switch (self.current.data.value) {
             .Paragraph => true,
@@ -225,7 +226,7 @@ const Parser = struct {
                 if (strings.isSpaceOrTab(line[self.offset])) {
                     self.advanceOffset(line, 1, true);
                 }
-                container = self.addChild(container, .BlockQuote);
+                container = try self.addChild(container, .BlockQuote);
             }
             // ...
             else {
@@ -243,11 +244,28 @@ const Parser = struct {
         return container;
     }
 
-    fn addChild(self: *Parser, parent: *ast.AstNode, value: ast.NodeValue) *ast.AstNode {
-        unreachable;
+    fn addChild(self: *Parser, input_parent: *ast.AstNode, value: ast.NodeValue) !*ast.AstNode {
+        var parent = input_parent;
+        while (!parent.data.value.canContainType(value)) {
+            parent = self.finalize(parent).?;
+        }
+
+        var node = try self.arena.create(ast.AstNode);
+        node.* = .{
+            .data = .{
+                .value = value,
+                .start_line = self.line_number,
+                .content = std.ArrayList(u8).init(self.allocator),
+                .open = true,
+                .last_line_blank = false,
+            },
+        };
+        parent.append(node);
+        return node;
     }
 
-    fn addTextToContainer(self: *Parser, container: *ast.AstNode, last_matched_container: *ast.AstNode, line: []const u8) !void {
+    fn addTextToContainer(self: *Parser, input_container: *ast.AstNode, last_matched_container: *ast.AstNode, line: []const u8) !void {
+        var container = input_container;
         self.findFirstNonspace(line);
 
         if (self.blank) {
@@ -279,19 +297,40 @@ const Parser = struct {
             self.current = self.finalize(self.current).?;
         }
 
-        const AddTextResult = union(enum) {
-            CodeBlock,
-            HtmlBlock: u8,
-            Otherwise,
-        };
+        switch (container.data.value) {
+            .CodeBlock => {
+                try self.addLine(container, line);
+            },
+            .HtmlBlock => |nhb| {
+                try self.addLine(container, line);
+                const matches_end_condition = switch (nhb.block_type) {
+                    1 => scanners.htmlBlockEnd1(line[self.first_nonspace..]),
+                    2 => scanners.htmlBlockEnd2(line[self.first_nonspace..]),
+                    3 => scanners.htmlBlockEnd3(line[self.first_nonspace..]),
+                    4 => scanners.htmlBlockEnd4(line[self.first_nonspace..]),
+                    5 => scanners.htmlBlockEnd5(line[self.first_nonspace..]),
+                    else => false,
+                };
 
-        const result: AddTextResult = switch (container.data.value) {
-            .CodeBlock => .CodeBlock,
-            .HtmlBlock => |nhb| .{ .HtmlBlock = nhb.block_type },
-            else => .Otherwise,
-        };
+                if (matches_end_condition) {
+                    container = self.finalize(container).?;
+                }
+            },
+            else => {
+                if (self.blank) {
+                    // do nothing
+                } else if (container.data.value.acceptsLines()) {
+                    unreachable;
+                } else {
+                    container = try self.addChild(container, .Paragraph);
+                    const count = self.first_nonspace - self.offset;
+                    self.advanceOffset(line, count, false);
+                    try self.addLine(container, line);
+                }
+            },
+        }
 
-        unreachable;
+        self.current = container;
     }
 
     fn addLine(self: *Parser, node: *ast.AstNode, line: []const u8) !void {
@@ -310,7 +349,25 @@ const Parser = struct {
 
     fn finalize(self: *Parser, node: *ast.AstNode) ?*ast.AstNode {
         assert(node.data.open);
-        unreachable;
+        node.data.open = false;
+        const parent = node.parent;
+
+        switch (node.data.value) {
+            .Paragraph => {
+                if (strings.isBlank(node.data.content.span())) {
+                    node.detach();
+                }
+            },
+            .CodeBlock => {
+                unreachable;
+            },
+            .HtmlBlock => |nhb| {
+                unreachable;
+            },
+            else => {},
+        }
+
+        return parent;
     }
 
     fn advanceOffset(self: *Parser, line: []const u8, in_count: usize, columns: bool) void {
