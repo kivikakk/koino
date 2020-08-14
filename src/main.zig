@@ -15,7 +15,6 @@ const CODE_INDENT = 4;
 
 const Parser = struct {
     allocator: *std.mem.Allocator,
-    arena: *std.mem.Allocator,
     root: *ast.AstNode,
     current: *ast.AstNode,
     line_number: u32,
@@ -253,7 +252,7 @@ const Parser = struct {
             parent = self.finalize(parent).?;
         }
 
-        var node = try ast.AstNode.create(self.arena, .{
+        var node = try ast.AstNode.create(self.allocator, .{
             .value = value,
             .start_line = self.line_number,
             .content = std.ArrayList(u8).init(self.allocator),
@@ -410,11 +409,8 @@ const Parser = struct {
     }
 
     fn parseInlines(self: *Parser, node: *ast.AstNode) !void {
-        var delimiter_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        defer delimiter_arena.deinit();
-
         var content = strings.rtrim(node.data.content.span());
-        var subj = inlines.Subject.init(self.allocator, self.arena, content, &delimiter_arena.allocator);
+        var subj = inlines.Subject.init(self.allocator, content);
         while (try subj.parseInline(node)) {}
         subj.processEmphasis(null);
         while (subj.popBracket()) {}
@@ -484,11 +480,8 @@ const Parser = struct {
 };
 
 pub fn main() anyerror!void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-
-    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = allocator.deinit();
+    var allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer allocator.deinit();
 
     var root = try ast.AstNode.create(&allocator.allocator, .{
         .value = .Document,
@@ -497,7 +490,6 @@ pub fn main() anyerror!void {
 
     var parser = Parser{
         .allocator = &allocator.allocator,
-        .arena = &arena.allocator,
         .root = root,
         .current = root,
         .line_number = 0,

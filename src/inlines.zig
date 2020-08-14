@@ -9,11 +9,7 @@ const MAX_BACKTICKS = 80;
 
 pub const Subject = struct {
     allocator: *mem.Allocator,
-    arena: *mem.Allocator,
-    delimiter_arena: *mem.Allocator,
-
     input: []const u8,
-
     pos: usize = 0,
     last_delimiter: ?*Delimiter = null,
     brackets: std.ArrayList(Bracket),
@@ -23,12 +19,9 @@ pub const Subject = struct {
     skip_chars: [256]bool = [_]bool{false} ** 256,
     smart_chars: [256]bool = [_]bool{false} ** 256,
 
-    pub fn init(allocator: *mem.Allocator, arena: *mem.Allocator, input: []const u8, delimiter_arena: *mem.Allocator) Subject {
+    pub fn init(allocator: *mem.Allocator, input: []const u8) Subject {
         var s = Subject{
             .allocator = allocator,
-            .arena = arena,
-            .delimiter_arena = delimiter_arena,
-
             .input = input,
             .brackets = std.ArrayList(Bracket).init(allocator),
         };
@@ -62,7 +55,7 @@ pub const Subject = struct {
             '[' => {
                 unreachable;
                 // self.pos += 1;
-                // let inl = make_inline(self.arena, NodeValue::Text(b"[".to_vec()));
+                // let inl = make_inline(self.allocator, NodeValue::Text(b"[".to_vec()));
                 // new_inl = Some(inl);
                 // self.push_bracket(false, inl);
             },
@@ -72,11 +65,11 @@ pub const Subject = struct {
                 // self.pos += 1;
                 // if self.peek_char() == Some(&(b'[')) && self.peek_char_n(1) != Some(&(b'^')) {
                 // self.pos += 1;
-                // let inl = make_inline(self.arena, NodeValue::Text(b"![".to_vec()));
+                // let inl = make_inline(self.allocator, NodeValue::Text(b"![".to_vec()));
                 // new_inl = Some(inl);
                 // self.push_bracket(true, inl);
                 // } else {
-                // new_inl = Some(make_inline(self.arena, NodeValue::Text(b"!".to_vec())));
+                // new_inl = Some(make_inline(self.allocator, NodeValue::Text(b"!".to_vec())));
                 // }
             },
             else => {
@@ -92,7 +85,7 @@ pub const Subject = struct {
 
                 var new_contents = std.ArrayList(u8).init(self.allocator);
                 try new_contents.appendSlice(contents);
-                new_inl = try makeInline(self.arena, self.allocator, .{ .Text = new_contents });
+                new_inl = try makeInline(self.allocator, .{ .Text = new_contents });
             },
         }
 
@@ -217,12 +210,12 @@ pub const Subject = struct {
             const buf = self.input[startpos .. end - openticks];
             var code = std.ArrayList(u8).init(self.allocator);
             try strings.normalizeCode(buf, &code);
-            return try makeInline(self.arena, self.allocator, .{ .Code = code });
+            return try makeInline(self.allocator, .{ .Code = code });
         } else {
             self.pos = startpos;
             var new_contents = std.ArrayList(u8).init(self.allocator);
             try new_contents.appendNTimes('`', openticks);
-            return try makeInline(self.arena, self.allocator, .{ .Text = new_contents });
+            return try makeInline(self.allocator, .{ .Text = new_contents });
         }
     }
 
@@ -274,8 +267,8 @@ const Bracket = struct {
     bracket_after: bool,
 };
 
-fn makeInline(arena: *mem.Allocator, allocator: *mem.Allocator, value: ast.NodeValue) !*ast.AstNode {
-    return ast.AstNode.create(arena, .{
+fn makeInline(allocator: *mem.Allocator, value: ast.NodeValue) !*ast.AstNode {
+    return ast.AstNode.create(allocator, .{
         .value = value,
         .content = std.ArrayList(u8).init(allocator),
     });
