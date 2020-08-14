@@ -193,6 +193,13 @@ pub const NodeValue = union(enum) {
             else => false,
         };
     }
+
+    pub fn text(self: NodeValue) ?[]const u8 {
+        return switch (self) {
+            .Text => |t| t.span(),
+            else => null,
+        };
+    }
 };
 
 pub const NodeLink = struct {

@@ -389,7 +389,9 @@ const Parser = struct {
         try self.processInlinesNode(self.root);
     }
 
-    fn processInlinesNode(self: *Parser, node: *ast.AstNode) mem.Allocator.Error!void {
+    const InlineParseError = error{ OutOfMemory, InvalidUtf8 };
+
+    fn processInlinesNode(self: *Parser, node: *ast.AstNode) InlineParseError!void {
         if (node.data.value.containsInlines()) {
             try self.parseInlines(node);
         }
@@ -502,7 +504,7 @@ pub fn main() anyerror!void {
         .partially_consumed_tab = false,
         .last_line_length = 0,
     };
-    try parser.feed("hello, world\n\nthis is `yummy`\n");
+    try parser.feed("hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
     var doc = try parser.finish();
 
     var buffer = try html.print(&allocator.allocator, doc);

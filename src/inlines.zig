@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 
 const ast = @import("ast.zig");
 const strings = @import("strings.zig");
+const unicode = @import("unicode.zig");
 
 const MAX_BACKTICKS = 80;
 
@@ -49,7 +50,7 @@ pub const Subject = struct {
             '\\' => new_inl = self.handleBackslash(),
             '&' => new_inl = self.handleEntity(),
             '<' => new_inl = self.handlePointyBrace(),
-            '*', '_', '\'', '"' => new_inl = self.handleDelim(c.?),
+            '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
             '-' => new_inl = self.handleHyphen(),
             '.' => new_inl = self.handlePeriod(),
             '[' => {
@@ -111,7 +112,14 @@ pub const Subject = struct {
             closer = closer.?.prev;
         }
 
-        while (closer) |closer_| {
+        while (closer) {
+            if (closer.?.can_close) {
+                var opener = closer.?.prev;
+                var opener_found = false;
+
+                while (opener != null and opener != openers_bottom[closer.?.length % 3][closer.?.delim_char]) {
+                    if (opener.?.can_open and opener.?.delim_char == closer.?.delim_char) {
+                        const odd_match 
             unreachable;
         }
 
@@ -134,6 +142,10 @@ pub const Subject = struct {
 
     pub fn popBracket(self: *Subject) bool {
         return self.brackets.popOrNull() != null;
+    }
+
+    fn eof(self: *Subject) bool {
+        return self.pos >= self.input.len;
     }
 
     fn peekChar(self: *Subject) ?u8 {
@@ -231,8 +243,18 @@ pub const Subject = struct {
         unreachable;
     }
 
-    fn handleDelim(self: *Subject, c: u8) *ast.AstNode {
-        unreachable;
+    fn handleDelim(self: *Subject, c: u8) !*ast.AstNode {
+        const scan = try self.scanDelims(c);
+        const contents = self.input[self.pos - scan.numdelims .. self.pos];
+        var text = std.ArrayList(u8).init(self.allocator);
+        try text.appendSlice(contents);
+        const inl = try makeInline(self.allocator, .{ .Text = text });
+
+        if ((scan.can_open or scan.can_close) and !(c == '\'' or c == '"')) {
+            try self.pushDelimiter(c, scan.can_open, scan.can_close, inl);
+        }
+
+        return inl;
     }
 
     fn handleHyphen(self: *Subject) *ast.AstNode {
@@ -241,6 +263,91 @@ pub const Subject = struct {
 
     fn handlePeriod(self: *Subject) *ast.AstNode {
         unreachable;
+    }
+
+    const ScanResult = struct {
+        numdelims: usize,
+        can_open: bool,
+        can_close: bool,
+    };
+
+    fn scanDelims(self: *Subject, c: u8) !ScanResult {
+        var before_char: u21 = '\n';
+        if (self.pos > 0) {
+            var before_char_pos = self.pos - 1;
+            while (before_char_pos > 0 and (self.input[before_char_pos] >> 6 == 2 or self.skip_chars[self.input[before_char_pos]])) {
+                before_char_pos -= 1;
+            }
+            var utf8 = (try std.unicode.Utf8View.init(self.input[before_char_pos..self.pos])).iterator();
+            if (utf8.nextCodepoint()) |codepoint| {
+                if (codepoint >= 256 or !self.skip_chars[codepoint]) {
+                    before_char = codepoint;
+                }
+            }
+        }
+
+        var numdelims: usize = 0;
+        if (c == '\'' or c == '"') {
+            numdelims += 1;
+            self.pos += 1;
+        } else while (self.peekChar() == c) {
+            numdelims += 1;
+            self.pos += 1;
+        }
+
+        var after_char: u21 = '\n';
+        if (!self.eof()) {
+            var after_char_pos = self.pos;
+            while (after_char_pos < self.input.len - 1 and self.skip_chars[self.input[after_char_pos]]) {
+                after_char_pos += 1;
+            }
+            var utf8 = (try std.unicode.Utf8View.init(self.input[after_char_pos..])).iterator();
+            if (utf8.nextCodepoint()) |codepoint| {
+                if (codepoint >= 256 or !self.skip_chars[codepoint]) {
+                    after_char = codepoint;
+                }
+            }
+        }
+
+        const left_flanking = numdelims > 0 and !unicode.isWhitespace(after_char) and !(unicode.isPunctuation(after_char) and !unicode.isWhitespace(before_char) and !unicode.isPunctuation(before_char));
+        const right_flanking = numdelims > 0 and !unicode.isWhitespace(before_char) and !(unicode.isPunctuation(before_char) and !unicode.isWhitespace(after_char) and !unicode.isPunctuation(after_char));
+
+        if (c == '_') {
+            return ScanResult{
+                .numdelims = numdelims,
+                .can_open = left_flanking and (!right_flanking or unicode.isPunctuation(before_char)),
+                .can_close = right_flanking and (!left_flanking or unicode.isPunctuation(after_char)),
+            };
+        } else if (c == '\'' or c == '"') {
+            return ScanResult{
+                .numdelims = numdelims,
+                .can_open = left_flanking and !right_flanking and before_char != ']' and before_char != ')',
+                .can_close = right_flanking,
+            };
+        } else {
+            return ScanResult{
+                .numdelims = numdelims,
+                .can_open = left_flanking,
+                .can_close = right_flanking,
+            };
+        }
+    }
+
+    fn pushDelimiter(self: *Subject, c: u8, can_open: bool, can_close: bool, inl: *ast.AstNode) !void {
+        var delimiter = try self.allocator.create(Delimiter);
+        delimiter.* = .{
+            .inl = inl,
+            .length = inl.data.value.text().?.len,
+            .delim_char = c,
+            .can_open = can_open,
+            .can_close = can_close,
+            .prev = self.last_delimiter,
+            .next = null,
+        };
+        if (delimiter.prev) |prev| {
+            prev.next = delimiter;
+        }
+        self.last_delimiter = delimiter;
     }
 
     fn handleCloseBracket(self: *Subject) *ast.AstNode {
