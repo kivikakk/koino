@@ -83,7 +83,22 @@ const HtmlFormatter = struct {
                 .Pre => {
                     var new_plain: bool = undefined;
                     if (entry.plain) {
-                        unreachable;
+                        switch (entry.node.data.value) {
+                            .Text => |literal| {
+                                try self.escape(literal.span());
+                            },
+                            .Code => |literal| {
+                                try self.escape(literal.span());
+                            },
+                            .HtmlInline => |literal| {
+                                try self.escape(literal.span());
+                            },
+                            .LineBreak, .SoftBreak => {
+                                try self.writeAll(" ");
+                            },
+                            else => {},
+                        }
+                        new_plain = entry.plain;
                     } else {
                         try stack.append(.{ .node = entry.node, .plain = false, .phase = .Post });
                         new_plain = try self.fnode(entry.node, true);
@@ -132,6 +147,21 @@ const HtmlFormatter = struct {
             .Text => |literal| {
                 if (entering) {
                     try self.escape(literal.span());
+                }
+            },
+            .LineBreak => {
+                if (entering) {
+                    try self.writeAll("<br />\n");
+                }
+            },
+            .SoftBreak => {
+                unreachable;
+            },
+            .Code => |literal| {
+                if (entering) {
+                    try self.writeAll("<code>");
+                    try self.escape(literal.span());
+                    try self.writeAll("</code>");
                 }
             },
             else => {

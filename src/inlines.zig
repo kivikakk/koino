@@ -15,7 +15,7 @@ pub const Subject = struct {
     input: []const u8,
 
     pos: usize = 0,
-    last_delimiter: ?Delimiter = null,
+    last_delimiter: ?*Delimiter = null,
     brackets: std.ArrayList(Bracket),
     backticks: [MAX_BACKTICKS + 1]usize = [_]usize{0} ** (MAX_BACKTICKS + 1),
     scanned_for_backticks: bool = false,
@@ -52,7 +52,7 @@ pub const Subject = struct {
         switch (c.?) {
             0 => return false,
             '\n', '\r' => new_inl = self.handleNewLine(),
-            '`' => new_inl = self.handleBackticks(),
+            '`' => new_inl = try self.handleBackticks(),
             '\\' => new_inl = self.handleBackslash(),
             '&' => new_inl = self.handleEntity(),
             '<' => new_inl = self.handlePointyBrace(),
@@ -103,15 +103,39 @@ pub const Subject = struct {
         return true;
     }
 
-    pub fn processEmphasis(self: *Subject, stack_bottom: ?Delimiter) void {
+    pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) void {
         var closer = self.last_delimiter;
 
-        var openers_bottom: [3][128]?Delimiter = [_][128]?Delimiter{[_]?Delimiter{null} ** 128} ** 3;
+        var openers_bottom: [3][128]?*Delimiter = [_][128]?*Delimiter{[_]?*Delimiter{null} ** 128} ** 3;
         for (openers_bottom) |*i| {
             i['*'] = stack_bottom;
             i['_'] = stack_bottom;
             i['\''] = stack_bottom;
             i['"'] = stack_bottom;
+        }
+
+        while (closer != null and closer.?.prev != stack_bottom) {
+            closer = closer.?.prev;
+        }
+
+        while (closer) |closer_| {
+            unreachable;
+        }
+
+        while (self.last_delimiter != null and self.last_delimiter != stack_bottom) {
+            self.removeDelimiter(self.last_delimiter.?);
+        }
+    }
+
+    fn removeDelimiter(self: *Subject, delimiter: *Delimiter) void {
+        if (delimiter.next == null) {
+            assert(delimiter == self.last_delimiter.?);
+            self.last_delimiter = delimiter.prev;
+        } else {
+            delimiter.next.?.prev = delimiter.prev;
+        }
+        if (delimiter.prev != null) {
+            delimiter.prev.?.next = delimiter.next;
         }
     }
 
@@ -147,8 +171,59 @@ pub const Subject = struct {
         unreachable;
     }
 
-    fn handleBackticks(self: *Subject) *ast.AstNode {
-        unreachable;
+    fn takeWhile(self: *Subject, c: u8) usize {
+        const start_pos = self.pos;
+        while (self.peekChar() == c) {
+            self.pos += 1;
+        }
+        return self.pos - start_pos;
+    }
+
+    fn scanToClosingBacktick(self: *Subject, openticklength: usize) ?usize {
+        if (openticklength > MAX_BACKTICKS) {
+            return null;
+        }
+
+        if (self.scanned_for_backticks and self.backticks[openticklength] <= self.pos) {
+            return null;
+        }
+
+        while (true) {
+            var peeked = self.peekChar();
+            while (peeked != null and peeked.? != '`') {
+                self.pos += 1;
+                peeked = self.peekChar();
+            }
+            if (self.pos >= self.input.len) {
+                self.scanned_for_backticks = true;
+                return null;
+            }
+            const numticks = self.takeWhile('`');
+            if (numticks <= MAX_BACKTICKS) {
+                self.backticks[numticks] = self.pos - numticks;
+            }
+            if (numticks == openticklength) {
+                return self.pos;
+            }
+        }
+    }
+
+    fn handleBackticks(self: *Subject) !*ast.AstNode {
+        const openticks = self.takeWhile('`');
+        const startpos = self.pos;
+        const endpos = self.scanToClosingBacktick(openticks);
+
+        if (endpos) |end| {
+            const buf = self.input[startpos .. end - openticks];
+            var code = std.ArrayList(u8).init(self.allocator);
+            try strings.normalizeCode(buf, &code);
+            return try makeInline(self.arena, self.allocator, .{ .Code = code });
+        } else {
+            self.pos = startpos;
+            var new_contents = std.ArrayList(u8).init(self.allocator);
+            try new_contents.appendNTimes('`', openticks);
+            return try makeInline(self.arena, self.allocator, .{ .Text = new_contents });
+        }
     }
 
     fn handleBackslash(self: *Subject) *ast.AstNode {
@@ -180,13 +255,28 @@ pub const Subject = struct {
     }
 };
 
-const Bracket = struct {};
-const Delimiter = struct {};
+const Delimiter = struct {
+    inl: *ast.AstNode,
+    length: usize,
+    delim_char: u8,
+    can_open: bool,
+    can_close: bool,
+    prev: ?*Delimiter,
+    next: ?*Delimiter,
+};
+
+const Bracket = struct {
+    previous_delimiter: ?*Delimiter,
+    inl_text: *ast.AstNode,
+    position: usize,
+    image: bool,
+    active: bool,
+    bracket_after: bool,
+};
 
 fn makeInline(arena: *mem.Allocator, allocator: *mem.Allocator, value: ast.NodeValue) !*ast.AstNode {
     return ast.AstNode.create(arena, .{
         .value = value,
         .content = std.ArrayList(u8).init(allocator),
-        .open = false,
     });
 }

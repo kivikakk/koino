@@ -368,6 +368,7 @@ const Parser = struct {
             .Paragraph => {
                 if (strings.isBlank(node.data.content.span())) {
                     node.detach();
+                    node.deinit();
                 }
             },
             .CodeBlock => {
@@ -489,18 +490,16 @@ pub fn main() anyerror!void {
     var allocator = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = allocator.deinit();
 
-    var root = ast.AstNode{
-        .data = .{
-            .value = .Document,
-            .content = std.ArrayList(u8).init(&allocator.allocator),
-        },
-    };
+    var root = try ast.AstNode.create(&allocator.allocator, .{
+        .value = .Document,
+        .content = std.ArrayList(u8).init(&allocator.allocator),
+    });
 
     var parser = Parser{
         .allocator = &allocator.allocator,
         .arena = &arena.allocator,
-        .root = &root,
-        .current = &root,
+        .root = root,
+        .current = root,
         .line_number = 0,
         .offset = 0,
         .column = 0,
@@ -511,11 +510,13 @@ pub fn main() anyerror!void {
         .partially_consumed_tab = false,
         .last_line_length = 0,
     };
-    try parser.feed("hello, world\n\nthis is yummy\n");
+    try parser.feed("hello, world\n\nthis is `yummy`\n");
     var doc = try parser.finish();
 
     var buffer = try html.print(&allocator.allocator, doc);
     defer buffer.deinit();
+
+    doc.deinit();
 
     print("{}", .{buffer.span()});
 }

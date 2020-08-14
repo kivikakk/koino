@@ -6,6 +6,7 @@ pub fn Ast(comptime T: type) type {
     return struct {
         const Self = @This();
 
+        allocator: *mem.Allocator,
         data: T,
 
         parent: ?*Self = null,
@@ -16,8 +17,22 @@ pub fn Ast(comptime T: type) type {
 
         pub fn create(allocator: *mem.Allocator, data: T) !*Self {
             var obj = try allocator.create(Self);
-            obj.* = .{ .data = data };
+            obj.* = .{
+                .allocator = allocator,
+                .data = data,
+            };
             return obj;
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.data.deinit();
+            var it = self.first_child;
+            while (it) |child| {
+                var next = child.next;
+                child.deinit();
+                it = next;
+            }
+            self.allocator.destroy(self);
         }
 
         pub fn append(self: *Self, child: *Self) void {
@@ -90,6 +105,10 @@ pub const Node = struct {
     content: std.ArrayList(u8),
     open: bool = true,
     last_line_blank: bool = false,
+
+    fn deinit(self: *Node) void {
+        self.content.deinit();
+    }
 };
 
 pub const AstNode = Ast(Node);
@@ -116,8 +135,8 @@ pub const NodeValue = union(enum) {
     // TaskItem
     SoftBreak,
     LineBreak,
-    Code: []u8,
-    HtmlInline: []u8,
+    Code: std.ArrayList(u8),
+    HtmlInline: std.ArrayList(u8),
     Emph,
     Strong,
     Strikethrough,
