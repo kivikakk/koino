@@ -143,19 +143,31 @@ const HtmlFormatter = struct {
     }
 };
 
+const TestParts = struct {
+    allocator: std.heap.GeneralPurposeAllocator(.{}) = undefined,
+    buffer: std.ArrayList(u8) = undefined,
+    formatter: HtmlFormatter = undefined,
+
+    fn init(self: *TestParts) void {
+        self.allocator = std.heap.GeneralPurposeAllocator(.{}){};
+        self.buffer = std.ArrayList(u8).init(&self.allocator.allocator);
+        self.formatter = HtmlFormatter{
+            .allocator = &self.allocator.allocator,
+            .buffer = &self.buffer,
+        };
+    }
+
+    fn deinit(self: *TestParts) void {
+        self.buffer.deinit();
+        _ = self.allocator.deinit();
+    }
+};
+
 test "escaping works as expected" {
-    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = allocator.deinit();
+    var testParts = TestParts{};
+    testParts.init();
+    defer testParts.deinit();
 
-    var buffer = std.ArrayList(u8).init(&allocator.allocator);
-    defer buffer.deinit();
-
-    var formatter = HtmlFormatter{
-        .allocator = &allocator.allocator,
-        .buffer = &buffer,
-    };
-
-    try formatter.escape("<hello & goodbye>");
-
-    assert(mem.eql(u8, buffer.span(), "&lt;hello &amp; goodbye&gt;"));
+    try testParts.formatter.escape("<hello & goodbye>");
+    assert(mem.eql(u8, testParts.buffer.span(), "&lt;hello &amp; goodbye&gt;"));
 }
