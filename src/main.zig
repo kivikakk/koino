@@ -514,6 +514,8 @@ pub fn main() anyerror!void {
     try parser.feed("hello, world\n\nthis is yummy\n");
     var doc = try parser.finish();
 
-    var stdout_stream = std.io.getStdOut().outStream();
-    try html.print(stdout_stream, doc);
+    var buffer = try html.print(&allocator.allocator, doc);
+    defer buffer.deinit();
+
+    print("{}", .{buffer.span()});
 }
