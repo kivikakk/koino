@@ -108,6 +108,7 @@ pub const Node = struct {
 
     fn deinit(self: *Node) void {
         self.content.deinit();
+        self.value.deinit();
     }
 };
 
@@ -143,6 +144,15 @@ pub const NodeValue = union(enum) {
     Link: NodeLink,
     Image: NodeLink,
     // FootnoteReference
+
+    fn deinit(self: *NodeValue) void {
+        switch (self.*) {
+            .Text, .HtmlInline, .Code => |content| {
+                content.deinit();
+            },
+            else => {},
+        }
+    }
 
     pub fn acceptsLines(self: NodeValue) bool {
         return switch (self) {
