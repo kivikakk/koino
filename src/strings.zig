@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const testing = std.testing;
 const ctype = @import("ctype.zig");
 
@@ -44,10 +45,10 @@ pub fn rtrim(s: []const u8) []const u8 {
 }
 
 test "rtrim" {
-    testing.expectEqualStrings("hello", rtrim("hello"));
-    testing.expectEqualStrings("hello", rtrim("hello   "));
-    testing.expectEqualStrings("hello", rtrim("hello      \n\n \t\r "));
-    testing.expectEqualStrings("  \nhello \n zz", rtrim("  \nhello \n zz \n"));
+    testing.expectEqualStrings("abc", rtrim("abc"));
+    testing.expectEqualStrings("abc", rtrim("abc   "));
+    testing.expectEqualStrings("abc", rtrim("abc      \n\n \t\r "));
+    testing.expectEqualStrings("  \nabc \n zz", rtrim("  \nabc \n zz \n"));
 }
 
 pub fn chopTrailingHashtags(s: []const u8) []const u8 {
@@ -68,17 +69,19 @@ pub fn chopTrailingHashtags(s: []const u8) []const u8 {
 }
 
 test "chopTrailingHashtags" {
-    testing.expectEqualStrings("yes", chopTrailingHashtags("yes"));
-    testing.expectEqualStrings("yes#", chopTrailingHashtags("yes#"));
-    testing.expectEqualStrings("yes###", chopTrailingHashtags("yes###"));
-    testing.expectEqualStrings("yes###", chopTrailingHashtags("yes###  "));
-    testing.expectEqualStrings("yes###", chopTrailingHashtags("yes###  #"));
-    testing.expectEqualStrings("yes", chopTrailingHashtags("yes  "));
-    testing.expectEqualStrings("yes", chopTrailingHashtags("yes  ##"));
-    testing.expectEqualStrings("yes", chopTrailingHashtags("yes  ##"  ));
+    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz"));
+    testing.expectEqualStrings("xyz#", chopTrailingHashtags("xyz#"));
+    testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###"));
+    testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  "));
+    testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  #"));
+    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  "));
+    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
+    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"  ));
 }
 
-pub fn normalizeCode(s: []const u8, code: *std.ArrayList(u8)) !void {
+pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+    var code = std.ArrayList(u8).init(allocator);
+
     var i: usize = 0;
     var contains_nonspace = false;
 
@@ -104,4 +107,18 @@ pub fn normalizeCode(s: []const u8, code: *std.ArrayList(u8)) !void {
         _ = code.orderedRemove(0);
         _ = code.pop();
     }
+
+    return code.toOwnedSlice();
+}
+
+
+test "normalizeCode" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer _ = arena.deinit();
+    var alloc = &arena.allocator;
+
+    testing.expectEqualStrings("qwe", try normalizeCode(alloc, "qwe"));
+    testing.expectEqualStrings("qwe", try normalizeCode(alloc, " qwe "));
+    testing.expectEqualStrings("qwe", try normalizeCode(alloc, " qwe "));
+    testing.expectEqualStrings("abc def' def", try normalizeCode(alloc, " abc\rdef'\r\ndef "));
 }
