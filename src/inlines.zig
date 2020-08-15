@@ -326,13 +326,18 @@ pub const Subject = struct {
     fn handlePeriod(self: *Subject) !*nodes.AstNode {
         self.pos += 1;
         var text = std.ArrayList(u8).init(self.allocator);
-        if (self.options.parse.smart and self.peekChar() == @as(u8, '.')) {
-            self.pos += 1;
+        // Weird `if` nesting due to https://github.com/ziglang/zig/issues/6059.
+        if (self.options.parse.smart) {
             if (self.peekChar() == @as(u8, '.')) {
                 self.pos += 1;
-                try text.appendSlice("…");
+                if (self.peekChar() == @as(u8, '.')) {
+                    self.pos += 1;
+                    try text.appendSlice("…");
+                } else {
+                    try text.appendSlice("..");
+                }
             } else {
-                try text.appendSlice("..");
+                try text.appendSlice(".");
             }
         } else {
             try text.appendSlice(".");
