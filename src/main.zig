@@ -506,7 +506,9 @@ pub fn main() anyerror!void {
     try parser.feed("hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
     var doc = try parser.finish();
 
-    doc.validate(std.os.getenv("KOINO_NOISY") != null);
+    var noisy_env = std.process.getEnvVarOwned(&allocator.allocator, "KOINO_NOISY") catch "";
+    const noisy = noisy_env.len > 0;
+    doc.validate(noisy);
 
     var buffer = try html.print(&allocator.allocator, doc);
     defer buffer.deinit();
