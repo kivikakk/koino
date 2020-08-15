@@ -20,7 +20,7 @@ pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) !std.ArrayList(u8)
 const HtmlFormatter = struct {
     allocator: *mem.Allocator,
     buffer: *std.ArrayList(u8),
-    last_was_lf: bool = false,
+    last_was_lf: bool = true,
 
     fn createMap(chars: []const u8) [256]bool {
         var arr = [_]bool{false} ** 256;
