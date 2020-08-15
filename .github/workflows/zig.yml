@@ -1,6 +1,6 @@
 name: Zig
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   test:
@@ -23,13 +23,3 @@ jobs:
         with:
           version: master
       - run: zig fmt --check src/*.zig
-  spec:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-        with:
-          submodules: true
-      - uses: goto-bus-stop/setup-zig@v1
-        with:
-          version: master
-      - run: make spec

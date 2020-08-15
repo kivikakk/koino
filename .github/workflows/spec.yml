@@ -1,0 +1,22 @@
+name: CommonMark Specs
+
+on: [push]
+
+jobs:
+  specs:
+    name: Run CommonMark specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - uses: goto-bus-stop/setup-zig@v1
+        with:
+          version: master
+      - run: make spec
+        id: spec-runner
+      - uses: LouisBrunner/checks-action@v0.1.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Specs ${{ steps.spec-runner.outputs.specs-succeeded }}/${{ steps.spec-runner.outputs.spec-count }}
+          conclusion: ${{ steps.spec-runner.outputs.conclusion }}
