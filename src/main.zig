@@ -515,7 +515,7 @@ pub fn main() anyerror!void {
 
     doc.deinit();
 
-    print("{}", .{buffer.span()});
+    try std.io.getStdOut().outStream().writeAll(buffer.span());
 }
 
 test "" {
