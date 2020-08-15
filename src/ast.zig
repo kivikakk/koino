@@ -39,46 +39,49 @@ pub fn Ast(comptime T: type) type {
             child.parent = self;
 
             if (self.last_child) |last_child| {
-                last_child.next = child;
                 child.prev = last_child;
+                assert(last_child.next == null);
+                last_child.next = child;
                 child.next = null;
             } else {
+                assert(self.first_child == null);
                 self.first_child = child;
                 child.prev = null;
                 child.next = null;
             }
-
             self.last_child = child;
         }
 
         pub fn insertAfter(self: *Self, sibling: *Self) void {
             sibling.parent = self.parent;
             sibling.prev = self;
-            sibling.next = self.next;
+            if (self.next) |next| {
+                assert(next.prev.? == self);
+                next.prev = sibling;
+                sibling.next = next;
+            } else if (self.parent) |parent| {
+                assert(parent.last_child.? == self);
+                parent.last_child = sibling;
+                sibling.next = null;
+            }
             self.next = sibling;
         }
 
         pub fn detachDeinit(self: *Self) void {
-            if (self.parent == null)
-                return;
+            assert(self.parent != null);
 
             const parent = self.parent.?;
 
-            if (self.prev == null) {
-                assert(parent.first_child == self);
-                parent.first_child = self.next;
-            }
-            if (self.next == null) {
-                assert(parent.last_child == self);
-                parent.last_child = self.prev;
-            }
-
             if (self.next) |next| {
                 next.prev = self.prev;
+            } else {
+                parent.last_child = self.prev;
             }
 
             if (self.prev) |prev| {
                 prev.next = self.next;
+            } else {
+                parent.first_child = self.next;
             }
 
             self.deinit();
