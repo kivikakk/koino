@@ -36,23 +36,22 @@ pub fn Ast(comptime T: type) type {
         }
 
         pub fn append(self: *Self, child: *Self) void {
+            child.detach();
             child.parent = self;
 
             if (self.last_child) |last_child| {
                 child.prev = last_child;
                 assert(last_child.next == null);
                 last_child.next = child;
-                child.next = null;
             } else {
                 assert(self.first_child == null);
                 self.first_child = child;
-                child.prev = null;
-                child.next = null;
             }
             self.last_child = child;
         }
 
         pub fn insertAfter(self: *Self, sibling: *Self) void {
+            sibling.detach();
             sibling.parent = self.parent;
             sibling.prev = self;
             if (self.next) |next| {
@@ -67,23 +66,28 @@ pub fn Ast(comptime T: type) type {
             self.next = sibling;
         }
 
-        pub fn detachDeinit(self: *Self) void {
-            assert(self.parent != null);
-
-            const parent = self.parent.?;
-
+        pub fn detach(self: *Self) void {
             if (self.next) |next| {
                 next.prev = self.prev;
-            } else {
+            } else if (self.parent) |parent| {
                 parent.last_child = self.prev;
             }
 
             if (self.prev) |prev| {
                 prev.next = self.next;
-            } else {
+            } else if (self.parent) |parent| {
                 parent.first_child = self.next;
             }
 
+            self.parent = null;
+            self.prev = null;
+            self.next = null;
+
+            self.deinit();
+        }
+
+        pub fn detachDeinit(self: *Self) void {
+            self.detach();
             self.deinit();
         }
 
