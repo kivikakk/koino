@@ -97,7 +97,7 @@ pub const Subject = struct {
         return true;
     }
 
-    pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) void {
+    pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) !void {
         var closer = self.last_delimiter;
 
         var openers_bottom: [3][128]?*Delimiter = [_][128]?*Delimiter{[_]?*Delimiter{null} ** 128} ** 3;
@@ -112,15 +112,48 @@ pub const Subject = struct {
             closer = closer.?.prev;
         }
 
-        while (closer) {
+        while (closer != null) {
             if (closer.?.can_close) {
                 var opener = closer.?.prev;
                 var opener_found = false;
 
                 while (opener != null and opener != openers_bottom[closer.?.length % 3][closer.?.delim_char]) {
                     if (opener.?.can_open and opener.?.delim_char == closer.?.delim_char) {
-                        const odd_match 
-            unreachable;
+                        const odd_match = (closer.?.can_open or opener.?.can_close) and ((opener.?.length + closer.?.length) % 3 == 0) and !(opener.?.length % 3 == 0 and closer.?.length % 3 == 0);
+                        if (!odd_match) {
+                            opener_found = true;
+                            break;
+                        }
+                    }
+                    opener = opener.?.prev;
+                }
+
+                var old_closer = closer;
+
+                if (opener.?.delim_char == '*' or closer.?.delim_char == '_') {
+                    if (opener_found) {
+                        closer = try self.insertEmph(opener.?, closer.?);
+                    } else {
+                        closer = closer.?.next;
+                    }
+                } else if (closer.?.delim_char == '\'') {
+                    unreachable;
+                } else if (closer.?.delim_char == '"') {
+                    unreachable;
+                }
+
+                if (!opener_found) {
+                    const ix = old_closer.?.length % 3;
+                    openers_bottom[ix][old_closer.?.delim_char] =
+                        old_closer.?.prev;
+
+                    if (!old_closer.?.can_open) {
+                        self.removeDelimiter(old_closer.?);
+                    }
+                }
+            } else {
+                closer = closer.?.next;
+            }
         }
 
         while (self.last_delimiter != null and self.last_delimiter != stack_bottom) {
@@ -245,7 +278,7 @@ pub const Subject = struct {
 
     fn handleDelim(self: *Subject, c: u8) !*ast.AstNode {
         const scan = try self.scanDelims(c);
-        const contents = self.input[self.pos - scan.numdelims .. self.pos];
+        const contents = self.input[self.pos - scan.num_delims .. self.pos];
         var text = std.ArrayList(u8).init(self.allocator);
         try text.appendSlice(contents);
         const inl = try makeInline(self.allocator, .{ .Text = text });
@@ -266,7 +299,7 @@ pub const Subject = struct {
     }
 
     const ScanResult = struct {
-        numdelims: usize,
+        num_delims: usize,
         can_open: bool,
         can_close: bool,
     };
@@ -286,12 +319,12 @@ pub const Subject = struct {
             }
         }
 
-        var numdelims: usize = 0;
+        var num_delims: usize = 0;
         if (c == '\'' or c == '"') {
-            numdelims += 1;
+            num_delims += 1;
             self.pos += 1;
         } else while (self.peekChar() == c) {
-            numdelims += 1;
+            num_delims += 1;
             self.pos += 1;
         }
 
@@ -309,24 +342,24 @@ pub const Subject = struct {
             }
         }
 
-        const left_flanking = numdelims > 0 and !unicode.isWhitespace(after_char) and !(unicode.isPunctuation(after_char) and !unicode.isWhitespace(before_char) and !unicode.isPunctuation(before_char));
-        const right_flanking = numdelims > 0 and !unicode.isWhitespace(before_char) and !(unicode.isPunctuation(before_char) and !unicode.isWhitespace(after_char) and !unicode.isPunctuation(after_char));
+        const left_flanking = num_delims > 0 and !unicode.isWhitespace(after_char) and !(unicode.isPunctuation(after_char) and !unicode.isWhitespace(before_char) and !unicode.isPunctuation(before_char));
+        const right_flanking = num_delims > 0 and !unicode.isWhitespace(before_char) and !(unicode.isPunctuation(before_char) and !unicode.isWhitespace(after_char) and !unicode.isPunctuation(after_char));
 
         if (c == '_') {
             return ScanResult{
-                .numdelims = numdelims,
+                .num_delims = num_delims,
                 .can_open = left_flanking and (!right_flanking or unicode.isPunctuation(before_char)),
                 .can_close = right_flanking and (!left_flanking or unicode.isPunctuation(after_char)),
             };
         } else if (c == '\'' or c == '"') {
             return ScanResult{
-                .numdelims = numdelims,
+                .num_delims = num_delims,
                 .can_open = left_flanking and !right_flanking and before_char != ']' and before_char != ')',
                 .can_close = right_flanking,
             };
         } else {
             return ScanResult{
-                .numdelims = numdelims,
+                .num_delims = num_delims,
                 .can_open = left_flanking,
                 .can_close = right_flanking,
             };
@@ -348,6 +381,51 @@ pub const Subject = struct {
             prev.next = delimiter;
         }
         self.last_delimiter = delimiter;
+    }
+
+    fn insertEmph(self: *Subject, opener: *Delimiter, closer: *Delimiter) !?*Delimiter {
+        const opener_char = opener.inl.data.value.text().?[0];
+        var opener_num_chars = opener.inl.data.value.text().?.len;
+        var closer_num_chars = closer.inl.data.value.text().?.len;
+        const use_delims: u8 = if (closer_num_chars >= 2 and opener_num_chars >= 2) 2 else 1;
+
+        opener_num_chars -= use_delims;
+        closer_num_chars -= use_delims;
+
+        opener.inl.data.value.text_mut().?.items.len = opener_num_chars;
+        closer.inl.data.value.text_mut().?.items.len = closer_num_chars;
+
+        var delim = closer.prev;
+        while (delim != null and delim != opener) {
+            self.removeDelimiter(delim.?);
+            delim = delim.?.prev;
+        }
+
+        var emph = try makeInline(self.allocator, if (use_delims == 1) .Emph else .Strong);
+        var tmp = opener.inl.next.?;
+        while (tmp != closer.inl) {
+            var next = tmp.next;
+            emph.append(tmp);
+            if (next) |n| {
+                tmp = n;
+            } else {
+                break;
+            }
+        }
+        opener.inl.insertAfter(emph);
+
+        if (opener_num_chars == 0) {
+            opener.inl.detachDeinit();
+            self.removeDelimiter(opener);
+        }
+
+        if (closer_num_chars == 0) {
+            closer.inl.detachDeinit();
+            self.removeDelimiter(closer);
+            return closer.next;
+        } else {
+            return closer;
+        }
     }
 
     fn handleCloseBracket(self: *Subject) *ast.AstNode {

@@ -41,14 +41,27 @@ pub fn Ast(comptime T: type) type {
             if (self.last_child) |last_child| {
                 last_child.next = child;
                 child.prev = last_child;
+                child.next = null;
             } else {
                 self.first_child = child;
+                child.prev = null;
+                child.next = null;
             }
 
             self.last_child = child;
         }
 
-        pub fn detach(self: *Self) void {
+        pub fn insertAfter(self: *Self, sibling: *Self) void {
+            sibling.parent = self.parent;
+            sibling.prev = self;
+            sibling.next = self.next;
+            self.next = sibling;
+        }
+
+        pub fn detachDeinit(self: *Self) void {
+            if (self.parent == null)
+                return;
+
             const parent = self.parent.?;
 
             if (self.prev == null) {
@@ -68,9 +81,7 @@ pub fn Ast(comptime T: type) type {
                 prev.next = self.next;
             }
 
-            self.prev = null;
-            self.next = null;
-            unreachable;
+            self.deinit();
         }
 
         pub fn lastChildIsOpen(self: *Self) bool {
@@ -94,6 +105,41 @@ pub fn Ast(comptime T: type) type {
 
         pub fn reverseChildrenIterator(self: *Self) ReverseChildrenIterator {
             return .{ .next_value = self.last_child };
+        }
+
+        pub fn validate(self: *Self) void {
+            report(self, 0);
+            self.validateOne(null, 1);
+        }
+
+        pub fn validateOne(self: *Self, parent: ?*Self, indent: usize) void {
+            assert(self.parent == parent);
+            var it = self.first_child;
+            var prev: ?*Self = null;
+
+            while (it) |child| {
+                report(child, indent);
+                assert(child.parent == self);
+                assert(child.prev == prev);
+                child.validateOne(self, indent + 1);
+                prev = child;
+                it = child.next;
+            }
+
+            assert(self.last_child == prev);
+        }
+
+        pub fn report(self: *Self, indent: usize) void {
+            var fill_string: [128]u8 = [_]u8{0} ** 128;
+            var i: usize = 0;
+            while (i < indent * 4) : (i += 1)
+                fill_string[i] = ' ';
+            std.debug.print("{}analysing: {*} ({})\n", .{ fill_string, self, @tagName(self.data.value) });
+            std.debug.print("{}    parent: {*} ({})\n", .{ fill_string, self.parent, if (self.parent) |n| @tagName(n.data.value) else "" });
+            std.debug.print("{}      prev: {*} ({})\n", .{ fill_string, self.prev, if (self.prev) |n| @tagName(n.data.value) else "" });
+            std.debug.print("{}      first_child: {*} ({})\n", .{ fill_string, self.first_child, if (self.first_child) |n| @tagName(n.data.value) else "" });
+            std.debug.print("{}      last_child: {*} ({})\n", .{ fill_string, self.last_child, if (self.last_child) |n| @tagName(n.data.value) else "" });
+            std.debug.print("{}      next: {*} ({})\n", .{ fill_string, self.next, if (self.next) |n| @tagName(n.data.value) else "" });
         }
     };
 }
@@ -197,6 +243,13 @@ pub const NodeValue = union(enum) {
     pub fn text(self: NodeValue) ?[]const u8 {
         return switch (self) {
             .Text => |t| t.span(),
+            else => null,
+        };
+    }
+
+    pub fn text_mut(self: *NodeValue) ?*std.ArrayList(u8) {
+        return switch (self.*) {
+            .Text => |*t| t,
             else => null,
         };
     }

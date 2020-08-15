@@ -115,13 +115,8 @@ const HtmlFormatter = struct {
         switch (node.data.value) {
             .Document => {},
             .BlockQuote => {
-                if (entering) {
-                    try self.cr();
-                    try self.writeAll("<blockquote>\n");
-                } else {
-                    try self.cr();
-                    try self.writeAll("</blockquote>\n");
-                }
+                try self.cr();
+                try self.writeAll(if (entering) "<blockquote>\n" else "</blockquote>");
             },
             .Paragraph => {
                 var tight = node.parent != null and node.parent.?.parent != null and switch (node.parent.?.parent.?.data.value) {
@@ -158,8 +153,14 @@ const HtmlFormatter = struct {
                     try self.writeAll("</code>");
                 }
             },
+            .Strong => {
+                try self.writeAll(if (entering) "<strong>" else "</strong>");
+            },
+            .Emph => {
+                try self.writeAll(if (entering) "<em>" else "</em>");
+            },
             else => {
-                // out("what to do with {}?\n", .{node.data.value});
+                std.debug.print("what to do with {}?\n", .{node.data.value});
                 unreachable;
             },
         }

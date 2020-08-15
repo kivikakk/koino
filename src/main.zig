@@ -366,8 +366,7 @@ const Parser = struct {
         switch (node.data.value) {
             .Paragraph => {
                 if (strings.isBlank(node.data.content.span())) {
-                    node.detach();
-                    node.deinit();
+                    node.detachDeinit();
                 }
             },
             .CodeBlock => {
@@ -414,7 +413,7 @@ const Parser = struct {
         var content = strings.rtrim(node.data.content.span());
         var subj = inlines.Subject.init(self.allocator, content);
         while (try subj.parseInline(node)) {}
-        subj.processEmphasis(null);
+        try subj.processEmphasis(null);
         while (subj.popBracket()) {}
     }
 
@@ -506,6 +505,8 @@ pub fn main() anyerror!void {
     };
     try parser.feed("hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
     var doc = try parser.finish();
+
+    doc.validate();
 
     var buffer = try html.print(&allocator.allocator, doc);
     defer buffer.deinit();
