@@ -55,7 +55,7 @@ pub const Subject = struct {
             '<' => new_inl = self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
             '-' => new_inl = self.handleHyphen(),
-            '.' => new_inl = self.handlePeriod(),
+            '.' => new_inl = try self.handlePeriod(),
             '[' => {
                 unreachable;
                 // self.pos += 1;
@@ -207,10 +207,10 @@ pub const Subject = struct {
     fn findSpecialChar(self: *Subject) usize {
         var n = self.pos;
         while (n < self.input.len) : (n += 1) {
-            if (self.special_chars[self.input[n]]) {
+            if (self.special_chars[self.input[n]])
                 return n;
-            }
-            // TODO: smart option
+            if (self.options.parse.smart and self.smart_chars[self.input[n]])
+                return n;
         }
         return n;
     }
@@ -300,12 +300,19 @@ pub const Subject = struct {
 
     fn handleDelim(self: *Subject, c: u8) !*nodes.AstNode {
         const scan = try self.scanDelims(c);
-        const contents = self.input[self.pos - scan.num_delims .. self.pos];
+        const contents = if (c == '\'' and self.options.parse.smart)
+            "’"
+        else if (c == '"' and self.options.parse.smart and scan.can_close)
+            "”"
+        else if (c == '"' and self.options.parse.smart and !scan.can_close)
+            "“"
+        else
+            self.input[self.pos - scan.num_delims .. self.pos];
         var text = std.ArrayList(u8).init(self.allocator);
         try text.appendSlice(contents);
         const inl = try self.makeInline(.{ .Text = text });
 
-        if ((scan.can_open or scan.can_close) and !(c == '\'' or c == '"')) {
+        if ((scan.can_open or scan.can_close) and (!(c == '\'' or c == '"') or self.options.parse.smart)) {
             try self.pushDelimiter(c, scan.can_open, scan.can_close, inl);
         }
 
@@ -316,8 +323,21 @@ pub const Subject = struct {
         unreachable;
     }
 
-    fn handlePeriod(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handlePeriod(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+        var text = std.ArrayList(u8).init(self.allocator);
+        if (self.options.parse.smart and self.peekChar() == @as(u8, '.')) {
+            self.pos += 1;
+            if (self.peekChar() == @as(u8, '.')) {
+                self.pos += 1;
+                try text.appendSlice("…");
+            } else {
+                try text.appendSlice("..");
+            }
+        } else {
+            try text.appendSlice(".");
+        }
+        return try self.makeInline(.{ .Text = text });
     }
 
     const ScanResult = struct {

@@ -58,6 +58,14 @@ test "convert simple emphases" {
 
     var output = try markdownToHtml(&gpa.allocator, .{}, "hello, _world_ __world__ ___world___ *_world_* **_world_** *__world__*\n\nthis is `yummy`\n");
     defer gpa.allocator.free(output);
-
     std.testing.expectEqualStrings("<p>hello, <em>world</em> <strong>world</strong> <em><strong>world</strong></em> <em><em>world</em></em> <strong><em>world</em></strong> <em><strong>world</strong></em></p>\n<p>this is <code>yummy</code></p>\n", output);
+}
+
+test "smart quotes" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var output = try markdownToHtml(&gpa.allocator, .{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's up?\"\n");
+    defer gpa.allocator.free(output);
+    std.testing.expectEqualStrings("<p>Hey, she said. What's up?></p>\n", output);
 }
