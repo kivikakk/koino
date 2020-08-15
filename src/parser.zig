@@ -6,6 +6,7 @@ const strings = @import("strings.zig");
 const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
+const options = @import("options.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -14,6 +15,7 @@ pub const Parser = struct {
     allocator: *std.mem.Allocator,
     root: *nodes.AstNode,
     current: *nodes.AstNode,
+    options: options.Options,
 
     line_number: u32 = 0,
     offset: usize = 0,
@@ -422,7 +424,7 @@ pub const Parser = struct {
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) !void {
         var content = strings.rtrim(node.data.content.span());
-        var subj = inlines.Subject.init(self.allocator, content);
+        var subj = inlines.Subject.init(self.allocator, &self.options, content);
         while (try subj.parseInline(node)) {}
         try subj.processEmphasis(null);
         while (subj.popBracket()) {}
@@ -495,8 +497,14 @@ test "accepts multiple lines" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var output = try main.markdownToHtml(&gpa.allocator, "hello\nthere\n");
-    defer gpa.allocator.free(output);
-
-    std.testing.expectEqualStrings("<p>hello\nthere</p>\n", output);
+    {
+        var output = try main.markdownToHtml(&gpa.allocator, .{}, "hello\nthere\n");
+        defer gpa.allocator.free(output);
+        std.testing.expectEqualStrings("<p>hello\nthere</p>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(&gpa.allocator, .{ .render = .{ .hard_breaks = true } }, "hello\nthere\n");
+        defer gpa.allocator.free(output);
+        std.testing.expectEqualStrings("<p>hello<br />\nthere</p>\n", output);
+    }
 }

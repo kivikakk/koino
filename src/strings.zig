@@ -76,7 +76,7 @@ test "chopTrailingHashtags" {
     testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  #"));
     testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  "));
     testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
-    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"  ));
+    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
 }
 
 pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
@@ -110,7 +110,6 @@ pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
 
     return code.toOwnedSlice();
 }
-
 
 test "normalizeCode" {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
