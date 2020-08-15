@@ -9,10 +9,31 @@ pub fn main() !void {
     var allocator = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = allocator.deinit();
 
-    var buffer = try markdownToHtml(&allocator.allocator, "hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
+    var in_buffer = try std.ArrayList(u8).initCapacity(&allocator.allocator, 8192);
+    in_buffer.expandToCapacity();
+
+    var length: usize = 0;
+    var reader = std.io.getStdIn().reader();
+
+    while (true) {
+        const capacity = in_buffer.capacity - length;
+        const read = try reader.readAll(in_buffer.items[length..]);
+        length += read;
+        if (read < capacity)
+            break;
+
+        try in_buffer.ensureCapacity(length + 8192);
+        in_buffer.expandToCapacity();
+    }
+
+    in_buffer.items.len = length;
+
+    defer in_buffer.deinit();
+
+    var buffer = try markdownToHtml(&allocator.allocator, in_buffer.span());
     defer buffer.deinit();
 
-    try std.io.getStdOut().outStream().writeAll(buffer.span());
+    try std.io.getStdOut().writer().writeAll(buffer.span());
 }
 
 fn markdownToHtml(allocator: *std.mem.Allocator, markdown: []const u8) !std.ArrayList(u8) {
