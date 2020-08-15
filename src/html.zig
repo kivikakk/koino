@@ -5,7 +5,7 @@ const mem = std.mem;
 
 const nodes = @import("nodes.zig");
 
-pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) !std.ArrayList(u8) {
+pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) ![]u8 {
     var buffer = std.ArrayList(u8).init(allocator);
 
     var formatter = HtmlFormatter{
@@ -14,13 +14,13 @@ pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) !std.ArrayList(u8)
     };
 
     try formatter.format(root, false);
-    return buffer;
+    return buffer.toOwnedSlice();
 }
 
 const HtmlFormatter = struct {
     allocator: *mem.Allocator,
     buffer: *std.ArrayList(u8),
-    last_was_lf: bool = false,
+    last_was_lf: bool = true,
 
     fn createMap(chars: []const u8) [256]bool {
         var arr = [_]bool{false} ** 256;
@@ -194,5 +194,5 @@ test "escaping works as expected" {
     defer testParts.deinit();
 
     try testParts.formatter.escape("<hello & goodbye>");
-    assert(mem.eql(u8, testParts.buffer.span(), "&lt;hello &amp; goodbye&gt;"));
+    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.span());
 }

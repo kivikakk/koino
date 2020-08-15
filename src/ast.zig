@@ -82,8 +82,6 @@ pub fn Ast(comptime T: type) type {
             self.parent = null;
             self.prev = null;
             self.next = null;
-
-            self.deinit();
         }
 
         pub fn detachDeinit(self: *Self) void {
