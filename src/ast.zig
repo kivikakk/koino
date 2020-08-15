@@ -114,21 +114,21 @@ pub fn Ast(comptime T: type) type {
             return .{ .next_value = self.last_child };
         }
 
-        pub fn validate(self: *Self) void {
-            report(self, 0);
-            self.validateOne(null, 1);
+        pub fn validate(self: *Self, noisy: bool) void {
+            if (noisy) report(self, 0);
+            self.validateOne(null, 1, noisy);
         }
 
-        pub fn validateOne(self: *Self, parent: ?*Self, indent: usize) void {
+        pub fn validateOne(self: *Self, parent: ?*Self, indent: usize, noisy: bool) void {
             assert(self.parent == parent);
             var it = self.first_child;
             var prev: ?*Self = null;
 
             while (it) |child| {
-                report(child, indent);
+                if (noisy) report(child, indent);
                 assert(child.parent == self);
                 assert(child.prev == prev);
-                child.validateOne(self, indent + 1);
+                child.validateOne(self, indent + 1, noisy);
                 prev = child;
                 it = child.next;
             }
