@@ -2,7 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const strings = @import("strings.zig");
-const ast = @import("ast.zig");
+const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
 
@@ -11,8 +11,8 @@ const CODE_INDENT = 4;
 
 pub const Parser = struct {
     allocator: *std.mem.Allocator,
-    root: *ast.AstNode,
-    current: *ast.AstNode,
+    root: *nodes.AstNode,
+    current: *nodes.AstNode,
 
     line_number: u32 = 0,
     offset: usize = 0,
@@ -69,6 +69,11 @@ pub const Parser = struct {
                 i = eol + 1;
             }
         }
+    }
+
+    pub fn finish(self: *Parser) !*nodes.AstNode {
+        try self.finalizeDocument();
+        return self.root;
     }
 
     fn findFirstNonspace(self: *Parser, line: []const u8) void {
@@ -143,7 +148,7 @@ pub const Parser = struct {
 
     const CheckOpenBlocksResult = struct {
         all_matched: bool = false,
-        container: ?*ast.AstNode,
+        container: ?*nodes.AstNode,
     };
 
     fn checkOpenBlocks(self: *Parser, line: []const u8) CheckOpenBlocksResult {
@@ -157,7 +162,7 @@ pub const Parser = struct {
         return result;
     }
 
-    fn checkOpenBlocksInner(self: *Parser, start_container: *ast.AstNode, line: []const u8) CheckOpenBlocksResult {
+    fn checkOpenBlocksInner(self: *Parser, start_container: *nodes.AstNode, line: []const u8) CheckOpenBlocksResult {
         var container = start_container;
 
         while (container.lastChildIsOpen()) {
@@ -205,7 +210,7 @@ pub const Parser = struct {
         };
     }
 
-    fn openNewBlocks(self: *Parser, input_container: *ast.AstNode, line: []const u8, all_matched: bool) !*ast.AstNode {
+    fn openNewBlocks(self: *Parser, input_container: *nodes.AstNode, line: []const u8, all_matched: bool) !*nodes.AstNode {
         var container = input_container;
         var maybe_lazy = switch (self.current.data.value) {
             .Paragraph => true,
@@ -243,13 +248,13 @@ pub const Parser = struct {
         return container;
     }
 
-    fn addChild(self: *Parser, input_parent: *ast.AstNode, value: ast.NodeValue) !*ast.AstNode {
+    fn addChild(self: *Parser, input_parent: *nodes.AstNode, value: nodes.NodeValue) !*nodes.AstNode {
         var parent = input_parent;
         while (!parent.data.value.canContainType(value)) {
             parent = self.finalize(parent).?;
         }
 
-        var node = try ast.AstNode.create(self.allocator, .{
+        var node = try nodes.AstNode.create(self.allocator, .{
             .value = value,
             .start_line = self.line_number,
             .content = std.ArrayList(u8).init(self.allocator),
@@ -258,7 +263,7 @@ pub const Parser = struct {
         return node;
     }
 
-    fn addTextToContainer(self: *Parser, input_container: *ast.AstNode, last_matched_container: *ast.AstNode, line: []const u8) !void {
+    fn addTextToContainer(self: *Parser, input_container: *nodes.AstNode, last_matched_container: *nodes.AstNode, line: []const u8) !void {
         var container = input_container;
         self.findFirstNonspace(line);
 
@@ -327,7 +332,7 @@ pub const Parser = struct {
         self.current = container;
     }
 
-    fn addLine(self: *Parser, node: *ast.AstNode, line: []const u8) !void {
+    fn addLine(self: *Parser, node: *nodes.AstNode, line: []const u8) !void {
         assert(node.data.open);
         if (self.partially_consumed_tab) {
             self.offset += 1;
@@ -341,11 +346,6 @@ pub const Parser = struct {
         }
     }
 
-    pub fn finish(self: *Parser) !*ast.AstNode {
-        try self.finalizeDocument();
-        return self.root;
-    }
-
     fn finalizeDocument(self: *Parser) !void {
         while (self.current != self.root) {
             self.current = self.finalize(self.current).?;
@@ -355,7 +355,7 @@ pub const Parser = struct {
         try self.processInlines();
     }
 
-    fn finalize(self: *Parser, node: *ast.AstNode) ?*ast.AstNode {
+    fn finalize(self: *Parser, node: *nodes.AstNode) ?*nodes.AstNode {
         assert(node.data.open);
         node.data.open = false;
         const parent = node.parent;
@@ -387,7 +387,7 @@ pub const Parser = struct {
 
     const InlineParseError = error{ OutOfMemory, InvalidUtf8 };
 
-    fn processInlinesNode(self: *Parser, node: *ast.AstNode) InlineParseError!void {
+    fn processInlinesNode(self: *Parser, node: *nodes.AstNode) InlineParseError!void {
         if (node.data.value.containsInlines()) {
             try self.parseInlines(node);
         }
@@ -406,7 +406,7 @@ pub const Parser = struct {
         // }
     }
 
-    fn parseInlines(self: *Parser, node: *ast.AstNode) !void {
+    fn parseInlines(self: *Parser, node: *nodes.AstNode) !void {
         var content = strings.rtrim(node.data.content.span());
         var subj = inlines.Subject.init(self.allocator, content);
         while (try subj.parseInline(node)) {}
@@ -464,7 +464,7 @@ pub const Parser = struct {
         Match,
     };
 
-    fn parseCodeBlockPrefix(self: *Parser, line: []const u8, container: *ast.AstNode) CodeBlockPrefixParseResult {
+    fn parseCodeBlockPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode) CodeBlockPrefixParseResult {
         unreachable;
     }
 

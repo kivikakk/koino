@@ -3,9 +3,9 @@ const p = std.debug.print;
 const assert = std.debug.assert;
 const mem = std.mem;
 
-const ast = @import("ast.zig");
+const nodes = @import("nodes.zig");
 
-pub fn print(allocator: *mem.Allocator, root: *ast.AstNode) !std.ArrayList(u8) {
+pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) !std.ArrayList(u8) {
     var buffer = std.ArrayList(u8).init(allocator);
 
     var formatter = HtmlFormatter{
@@ -65,10 +65,10 @@ const HtmlFormatter = struct {
         self.last_was_lf = s[s.len - 1] == '\n';
     }
 
-    fn format(self: *HtmlFormatter, input_node: *ast.AstNode, plain: bool) !void {
+    fn format(self: *HtmlFormatter, input_node: *nodes.AstNode, plain: bool) !void {
         const Phase = enum { Pre, Post };
         const StackEntry = struct {
-            node: *ast.AstNode,
+            node: *nodes.AstNode,
             plain: bool,
             phase: Phase,
         };
@@ -111,7 +111,7 @@ const HtmlFormatter = struct {
         }
     }
 
-    fn fnode(self: *HtmlFormatter, node: *ast.AstNode, entering: bool) !bool {
+    fn fnode(self: *HtmlFormatter, node: *nodes.AstNode, entering: bool) !bool {
         switch (node.data.value) {
             .Document => {},
             .BlockQuote => {

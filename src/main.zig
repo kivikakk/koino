@@ -1,25 +1,25 @@
 const std = @import("std");
 
-const parser = @import("parser.zig");
-const ast = @import("ast.zig");
+const Parser = @import("parser.zig").Parser;
+const nodes = @import("nodes.zig");
 const html = @import("html.zig");
 
 pub fn main() anyerror!void {
     var allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer allocator.deinit();
 
-    var root = try ast.AstNode.create(&allocator.allocator, .{
+    var root = try nodes.AstNode.create(&allocator.allocator, .{
         .value = .Document,
         .content = std.ArrayList(u8).init(&allocator.allocator),
     });
 
-    var p = parser.Parser{
+    var parser = Parser{
         .allocator = &allocator.allocator,
         .root = root,
         .current = root,
     };
-    try p.feed("hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
-    var doc = try p.finish();
+    try parser.feed("hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
+    var doc = try parser.finish();
 
     var noisy_env = std.process.getEnvVarOwned(&allocator.allocator, "KOINO_NOISY") catch "";
     const noisy = noisy_env.len > 0;

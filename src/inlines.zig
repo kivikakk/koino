@@ -2,7 +2,7 @@ const std = @import("std");
 const mem = std.mem;
 const assert = std.debug.assert;
 
-const ast = @import("ast.zig");
+const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const unicode = @import("unicode.zig");
 
@@ -35,13 +35,13 @@ pub const Subject = struct {
         return s;
     }
 
-    pub fn parseInline(self: *Subject, node: *ast.AstNode) !bool {
+    pub fn parseInline(self: *Subject, node: *nodes.AstNode) !bool {
         const c = self.peekChar();
         if (c == null) {
             return false;
         }
 
-        var new_inl: ?*ast.AstNode = null;
+        var new_inl: ?*nodes.AstNode = null;
 
         switch (c.?) {
             0 => return false,
@@ -205,7 +205,7 @@ pub const Subject = struct {
         return n;
     }
 
-    fn handleNewLine(self: *Subject) *ast.AstNode {
+    fn handleNewLine(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 
@@ -246,7 +246,7 @@ pub const Subject = struct {
         }
     }
 
-    fn handleBackticks(self: *Subject) !*ast.AstNode {
+    fn handleBackticks(self: *Subject) !*nodes.AstNode {
         const openticks = self.takeWhile('`');
         const startpos = self.pos;
         const endpos = self.scanToClosingBacktick(openticks);
@@ -264,19 +264,19 @@ pub const Subject = struct {
         }
     }
 
-    fn handleBackslash(self: *Subject) *ast.AstNode {
+    fn handleBackslash(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 
-    fn handleEntity(self: *Subject) *ast.AstNode {
+    fn handleEntity(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 
-    fn handlePointyBrace(self: *Subject) *ast.AstNode {
+    fn handlePointyBrace(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 
-    fn handleDelim(self: *Subject, c: u8) !*ast.AstNode {
+    fn handleDelim(self: *Subject, c: u8) !*nodes.AstNode {
         const scan = try self.scanDelims(c);
         const contents = self.input[self.pos - scan.num_delims .. self.pos];
         var text = std.ArrayList(u8).init(self.allocator);
@@ -290,11 +290,11 @@ pub const Subject = struct {
         return inl;
     }
 
-    fn handleHyphen(self: *Subject) *ast.AstNode {
+    fn handleHyphen(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 
-    fn handlePeriod(self: *Subject) *ast.AstNode {
+    fn handlePeriod(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 
@@ -366,7 +366,7 @@ pub const Subject = struct {
         }
     }
 
-    fn pushDelimiter(self: *Subject, c: u8, can_open: bool, can_close: bool, inl: *ast.AstNode) !void {
+    fn pushDelimiter(self: *Subject, c: u8, can_open: bool, can_close: bool, inl: *nodes.AstNode) !void {
         var delimiter = try self.allocator.create(Delimiter);
         delimiter.* = .{
             .inl = inl,
@@ -428,13 +428,13 @@ pub const Subject = struct {
         }
     }
 
-    fn handleCloseBracket(self: *Subject) *ast.AstNode {
+    fn handleCloseBracket(self: *Subject) *nodes.AstNode {
         unreachable;
     }
 };
 
 const Delimiter = struct {
-    inl: *ast.AstNode,
+    inl: *nodes.AstNode,
     length: usize,
     delim_char: u8,
     can_open: bool,
@@ -445,15 +445,15 @@ const Delimiter = struct {
 
 const Bracket = struct {
     previous_delimiter: ?*Delimiter,
-    inl_text: *ast.AstNode,
+    inl_text: *nodes.AstNode,
     position: usize,
     image: bool,
     active: bool,
     bracket_after: bool,
 };
 
-fn makeInline(allocator: *mem.Allocator, value: ast.NodeValue) !*ast.AstNode {
-    return ast.AstNode.create(allocator, .{
+fn makeInline(allocator: *mem.Allocator, value: nodes.NodeValue) !*nodes.AstNode {
+    return nodes.AstNode.create(allocator, .{
         .value = value,
         .content = std.ArrayList(u8).init(allocator),
     });
