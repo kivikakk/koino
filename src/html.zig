@@ -5,7 +5,7 @@ const mem = std.mem;
 
 const nodes = @import("nodes.zig");
 
-pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) !std.ArrayList(u8) {
+pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) ![]u8 {
     var buffer = std.ArrayList(u8).init(allocator);
 
     var formatter = HtmlFormatter{
@@ -14,7 +14,7 @@ pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) !std.ArrayList(u8)
     };
 
     try formatter.format(root, false);
-    return buffer;
+    return buffer.toOwnedSlice();
 }
 
 const HtmlFormatter = struct {

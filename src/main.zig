@@ -6,37 +6,19 @@ const nodes = @import("nodes.zig");
 const html = @import("html.zig");
 
 pub fn main() !void {
-    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = allocator.deinit();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
 
-    var in_buffer = try std.ArrayList(u8).initCapacity(&allocator.allocator, 8192);
-    in_buffer.expandToCapacity();
+    var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
+    defer gpa.allocator.free(markdown);
 
-    var length: usize = 0;
-    var reader = std.io.getStdIn().reader();
+    var output = try markdownToHtml(&gpa.allocator, markdown);
+    defer gpa.allocator.free(output);
 
-    while (true) {
-        const capacity = in_buffer.capacity - length;
-        const read = try reader.readAll(in_buffer.items[length..]);
-        length += read;
-        if (read < capacity)
-            break;
-
-        try in_buffer.ensureCapacity(length + 8192);
-        in_buffer.expandToCapacity();
-    }
-
-    in_buffer.items.len = length;
-
-    defer in_buffer.deinit();
-
-    var buffer = try markdownToHtml(&allocator.allocator, in_buffer.span());
-    defer buffer.deinit();
-
-    try std.io.getStdOut().writer().writeAll(buffer.span());
+    try std.io.getStdOut().writer().writeAll(output);
 }
 
-fn markdownToHtml(allocator: *std.mem.Allocator, markdown: []const u8) !std.ArrayList(u8) {
+fn markdownToHtml(allocator: *std.mem.Allocator, markdown: []const u8) ![]u8 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
@@ -52,16 +34,13 @@ fn markdownToHtml(allocator: *std.mem.Allocator, markdown: []const u8) !std.Arra
     };
     try parser.feed(markdown);
     var doc = try parser.finish();
+    defer doc.deinit();
 
     var noisy_env = std.process.getEnvVarOwned(&arena.allocator, "KOINO_NOISY") catch "";
     const noisy = noisy_env.len > 0;
     doc.validate(noisy);
 
-    var buffer = try html.print(allocator, doc);
-
-    doc.deinit();
-
-    return buffer;
+    return try html.print(allocator, doc);
 }
 
 test "" {
@@ -69,11 +48,11 @@ test "" {
 }
 
 test "convert simple emphases" {
-    var allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = allocator.deinit();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
 
-    var buffer = try markdownToHtml(&allocator.allocator, "hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
-    defer buffer.deinit();
+    var output = try markdownToHtml(&gpa.allocator, "hello, _world_ __world__ ___world___ *_world_*\n\nthis is `yummy`\n");
+    defer gpa.allocator.free(output);
 
-    std.testing.expectEqualStrings("<p>hello, <em>world</em> <strong>world</strong> <em><strong>world</strong></em> <em><strong>world</strong></em>\n<p>this is <code>yummy</code></p>\n", buffer.span());
+    std.testing.expectEqualStrings("<p>hello, <em>world</em> <strong>world</strong> <em><strong>world</strong></em> <em><strong>world</strong></em>\n<p>this is <code>yummy</code></p>\n", output);
 }
