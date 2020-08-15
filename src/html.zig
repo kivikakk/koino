@@ -194,5 +194,5 @@ test "escaping works as expected" {
     defer testParts.deinit();
 
     try testParts.formatter.escape("<hello & goodbye>");
-    assert(mem.eql(u8, testParts.buffer.span(), "&lt;hello &amp; goodbye&gt;"));
+    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.span());
 }
