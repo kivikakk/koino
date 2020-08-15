@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const main = @import("main.zig");
 const strings = @import("strings.zig");
 const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
@@ -319,7 +320,20 @@ pub const Parser = struct {
                 if (self.blank) {
                     // do nothing
                 } else if (container.data.value.acceptsLines()) {
-                    unreachable;
+                    var consider_line: []const u8 = line;
+
+                    switch (container.data.value) {
+                        .Heading => |nh| if (!nh.setext) {
+                            consider_line = strings.chopTrailingHashtags(line);
+                        },
+                        else => {},
+                    }
+
+                    const count = self.first_nonspace - self.offset;
+                    if (self.first_nonspace <= consider_line.len) {
+                        self.advanceOffset(consider_line, count, false);
+                        try self.addLine(container, consider_line);
+                    }
                 } else {
                     container = try self.addChild(container, .Paragraph);
                     const count = self.first_nonspace - self.offset;
@@ -476,3 +490,13 @@ pub const Parser = struct {
         };
     }
 };
+
+test "accepts multiple lines" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var output = try main.markdownToHtml(&gpa.allocator, "hello\nthere\n");
+    defer gpa.allocator.free(output);
+
+    std.testing.expectEqualStrings("<p>hello\nthere</p>\n", output);
+}

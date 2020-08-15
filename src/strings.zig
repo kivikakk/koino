@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const ctype = @import("ctype.zig");
 
 pub fn isLineEndChar(ch: u8) bool {
@@ -26,12 +27,55 @@ pub fn isBlank(s: []const u8) bool {
     return true;
 }
 
+test "isBlank" {
+    testing.expect(isBlank(""));
+    testing.expect(isBlank("\nx"));
+    testing.expect(isBlank("    \t\t  \r"));
+    testing.expect(!isBlank("e"));
+    testing.expect(!isBlank("   \t    e "));
+}
+
 pub fn rtrim(s: []const u8) []const u8 {
     var len = s.len;
     while (len > 0 and ctype.isspace(s[len - 1])) {
         len -= 1;
     }
     return s[0..len];
+}
+
+test "rtrim" {
+    testing.expectEqualStrings("hello", rtrim("hello"));
+    testing.expectEqualStrings("hello", rtrim("hello   "));
+    testing.expectEqualStrings("hello", rtrim("hello      \n\n \t\r "));
+    testing.expectEqualStrings("  \nhello \n zz", rtrim("  \nhello \n zz \n"));
+}
+
+pub fn chopTrailingHashtags(s: []const u8) []const u8 {
+    var r = rtrim(s);
+    if (r.len == 0) return r;
+
+    const orig_n = r.len - 1;
+    var n = orig_n;
+    while (r[n] == '#') : (n -= 1) {
+        if (n == 0) return r;
+    }
+
+    if (n != orig_n and isSpaceOrTab(r[n])) {
+        return rtrim(r[0..n]);
+    } else {
+        return r;
+    }
+}
+
+test "chopTrailingHashtags" {
+    testing.expectEqualStrings("yes", chopTrailingHashtags("yes"));
+    testing.expectEqualStrings("yes#", chopTrailingHashtags("yes#"));
+    testing.expectEqualStrings("yes###", chopTrailingHashtags("yes###"));
+    testing.expectEqualStrings("yes###", chopTrailingHashtags("yes###  "));
+    testing.expectEqualStrings("yes###", chopTrailingHashtags("yes###  #"));
+    testing.expectEqualStrings("yes", chopTrailingHashtags("yes  "));
+    testing.expectEqualStrings("yes", chopTrailingHashtags("yes  ##"));
+    testing.expectEqualStrings("yes", chopTrailingHashtags("yes  ##"  ));
 }
 
 pub fn normalizeCode(s: []const u8, code: *std.ArrayList(u8)) !void {

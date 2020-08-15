@@ -18,7 +18,7 @@ pub fn main() !void {
     try std.io.getStdOut().writer().writeAll(output);
 }
 
-fn markdownToHtml(allocator: *std.mem.Allocator, markdown: []const u8) ![]u8 {
+pub fn markdownToHtml(allocator: *std.mem.Allocator, markdown: []const u8) ![]u8 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
