@@ -517,3 +517,7 @@ pub fn main() anyerror!void {
 
     print("{}", .{buffer.span()});
 }
+
+test "" {
+    std.meta.refAllDecls(@This());
+}
