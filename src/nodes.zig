@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const ast = @import("ast.zig");
 
 pub const Node = struct {
@@ -9,9 +10,9 @@ pub const Node = struct {
     open: bool = true,
     last_line_blank: bool = false,
 
-    pub fn deinit(self: *Node) void {
+    pub fn deinit(self: *Node, allocator: *mem.Allocator) void {
         self.content.deinit();
-        self.value.deinit();
+        self.value.deinit(allocator);
     }
 };
 
@@ -39,7 +40,7 @@ pub const NodeValue = union(enum) {
     // TaskItem
     SoftBreak,
     LineBreak,
-    Code: std.ArrayList(u8),
+    Code: []u8,
     HtmlInline: std.ArrayList(u8),
     Emph,
     Strong,
@@ -48,10 +49,13 @@ pub const NodeValue = union(enum) {
     Image: NodeLink,
     // FootnoteReference
 
-    pub fn deinit(self: *NodeValue) void {
+    pub fn deinit(self: *NodeValue, allocator: *mem.Allocator) void {
         switch (self.*) {
-            .Text, .HtmlInline, .Code => |content| {
+            .Text, .HtmlInline => |content| {
                 content.deinit();
+            },
+            .Code => |content| {
+                allocator.free(content);
             },
             else => {},
         }

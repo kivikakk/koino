@@ -253,8 +253,7 @@ pub const Subject = struct {
 
         if (endpos) |end| {
             const buf = self.input[startpos .. end - openticks];
-            var code = std.ArrayList(u8).init(self.allocator);
-            try strings.normalizeCode(buf, &code);
+            var code = try strings.normalizeCode(self.allocator, buf);
             return try makeInline(self.allocator, .{ .Code = code });
         } else {
             self.pos = startpos;

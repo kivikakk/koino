@@ -25,7 +25,7 @@ pub fn Ast(comptime T: type) type {
         }
 
         pub fn deinit(self: *Self) void {
-            self.data.deinit();
+            self.data.deinit(self.allocator);
             var it = self.first_child;
             while (it) |child| {
                 var next = child.next;
