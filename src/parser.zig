@@ -130,7 +130,7 @@ pub const Parser = struct {
         self.line_number += 1;
 
         var all_matched = true;
-        const result = self.checkOpenBlocks(line);
+        const result = try self.checkOpenBlocks(line);
         if (result.container) |last_matched_container| {
             const current = self.current;
             const container = try self.openNewBlocks(last_matched_container, line, result.all_matched);
@@ -156,10 +156,10 @@ pub const Parser = struct {
         container: ?*nodes.AstNode,
     };
 
-    fn checkOpenBlocks(self: *Parser, line: []const u8) CheckOpenBlocksResult {
-        const result = self.checkOpenBlocksInner(self.root, line);
+    fn checkOpenBlocks(self: *Parser, line: []const u8) !CheckOpenBlocksResult {
+        const result = try self.checkOpenBlocksInner(self.root, line);
         if (result.container) |container| {
-            return .{
+            return CheckOpenBlocksResult{
                 .all_matched = result.all_matched,
                 .container = if (result.all_matched) container else container.parent.?,
             };
@@ -167,7 +167,7 @@ pub const Parser = struct {
         return result;
     }
 
-    fn checkOpenBlocksInner(self: *Parser, start_container: *nodes.AstNode, line: []const u8) CheckOpenBlocksResult {
+    fn checkOpenBlocksInner(self: *Parser, start_container: *nodes.AstNode, line: []const u8) !CheckOpenBlocksResult {
         var container = start_container;
 
         while (container.lastChildIsOpen()) {
@@ -177,39 +177,39 @@ pub const Parser = struct {
             switch (container.data.value) {
                 .BlockQuote => {
                     if (!self.parseBlockQuotePrefix(line)) {
-                        return .{ .container = container };
+                        return CheckOpenBlocksResult{ .container = container };
                     }
                 },
                 .Item => unreachable,
                 .CodeBlock => {
-                    switch (self.parseCodeBlockPrefix(line, container)) {
+                    switch (try self.parseCodeBlockPrefix(line, container)) {
                         .DoNotContinue => {
-                            return .{ .container = null };
+                            return CheckOpenBlocksResult{ .container = null };
                         },
                         .NoMatch => {
-                            return .{ .container = container };
+                            return CheckOpenBlocksResult{ .container = container };
                         },
                         .Match => {},
                     }
                 },
                 .HtmlBlock => |nhb| {
                     if (!self.parseHtmlBlockPrefix(nhb.block_type)) {
-                        return .{ .container = container };
+                        return CheckOpenBlocksResult{ .container = container };
                     }
                 },
                 .Paragraph => {
                     if (self.blank) {
-                        return .{ .container = container };
+                        return CheckOpenBlocksResult{ .container = container };
                     }
                 },
                 .Heading => {
-                    return .{ .container = container };
+                    return CheckOpenBlocksResult{ .container = container };
                 },
                 else => {},
             }
         }
 
-        return .{
+        return CheckOpenBlocksResult{
             .all_matched = true,
             .container = container,
         };
@@ -507,8 +507,41 @@ pub const Parser = struct {
         Match,
     };
 
-    fn parseCodeBlockPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode) CodeBlockPrefixParseResult {
-        unreachable;
+    fn parseCodeBlockPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode) !CodeBlockPrefixParseResult {
+        const ncb = switch (container.data.value) {
+            .CodeBlock => |i| i,
+            else => unreachable,
+        };
+
+        if (!ncb.fenced) {
+            if (self.indent >= CODE_INDENT) {
+                self.advanceOffset(line, CODE_INDENT, true);
+                return .Match;
+            } else if (self.blank) {
+                const offset = self.first_nonspace - self.offset;
+                self.advanceOffset(line, offset, false);
+                return .Match;
+            }
+            return .NoMatch;
+        }
+
+        const matched = if (self.indent <= 3 and line[self.first_nonspace] == ncb.fence_char)
+            scanners.closeCodeFence(line[self.first_nonspace..]) orelse 0
+        else
+            0;
+
+        if (matched >= ncb.fence_length) {
+            self.advanceOffset(line, matched, false);
+            self.current = (try self.finalize(container)).?;
+            return .DoNotContinue;
+        }
+
+        var i = ncb.fence_offset;
+        while (i > 0 and strings.isSpaceOrTab(line[self.offset])) : (i -= 1) {
+            self.advanceOffset(line, 1, true);
+        }
+
+        return .Match;
     }
 
     fn parseHtmlBlockPrefix(self: *Parser, t: u8) bool {
