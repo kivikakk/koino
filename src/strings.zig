@@ -111,13 +111,62 @@ pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     return code.toOwnedSlice();
 }
 
-test "normalizeCode" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer _ = arena.deinit();
-    var alloc = &arena.allocator;
+const Case = struct {
+    in: []const u8,
+    out: []const u8,
+};
 
-    testing.expectEqualStrings("qwe", try normalizeCode(alloc, "qwe"));
-    testing.expectEqualStrings("qwe", try normalizeCode(alloc, " qwe "));
-    testing.expectEqualStrings("qwe", try normalizeCode(alloc, " qwe "));
-    testing.expectEqualStrings("abc def' def", try normalizeCode(alloc, " abc\rdef'\r\ndef "));
+test "normalizeCode" {
+    const cases = [_]Case{
+        .{ .in = "qwe", .out = "qwe" },
+        .{ .in = " qwe ", .out = "qwe" },
+        .{ .in = "  qwe  ", .out = " qwe " },
+        .{ .in = " abc\rdef'\r\ndef ", .out = "abc def' def" },
+    };
+
+    for (cases) |case| {
+        const result = try normalizeCode(std.testing.allocator, case.in);
+        testing.expectEqualStrings(case.out, result);
+        std.testing.allocator.free(result);
+    }
+}
+
+pub fn removeTrailingBlankLines(line: *std.ArrayList(u8)) void {
+    var i = line.items.len - 1;
+    while (true) : (i -= 1) {
+        const c = line.items[i];
+
+        if (c != ' ' and c != '\t' and !isLineEndChar(c)) {
+            break;
+        }
+
+        if (i == 0) {
+            line.items.len = 0;
+            return;
+        }
+    }
+
+    while (i < line.items.len) : (i += 1) {
+        if (!isLineEndChar(line.items[i])) continue;
+        line.items.len = i;
+        break;
+    }
+}
+
+test "removeTrailingBlankLines" {
+    const cases = [_]Case{
+        .{ .in = "\n\n   \r\t\n ", .out = "" },
+        .{ .in = "yep\nok\n\n  ", .out = "yep\nok" },
+        .{ .in = "yep  ", .out = "yep  " },
+    };
+
+    var line = std.ArrayList(u8).init(std.testing.allocator);
+    for (cases) |case| {
+        line.items.len = 0;
+        try line.appendSlice(case.in);
+        removeTrailingBlankLines(&line);
+        testing.expectEqualStrings(case.out, line.span());
+    }
+
+    line.deinit();
 }
