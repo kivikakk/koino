@@ -36,12 +36,12 @@ pub const NodeValue = union(enum) {
     // Table
     // TableRow
     // TableCell
-    Text: std.ArrayList(u8),
+    Text: []u8,
     // TaskItem
     SoftBreak,
     LineBreak,
     Code: []u8,
-    HtmlInline: std.ArrayList(u8),
+    HtmlInline: []u8,
     Emph,
     Strong,
     Strikethrough,
@@ -51,10 +51,7 @@ pub const NodeValue = union(enum) {
 
     pub fn deinit(self: *NodeValue, allocator: *mem.Allocator) void {
         switch (self.*) {
-            .Text, .HtmlInline => |content| {
-                content.deinit();
-            },
-            .Code => |content| {
+            .Text, .HtmlInline, .Code => |content| {
                 allocator.free(content);
             },
             else => {},
@@ -103,12 +100,12 @@ pub const NodeValue = union(enum) {
 
     pub fn text(self: NodeValue) ?[]const u8 {
         return switch (self) {
-            .Text => |t| t.span(),
+            .Text => |t| t,
             else => null,
         };
     }
 
-    pub fn text_mut(self: *NodeValue) ?*std.ArrayList(u8) {
+    pub fn text_mut(self: *NodeValue) ?*[]u8 {
         return switch (self.*) {
             .Text => |*t| t,
             else => null,

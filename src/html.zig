@@ -88,10 +88,7 @@ const HtmlFormatter = struct {
                     var new_plain: bool = undefined;
                     if (entry.plain) {
                         switch (entry.node.data.value) {
-                            .Text, .HtmlInline => |literal| {
-                                try self.escape(literal.span());
-                            },
-                            .Code => |literal| {
+                            .Text, .HtmlInline, .Code => |literal| {
                                 try self.escape(literal);
                             },
                             .LineBreak, .SoftBreak => {
@@ -161,7 +158,7 @@ const HtmlFormatter = struct {
             },
             .Text => |literal| {
                 if (entering) {
-                    try self.escape(literal.span());
+                    try self.escape(literal);
                 }
             },
             .LineBreak => {
