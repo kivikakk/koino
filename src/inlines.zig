@@ -140,16 +140,32 @@ pub const Subject = struct {
 
                 var old_closer = closer;
 
-                if (opener.?.delim_char == '*' or closer.?.delim_char == '_') {
+                if (closer.?.delim_char == '*' or closer.?.delim_char == '_') {
                     if (opener_found) {
                         closer = try self.insertEmph(opener.?, closer.?);
                     } else {
                         closer = closer.?.next;
                     }
                 } else if (closer.?.delim_char == '\'') {
-                    unreachable;
+                    var al = closer.?.inl.data.value.text_mut().?;
+                    al.items.len = 0;
+                    try al.appendSlice("’");
+                    if (opener_found) {
+                        al = opener.?.inl.data.value.text_mut().?;
+                        al.items.len = 0;
+                        try al.appendSlice("‘");
+                    }
+                    closer = closer.?.next;
                 } else if (closer.?.delim_char == '"') {
-                    unreachable;
+                    var al = closer.?.inl.data.value.text_mut().?;
+                    al.items.len = 0;
+                    try al.appendSlice("”");
+                    if (opener_found) {
+                        al = opener.?.inl.data.value.text_mut().?;
+                        al.items.len = 0;
+                        try al.appendSlice("“");
+                    }
+                    closer = closer.?.next;
                 }
 
                 if (!opener_found) {

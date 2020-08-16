@@ -65,7 +65,7 @@ test "smart quotes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var output = try markdownToHtml(&gpa.allocator, .{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's up?\"\n");
+    var output = try markdownToHtml(&gpa.allocator, .{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's 'up'?\"\n");
     defer gpa.allocator.free(output);
-    std.testing.expectEqualStrings("<p>Hey, she said. What's up?></p>\n", output);
+    std.testing.expectEqualStrings("<p>“Hey,” she said. “What’s ‘up’?”</p>\n", output);
 }
