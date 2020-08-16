@@ -54,7 +54,7 @@ pub const Subject = struct {
             '&' => new_inl = self.handleEntity(),
             '<' => new_inl = self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
-            '-' => new_inl = self.handleHyphen(),
+            '-' => new_inl = try self.handleHyphen(),
             '.' => new_inl = try self.handlePeriod(),
             '[' => {
                 unreachable;
@@ -87,9 +87,7 @@ pub const Subject = struct {
                     }
                 }
 
-                var new_contents = std.ArrayList(u8).init(self.allocator);
-                try new_contents.appendSlice(contents);
-                new_inl = try self.makeInline(.{ .Text = new_contents });
+                new_inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, contents) });
             },
         }
 
@@ -148,22 +146,22 @@ pub const Subject = struct {
                     }
                 } else if (closer.?.delim_char == '\'') {
                     var al = closer.?.inl.data.value.text_mut().?;
-                    al.items.len = 0;
-                    try al.appendSlice("’");
+                    self.allocator.free(al.*);
+                    al.* = try self.allocator.dupe(u8, "’");
                     if (opener_found) {
                         al = opener.?.inl.data.value.text_mut().?;
-                        al.items.len = 0;
-                        try al.appendSlice("‘");
+                        self.allocator.free(al.*);
+                        al.* = try self.allocator.dupe(u8, "‘");
                     }
                     closer = closer.?.next;
                 } else if (closer.?.delim_char == '"') {
                     var al = closer.?.inl.data.value.text_mut().?;
-                    al.items.len = 0;
-                    try al.appendSlice("”");
+                    self.allocator.free(al.*);
+                    al.* = try self.allocator.dupe(u8, "”");
                     if (opener_found) {
                         al = opener.?.inl.data.value.text_mut().?;
-                        al.items.len = 0;
-                        try al.appendSlice("“");
+                        self.allocator.free(al.*);
+                        al.* = try self.allocator.dupe(u8, "“");
                     }
                     closer = closer.?.next;
                 }
@@ -288,9 +286,9 @@ pub const Subject = struct {
             return try self.makeInline(.{ .Code = code });
         } else {
             self.pos = startpos;
-            var new_contents = std.ArrayList(u8).init(self.allocator);
-            try new_contents.appendNTimes('`', openticks);
-            return try self.makeInline(.{ .Text = new_contents });
+            var contents = try self.allocator.alloc(u8, openticks);
+            std.mem.set(u8, contents, '`');
+            return try self.makeInline(.{ .Text = contents });
         }
     }
 
@@ -324,9 +322,8 @@ pub const Subject = struct {
             "“"
         else
             self.input[self.pos - scan.num_delims .. self.pos];
-        var text = std.ArrayList(u8).init(self.allocator);
-        try text.appendSlice(contents);
-        const inl = try self.makeInline(.{ .Text = text });
+
+        const inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, contents) });
 
         if ((scan.can_open or scan.can_close) and (!(c == '\'' or c == '"') or self.options.parse.smart)) {
             try self.pushDelimiter(c, scan.can_open, scan.can_close, inl);
@@ -335,30 +332,49 @@ pub const Subject = struct {
         return inl;
     }
 
-    fn handleHyphen(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleHyphen(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+        var num_hyphens: usize = 1;
+
+        if (!self.options.parse.smart or (self.peekChar() orelse 0) != '-') {
+            return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "-") });
+        }
+
+        while (self.options.parse.smart and (self.peekChar() orelse 0) == '-') {
+            self.pos += 1;
+            num_hyphens += 1;
+        }
+
+        var ens_ems = if (num_hyphens % 3 == 0)
+            [2]usize{ 0, num_hyphens / 3 }
+        else if (num_hyphens % 2 == 0)
+            [2]usize{ num_hyphens / 2, 0 }
+        else if (num_hyphens % 3 == 2)
+            [2]usize{ 1, (num_hyphens - 2) / 3 }
+        else
+            [2]usize{ 2, (num_hyphens - 4) / 3 };
+
+        var text = std.ArrayList(u8).init(self.allocator);
+
+        while (ens_ems[1] > 0) : (ens_ems[1] -= 1)
+            try text.appendSlice("—");
+        while (ens_ems[0] > 0) : (ens_ems[0] -= 1)
+            try text.appendSlice("–");
+
+        return try self.makeInline(.{ .Text = text.toOwnedSlice() });
     }
 
     fn handlePeriod(self: *Subject) !*nodes.AstNode {
         self.pos += 1;
-        var text = std.ArrayList(u8).init(self.allocator);
-        // Weird `if` nesting due to https://github.com/ziglang/zig/issues/6059.
-        if (self.options.parse.smart) {
+        if (self.options.parse.smart and (self.peekChar() orelse 0) == @as(u8, '.')) {
+            self.pos += 1;
             if (self.peekChar() == @as(u8, '.')) {
                 self.pos += 1;
-                if (self.peekChar() == @as(u8, '.')) {
-                    self.pos += 1;
-                    try text.appendSlice("…");
-                } else {
-                    try text.appendSlice("..");
-                }
-            } else {
-                try text.appendSlice(".");
+                return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "…") });
             }
-        } else {
-            try text.appendSlice(".");
+            return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "..") });
         }
-        return try self.makeInline(.{ .Text = text });
+        return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, ".") });
     }
 
     const ScanResult = struct {
@@ -455,8 +471,10 @@ pub const Subject = struct {
         opener_num_chars -= use_delims;
         closer_num_chars -= use_delims;
 
-        opener.inl.data.value.text_mut().?.items.len = opener_num_chars;
-        closer.inl.data.value.text_mut().?.items.len = closer_num_chars;
+        var opener_text = opener.inl.data.value.text_mut().?;
+        opener_text.* = opener_text.*[0..opener_num_chars];
+        var closer_text = closer.inl.data.value.text_mut().?;
+        closer_text.* = closer_text.*[0..closer_num_chars];
 
         var delim = closer.prev;
         while (delim != null and delim != opener) {

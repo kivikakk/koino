@@ -89,13 +89,6 @@ pub fn Ast(comptime T: type) type {
             self.deinit();
         }
 
-        pub fn lastChildIsOpen(self: *Self) bool {
-            if (self.last_child) |n| {
-                return n.data.open;
-            }
-            return false;
-        }
-
         pub const ReverseChildrenIterator = struct {
             next_value: ?*Self,
 
@@ -145,6 +138,28 @@ pub fn Ast(comptime T: type) type {
             std.debug.print("{}      first_child: {*} ({})\n", .{ fill_string, self.first_child, if (self.first_child) |n| @tagName(n.data.value) else "" });
             std.debug.print("{}      last_child: {*} ({})\n", .{ fill_string, self.last_child, if (self.last_child) |n| @tagName(n.data.value) else "" });
             std.debug.print("{}      next: {*} ({})\n", .{ fill_string, self.next, if (self.next) |n| @tagName(n.data.value) else "" });
+        }
+
+        // These don't quite belong.
+
+        pub fn lastChildIsOpen(self: *Self) bool {
+            if (self.last_child) |n| {
+                return n.data.open;
+            }
+            return false;
+        }
+
+        pub fn endsWithBlankLine(self: *Self) bool {
+            var it: ?*Self = self;
+            while (it) |cur| {
+                if (cur.data.last_line_blank)
+                    return true;
+                switch (cur.data.value) {
+                    .List, .Item => it = cur.last_child,
+                    else => it = null,
+                }
+            }
+            return false;
         }
     };
 }

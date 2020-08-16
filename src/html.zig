@@ -5,6 +5,7 @@ const mem = std.mem;
 
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
+const ctype = @import("ctype.zig");
 
 pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
     var buffer = std.ArrayList(u8).init(allocator);
@@ -36,6 +37,16 @@ const HtmlFormatter = struct {
     const NEEDS_ESCAPED = createMap("\"&<>");
     const HREF_SAFE = createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 
+    // Hack so that there's a Writer.Error.
+    const Writer = struct {
+        formatter: *HtmlFormatter,
+        pub const Error = error{OutOfMemory};
+
+        pub fn writeAll(self: @This(), bytes: []const u8) Error!void {
+            try self.formatter.writeAll(bytes);
+        }
+    };
+
     fn cr(self: *HtmlFormatter) !void {
         if (!self.last_was_lf) {
             try self.writeAll("\n");
@@ -60,7 +71,7 @@ const HtmlFormatter = struct {
         try self.writeAll(s[offset..]);
     }
 
-    fn writeAll(self: *HtmlFormatter, s: []const u8) !void {
+    pub fn writeAll(self: *HtmlFormatter, s: []const u8) !void {
         if (s.len == 0) {
             return;
         }
@@ -87,10 +98,7 @@ const HtmlFormatter = struct {
                     var new_plain: bool = undefined;
                     if (entry.plain) {
                         switch (entry.node.data.value) {
-                            .Text, .HtmlInline => |literal| {
-                                try self.escape(literal.span());
-                            },
-                            .Code => |literal| {
+                            .Text, .HtmlInline, .Code => |literal| {
                                 try self.escape(literal);
                             },
                             .LineBreak, .SoftBreak => {
@@ -124,6 +132,49 @@ const HtmlFormatter = struct {
                 try self.cr();
                 try self.writeAll(if (entering) "<blockquote>\n" else "</blockquote>");
             },
+            .List => |nl| {
+                if (entering) {
+                    try self.cr();
+                    if (nl.list_type == .Bullet) {
+                        try self.writeAll("<ul>\n");
+                    } else if (nl.start == 1) {
+                        try self.writeAll("<ol>\n");
+                    } else {
+                        try std.fmt.format(Writer{ .formatter = self }, "<ol start=\"{}\">", .{nl.start});
+                    }
+                } else if (nl.list_type == .Bullet) {
+                    try self.writeAll("</ul>\n");
+                } else {
+                    try self.writeAll("</ol>\n");
+                }
+            },
+            .Item => {
+                if (entering) {
+                    try self.cr();
+                    try self.writeAll("<li>");
+                } else {
+                    try self.writeAll("</li>\n");
+                }
+            },
+            .CodeBlock => |ncb| {
+                if (entering) {
+                    try self.cr();
+
+                    if (ncb.info.len == 0) {
+                        try self.writeAll("<pre><code>");
+                    } else {
+                        var first_tag: usize = 0;
+                        while (first_tag < ncb.info.len and !ctype.isspace(ncb.info[first_tag]))
+                            first_tag += 1;
+
+                        try self.writeAll("<pre><code class=\"language-");
+                        try self.escape(ncb.info[0..first_tag]);
+                        try self.writeAll("\">");
+                    }
+                    try self.escape(ncb.literal);
+                    try self.writeAll("</code></pre>\n");
+                }
+            },
             .Paragraph => {
                 var tight = node.parent != null and node.parent.?.parent != null and switch (node.parent.?.parent.?.data.value) {
                     .List => |nl| nl.tight,
@@ -141,7 +192,7 @@ const HtmlFormatter = struct {
             },
             .Text => |literal| {
                 if (entering) {
-                    try self.escape(literal.span());
+                    try self.escape(literal);
                 }
             },
             .LineBreak => {

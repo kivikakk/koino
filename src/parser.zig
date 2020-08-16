@@ -7,6 +7,7 @@ const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
 const options = @import("options.zig");
+const ctype = @import("ctype.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -37,9 +38,8 @@ pub const Parser = struct {
             var process = true;
             var eol = i;
             while (eol < sz) {
-                if (strings.isLineEndChar(s[eol])) {
+                if (strings.isLineEndChar(s[eol]))
                     break;
-                }
                 if (s[eol] == 0) {
                     process = false;
                     break;
@@ -59,12 +59,8 @@ pub const Parser = struct {
                 }
 
                 i = eol;
-                if (i < sz and s[i] == '\r') {
-                    i += 1;
-                }
-                if (i < sz and s[i] == '\n') {
-                    i += 1;
-                }
+                if (i < sz and s[i] == '\r') i += 1;
+                if (i < sz and s[i] == '\n') i += 1;
             } else {
                 assert(eol < sz and s[eol] == 0);
                 try linebuf.appendSlice(s[i..eol]);
@@ -113,8 +109,12 @@ pub const Parser = struct {
 
     fn processLine(self: *Parser, input: []const u8) !void {
         var line: []const u8 = undefined;
+        var new_line: ?[]u8 = null;
         if (input.len == 0 or !strings.isLineEndChar(input[input.len - 1])) {
-            unreachable;
+            new_line = try self.allocator.alloc(u8, input.len + 1);
+            std.mem.copy(u8, new_line.?, input);
+            new_line.?[input.len] = '\n';
+            line = new_line.?;
         } else {
             line = input;
         }
@@ -131,7 +131,7 @@ pub const Parser = struct {
         self.line_number += 1;
 
         var all_matched = true;
-        const result = self.checkOpenBlocks(line);
+        const result = try self.checkOpenBlocks(line);
         if (result.container) |last_matched_container| {
             const current = self.current;
             const container = try self.openNewBlocks(last_matched_container, line, result.all_matched);
@@ -147,6 +147,9 @@ pub const Parser = struct {
         if (self.last_line_length > 0 and line[self.last_line_length - 1] == '\r') {
             self.last_line_length -= 1;
         }
+
+        // Removing this doesn't cause a detected leak. Worrying.
+        if (new_line) |nl| self.allocator.free(nl);
     }
 
     const CheckOpenBlocksResult = struct {
@@ -154,10 +157,10 @@ pub const Parser = struct {
         container: ?*nodes.AstNode,
     };
 
-    fn checkOpenBlocks(self: *Parser, line: []const u8) CheckOpenBlocksResult {
-        const result = self.checkOpenBlocksInner(self.root, line);
+    fn checkOpenBlocks(self: *Parser, line: []const u8) !CheckOpenBlocksResult {
+        const result = try self.checkOpenBlocksInner(self.root, line);
         if (result.container) |container| {
-            return .{
+            return CheckOpenBlocksResult{
                 .all_matched = result.all_matched,
                 .container = if (result.all_matched) container else container.parent.?,
             };
@@ -165,7 +168,7 @@ pub const Parser = struct {
         return result;
     }
 
-    fn checkOpenBlocksInner(self: *Parser, start_container: *nodes.AstNode, line: []const u8) CheckOpenBlocksResult {
+    fn checkOpenBlocksInner(self: *Parser, start_container: *nodes.AstNode, line: []const u8) !CheckOpenBlocksResult {
         var container = start_container;
 
         while (container.lastChildIsOpen()) {
@@ -175,39 +178,43 @@ pub const Parser = struct {
             switch (container.data.value) {
                 .BlockQuote => {
                     if (!self.parseBlockQuotePrefix(line)) {
-                        return .{ .container = container };
+                        return CheckOpenBlocksResult{ .container = container };
                     }
                 },
-                .Item => unreachable,
+                .Item => |*nl| {
+                    if (!self.parseNodeItemPrefix(line, container, nl)) {
+                        return CheckOpenBlocksResult{ .container = container };
+                    }
+                },
                 .CodeBlock => {
-                    switch (self.parseCodeBlockPrefix(line, container)) {
+                    switch (try self.parseCodeBlockPrefix(line, container)) {
                         .DoNotContinue => {
-                            return .{ .container = null };
+                            return CheckOpenBlocksResult{ .container = null };
                         },
                         .NoMatch => {
-                            return .{ .container = container };
+                            return CheckOpenBlocksResult{ .container = container };
                         },
                         .Match => {},
                     }
                 },
                 .HtmlBlock => |nhb| {
                     if (!self.parseHtmlBlockPrefix(nhb.block_type)) {
-                        return .{ .container = container };
+                        return CheckOpenBlocksResult{ .container = container };
                     }
                 },
                 .Paragraph => {
                     if (self.blank) {
-                        return .{ .container = container };
+                        return CheckOpenBlocksResult{ .container = container };
                     }
                 },
                 .Heading => {
-                    return .{ .container = container };
+                    return CheckOpenBlocksResult{ .container = container };
                 },
                 else => {},
             }
         }
 
-        return .{
+        return CheckOpenBlocksResult{
             .all_matched = true,
             .container = container,
         };
@@ -219,6 +226,9 @@ pub const Parser = struct {
             .Paragraph => true,
             else => false,
         };
+
+        var matched: usize = undefined;
+        var nl: nodes.NodeList = undefined;
 
         while (switch (container.data.value) {
             .CodeBlock, .HtmlBlock => false,
@@ -234,6 +244,64 @@ pub const Parser = struct {
                     self.advanceOffset(line, 1, true);
                 }
                 container = try self.addChild(container, .BlockQuote);
+            }
+            // ATX heading start
+            // Open code fence
+            // HTML block start
+            // Setext heading line
+            // Thematic break
+            else if ((!indented or switch (container.data.value) {
+                .List => true,
+                else => false,
+            }) and self.indent < 4 and parseListMarker(line, self.first_nonspace, switch (container.data.value) {
+                .Paragraph => true,
+                else => false,
+            }, &matched, &nl)) {
+                const offset = self.first_nonspace + matched - self.offset;
+                self.advanceOffset(line, offset, false);
+
+                const save_partially_consumed_tab = self.partially_consumed_tab;
+                const save_offset = self.offset;
+                const save_column = self.column;
+
+                while (self.column - save_column <= 5 and strings.isSpaceOrTab(line[self.offset])) {
+                    self.advanceOffset(line, 1, true);
+                }
+
+                const i = self.column - save_column;
+                if (i >= 5 or i < 1 or strings.isLineEndChar(line[self.offset])) {
+                    nl.padding = matched + 1;
+                    self.partially_consumed_tab = save_partially_consumed_tab;
+                    self.offset = save_offset;
+                    self.column = save_column;
+                    if (i > 0)
+                        self.advanceOffset(line, 1, true);
+                } else {
+                    nl.padding = matched + i;
+                }
+
+                nl.marker_offset = self.indent;
+
+                if (switch (container.data.value) {
+                    .List => |*mnl| !listsMatch(&nl, mnl),
+                    else => true,
+                }) {
+                    container = try self.addChild(container, .{ .List = nl });
+                }
+
+                container = try self.addChild(container, .{ .Item = nl });
+            } else if (indented and !maybe_lazy and !self.blank) {
+                self.advanceOffset(line, CODE_INDENT, true);
+                container = try self.addChild(container, .{
+                    .CodeBlock = .{
+                        .fenced = false,
+                        .fence_char = 0,
+                        .fence_length = 0,
+                        .fence_offset = 0,
+                        .info = "",
+                        .literal = "",
+                    },
+                });
             }
             // ...
             else {
@@ -254,7 +322,7 @@ pub const Parser = struct {
     fn addChild(self: *Parser, input_parent: *nodes.AstNode, value: nodes.NodeValue) !*nodes.AstNode {
         var parent = input_parent;
         while (!parent.data.value.canContainType(value)) {
-            parent = self.finalize(parent).?;
+            parent = (try self.finalize(parent)).?;
         }
 
         var node = try nodes.AstNode.create(self.allocator, .{
@@ -296,7 +364,7 @@ pub const Parser = struct {
         }
 
         while (self.current != last_matched_container) {
-            self.current = self.finalize(self.current).?;
+            self.current = (try self.finalize(self.current)).?;
         }
 
         switch (container.data.value) {
@@ -315,7 +383,7 @@ pub const Parser = struct {
                 };
 
                 if (matches_end_condition) {
-                    container = self.finalize(container).?;
+                    container = (try self.finalize(container)).?;
                 }
             },
             else => {
@@ -364,14 +432,14 @@ pub const Parser = struct {
 
     fn finalizeDocument(self: *Parser) !void {
         while (self.current != self.root) {
-            self.current = self.finalize(self.current).?;
+            self.current = (try self.finalize(self.current)).?;
         }
 
-        _ = self.finalize(self.root);
+        _ = try self.finalize(self.root);
         try self.processInlines();
     }
 
-    fn finalize(self: *Parser, node: *nodes.AstNode) ?*nodes.AstNode {
+    fn finalize(self: *Parser, node: *nodes.AstNode) !?*nodes.AstNode {
         assert(node.data.open);
         node.data.open = false;
         const parent = node.parent;
@@ -382,14 +450,43 @@ pub const Parser = struct {
                     node.detachDeinit();
                 }
             },
-            .CodeBlock => {
-                unreachable;
+            .CodeBlock => |*ncb| {
+                if (!ncb.fenced) {
+                    strings.removeTrailingBlankLines(&node.data.content);
+                    try node.data.content.append('\n');
+                } else {
+                    unreachable;
+                }
+                ncb.literal = node.data.content.toOwnedSlice();
             },
             .HtmlBlock => |nhb| {
                 unreachable;
             },
-            .List => {
-                unreachable;
+            .List => |*nl| {
+                nl.tight = true;
+                var it = node.first_child;
+
+                while (it) |item| {
+                    if (item.data.last_line_blank and item.next != null) {
+                        nl.tight = false;
+                        break;
+                    }
+
+                    var subit = item.first_child;
+                    while (subit) |subitem| {
+                        if (subitem.endsWithBlankLine() and (item.next != null or subitem.next != null)) {
+                            nl.tight = false;
+                            break;
+                        }
+                        subit = subitem.next;
+                    }
+
+                    if (!nl.tight) {
+                        break;
+                    }
+
+                    it = item.next;
+                }
             },
             else => {},
         }
@@ -474,14 +571,59 @@ pub const Parser = struct {
         return false;
     }
 
+    fn parseNodeItemPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode, nl: *const nodes.NodeList) bool {
+        if (self.indent >= nl.marker_offset + nl.padding) {
+            self.advanceOffset(line, nl.marker_offset + nl.padding, true);
+            return true;
+        } else if (self.blank and container.first_child != null) {
+            const offset = self.first_nonspace - self.offset;
+            self.advanceOffset(line, offset, false);
+            return true;
+        }
+        return false;
+    }
+
     const CodeBlockPrefixParseResult = enum {
         DoNotContinue,
         NoMatch,
         Match,
     };
 
-    fn parseCodeBlockPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode) CodeBlockPrefixParseResult {
-        unreachable;
+    fn parseCodeBlockPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode) !CodeBlockPrefixParseResult {
+        const ncb = switch (container.data.value) {
+            .CodeBlock => |i| i,
+            else => unreachable,
+        };
+
+        if (!ncb.fenced) {
+            if (self.indent >= CODE_INDENT) {
+                self.advanceOffset(line, CODE_INDENT, true);
+                return .Match;
+            } else if (self.blank) {
+                const offset = self.first_nonspace - self.offset;
+                self.advanceOffset(line, offset, false);
+                return .Match;
+            }
+            return .NoMatch;
+        }
+
+        const matched = if (self.indent <= 3 and line[self.first_nonspace] == ncb.fence_char)
+            scanners.closeCodeFence(line[self.first_nonspace..]) orelse 0
+        else
+            0;
+
+        if (matched >= ncb.fence_length) {
+            self.advanceOffset(line, matched, false);
+            self.current = (try self.finalize(container)).?;
+            return .DoNotContinue;
+        }
+
+        var i = ncb.fence_offset;
+        while (i > 0 and strings.isSpaceOrTab(line[self.offset])) : (i -= 1) {
+            self.advanceOffset(line, 1, true);
+        }
+
+        return .Match;
     }
 
     fn parseHtmlBlockPrefix(self: *Parser, t: u8) bool {
@@ -491,20 +633,135 @@ pub const Parser = struct {
             else => unreachable,
         };
     }
+
+    fn parseListMarker(line: []const u8, input_pos: usize, interrupts_paragraph: bool, matched: *usize, nl: *nodes.NodeList) bool {
+        var pos = input_pos;
+        var c = line[pos];
+        const startpos = pos;
+
+        if (c == '*' or c == '-' or c == '+') {
+            pos += 1;
+            if (!ctype.isspace(line[pos])) {
+                return false;
+            }
+
+            if (interrupts_paragraph) {
+                var i = pos;
+                while (strings.isSpaceOrTab(line[i])) : (i += 1) {}
+                if (line[i] == '\n') {
+                    return false;
+                }
+            }
+
+            matched.* = pos - startpos;
+            nl.* = .{
+                .list_type = .Bullet,
+                .marker_offset = 0,
+                .padding = 0,
+                .start = 1,
+                .delimiter = .Period,
+                .bullet_char = c,
+                .tight = false,
+            };
+            return true;
+        }
+
+        if (ctype.isdigit(c)) {
+            var start: usize = 0;
+            var digits: u8 = 0;
+
+            while (digits < 9 and ctype.isdigit(line[pos])) {
+                start = (10 * start) + (line[pos] - '0');
+                pos += 1;
+                digits += 1;
+            }
+
+            if (interrupts_paragraph and start != 1) {
+                return false;
+            }
+
+            c = line[pos];
+            if (c != '.' and c != ')') {
+                return false;
+            }
+
+            pos += 1;
+
+            if (!ctype.isspace(line[pos])) {
+                return false;
+            }
+
+            if (interrupts_paragraph) {
+                var i = pos;
+                while (strings.isSpaceOrTab(line[i])) : (i += 1) {}
+                if (strings.isLineEndChar(line[i])) {
+                    return false;
+                }
+            }
+
+            matched.* = pos - startpos;
+            nl.* = .{
+                .list_type = .Ordered,
+                .marker_offset = 0,
+                .padding = 0,
+                .start = start,
+                .delimiter = if (c == '.')
+                    .Period
+                else
+                    .Paren,
+                .bullet_char = 0,
+                .tight = false,
+            };
+            return true;
+        }
+
+        return false;
+    }
+
+    fn listsMatch(list_data: *const nodes.NodeList, item_data: *const nodes.NodeList) bool {
+        return list_data.list_type == item_data.list_type and list_data.delimiter == item_data.delimiter and list_data.bullet_char == item_data.bullet_char;
+    }
 };
 
-test "accepts multiple lines" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+test "handles EOF without EOL" {
+    var output = try main.markdownToHtml(std.testing.allocator, .{}, "hello");
+    defer std.testing.allocator.free(output);
+    std.testing.expectEqualStrings("<p>hello</p>\n", output);
+}
 
+test "accepts multiple lines" {
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{}, "hello\nthere\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "hello\nthere\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<p>hello\nthere</p>\n", output);
     }
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{ .render = .{ .hard_breaks = true } }, "hello\nthere\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{ .render = .{ .hard_breaks = true } }, "hello\nthere\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<p>hello<br />\nthere</p>\n", output);
+    }
+}
+
+test "smart hyphens" {
+    var output = try main.markdownToHtml(std.testing.allocator, .{ .parse = .{ .smart = true } }, "hyphen - en -- em --- four ---- five ----- six ------ seven -------\n");
+    defer std.testing.allocator.free(output);
+    std.testing.expectEqualStrings("<p>hyphen - en – em — four –– five —– six —— seven —––</p>\n", output);
+}
+
+test "handles tabs" {
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "\tfoo\tbaz\t\tbim\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "  \tfoo\tbaz\t\tbim\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "  - foo\n\n\tbar\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n", output);
     }
 }

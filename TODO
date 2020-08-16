@@ -1,3 +1,2 @@
 * use errdefer, actually recover without loss
-* clean up allocator use/passing around/etc.
-* used owned slices through AST instead of ArrayLists?
+  * test failed allocations at various stages
