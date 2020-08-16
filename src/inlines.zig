@@ -54,7 +54,7 @@ pub const Subject = struct {
             '&' => new_inl = self.handleEntity(),
             '<' => new_inl = self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
-            '-' => new_inl = self.handleHyphen(),
+            '-' => new_inl = try self.handleHyphen(),
             '.' => new_inl = try self.handlePeriod(),
             '[' => {
                 unreachable;
@@ -335,25 +335,49 @@ pub const Subject = struct {
         return inl;
     }
 
-    fn handleHyphen(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleHyphen(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+        var num_hyphens: usize = 1;
+
+        var text = std.ArrayList(u8).init(self.allocator);
+
+        if (!self.options.parse.smart or (self.peekChar() orelse 0) != '-') {
+            try text.append('-');
+            return try self.makeInline(.{ .Text = text });
+        }
+
+        while (self.options.parse.smart and (self.peekChar() orelse 0) == '-') {
+            self.pos += 1;
+            num_hyphens += 1;
+        }
+
+        var ens_ems = if (num_hyphens % 3 == 0)
+            [2]usize{ 0, num_hyphens / 3 }
+        else if (num_hyphens % 2 == 0)
+            [2]usize{ num_hyphens / 2, 0 }
+        else if (num_hyphens % 3 == 2)
+            [2]usize{ 1, (num_hyphens - 2) / 3 }
+        else
+            [2]usize{ 2, (num_hyphens - 4) / 3 };
+
+        while (ens_ems[1] > 0) : (ens_ems[1] -= 1)
+            try text.appendSlice("—");
+        while (ens_ems[0] > 0) : (ens_ems[0] -= 1)
+            try text.appendSlice("–");
+
+        return try self.makeInline(.{ .Text = text });
     }
 
     fn handlePeriod(self: *Subject) !*nodes.AstNode {
         self.pos += 1;
         var text = std.ArrayList(u8).init(self.allocator);
-        // Weird `if` nesting due to https://github.com/ziglang/zig/issues/6059.
-        if (self.options.parse.smart) {
+        if (self.options.parse.smart and (self.peekChar() orelse 0) == @as(u8, '.')) {
+            self.pos += 1;
             if (self.peekChar() == @as(u8, '.')) {
                 self.pos += 1;
-                if (self.peekChar() == @as(u8, '.')) {
-                    self.pos += 1;
-                    try text.appendSlice("…");
-                } else {
-                    try text.appendSlice("..");
-                }
+                try text.appendSlice("…");
             } else {
-                try text.appendSlice(".");
+                try text.appendSlice("..");
             }
         } else {
             try text.appendSlice(".");

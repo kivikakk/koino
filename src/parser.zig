@@ -554,48 +554,44 @@ pub const Parser = struct {
 };
 
 test "handles EOF without EOL" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
-    {
-        var output = try main.markdownToHtml(&gpa.allocator, .{}, "hello");
-        defer gpa.allocator.free(output);
-        std.testing.expectEqualStrings("<p>hello</p>\n", output);
-    }
+    var output = try main.markdownToHtml(std.testing.allocator, .{}, "hello");
+    defer std.testing.allocator.free(output);
+    std.testing.expectEqualStrings("<p>hello</p>\n", output);
 }
 
 test "accepts multiple lines" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{}, "hello\nthere\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "hello\nthere\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<p>hello\nthere</p>\n", output);
     }
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{ .render = .{ .hard_breaks = true } }, "hello\nthere\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{ .render = .{ .hard_breaks = true } }, "hello\nthere\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<p>hello<br />\nthere</p>\n", output);
     }
 }
 
+test "smart hyphens" {
+    var output = try main.markdownToHtml(std.testing.allocator, .{ .parse = .{ .smart = true } }, "hyphen - en -- em --- four ---- five ----- six ------ seven -------\n");
+    defer std.testing.allocator.free(output);
+    std.testing.expectEqualStrings("<p>hyphen - en – em — four –– five —– six —— seven —––</p>\n", output);
+}
+
 test "handles tabs" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{}, "\tfoo\tbaz\t\tbim\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "\tfoo\tbaz\t\tbim\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>\n", output);
     }
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{}, "  \tfoo\tbaz\t\tbim\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "  \tfoo\tbaz\t\tbim\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>\n", output);
     }
     {
-        var output = try main.markdownToHtml(&gpa.allocator, .{}, "  - foo\n\n\tbar\n");
-        defer gpa.allocator.free(output);
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "  - foo\n\n\tbar\n");
+        defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n", output);
     }
 }
