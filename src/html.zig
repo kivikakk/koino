@@ -148,6 +148,14 @@ const HtmlFormatter = struct {
                     try self.writeAll("</ol>\n");
                 }
             },
+            .Item => {
+                if (entering) {
+                    try self.cr();
+                    try self.writeAll("<li>");
+                } else {
+                    try self.writeAll("</li>\n");
+                }
+            },
             .CodeBlock => |ncb| {
                 if (entering) {
                     try self.cr();

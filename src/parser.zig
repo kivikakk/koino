@@ -181,7 +181,11 @@ pub const Parser = struct {
                         return CheckOpenBlocksResult{ .container = container };
                     }
                 },
-                .Item => unreachable,
+                .Item => |*nl| {
+                    if (!self.parseNodeItemPrefix(line, container, nl)) {
+                        return CheckOpenBlocksResult{ .container = container };
+                    }
+                },
                 .CodeBlock => {
                     switch (try self.parseCodeBlockPrefix(line, container)) {
                         .DoNotContinue => {
@@ -284,6 +288,8 @@ pub const Parser = struct {
                 }) {
                     container = try self.addChild(container, .{ .List = nl });
                 }
+
+                container = try self.addChild(container, .{ .Item = nl });
             } else if (indented and !maybe_lazy and !self.blank) {
                 self.advanceOffset(line, CODE_INDENT, true);
                 container = try self.addChild(container, .{
@@ -562,6 +568,18 @@ pub const Parser = struct {
             return true;
         }
 
+        return false;
+    }
+
+    fn parseNodeItemPrefix(self: *Parser, line: []const u8, container: *nodes.AstNode, nl: *const nodes.NodeList) bool {
+        if (self.indent >= nl.marker_offset + nl.padding) {
+            self.advanceOffset(line, nl.marker_offset + nl.padding, true);
+            return true;
+        } else if (self.blank and container.first_child != null) {
+            const offset = self.first_nonspace - self.offset;
+            self.advanceOffset(line, offset, false);
+            return true;
+        }
         return false;
     }
 
