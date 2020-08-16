@@ -229,6 +229,7 @@ pub const Parser = struct {
 
         var matched: usize = undefined;
         var nl: nodes.NodeList = undefined;
+        var sc: scanners.SetextChar = undefined;
 
         while (switch (container.data.value) {
             .CodeBlock, .HtmlBlock => false,
@@ -262,8 +263,25 @@ pub const Parser = struct {
             }
             // Open code fence
             // HTML block start
-            // Setext heading line
-            else if (!indented and !(switch (container.data.value) {
+            else if (!indented and switch (container.data.value) {
+                .Paragraph => try scanners.setextHeadingLine(line[self.first_nonspace..], &sc),
+                else => false,
+            }) {
+                const has_content = self.resolveReferenceLinkDefinitions(&container.data.content);
+                if (has_content) {
+                    container.data.value = .{
+                        .Heading = .{
+                            .level = switch (sc) {
+                                .Equals => 1,
+                                .Hyphen => 2,
+                            },
+                            .setext = true,
+                        },
+                    };
+                    const adv = line.len - 1 - self.offset;
+                    self.advanceOffset(line, adv, false);
+                }
+            } else if (!indented and !(switch (container.data.value) {
                 .Paragraph => !all_matched,
                 else => false,
             }) and try scanners.thematicBreak(line[self.first_nonspace..], &matched)) {
@@ -466,7 +484,8 @@ pub const Parser = struct {
 
         switch (node.data.value) {
             .Paragraph => {
-                if (strings.isBlank(node.data.content.span())) {
+                const has_content = self.resolveReferenceLinkDefinitions(&node.data.content);
+                if (!has_content) {
                     node.detachDeinit();
                 }
             },
@@ -512,6 +531,29 @@ pub const Parser = struct {
         }
 
         return parent;
+    }
+
+    fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) bool {
+        var seeked: usize = 0;
+        var pos: usize = undefined;
+        var seek = content.span();
+
+        while (seek.len > 0 and seek[0] == '[' and self.parseReferenceInline(seek, &pos)) {
+            seek = seek[pos..];
+            seeked += pos;
+        }
+
+        if (seeked != 0) {
+            // *content = content[seeked..].to_vec();
+            unreachable;
+        }
+
+        return !strings.isBlank(content.span());
+    }
+
+    fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) bool {
+        // TODO
+        return false;
     }
 
     fn processInlines(self: *Parser) !void {
