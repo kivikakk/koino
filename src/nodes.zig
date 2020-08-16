@@ -153,6 +153,6 @@ pub const NodeCodeBlock = struct {
 };
 
 pub const NodeHeading = struct {
-    level: u32,
-    setext: bool,
+    level: u8 = 0,
+    setext: bool = false,
 };

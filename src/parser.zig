@@ -244,8 +244,22 @@ pub const Parser = struct {
                     self.advanceOffset(line, 1, true);
                 }
                 container = try self.addChild(container, .BlockQuote);
+            } else if (!indented and try scanners.atxHeadingStart(line[self.first_nonspace..], &matched)) {
+                const heading_startpos = self.first_nonspace;
+                const offset = self.offset;
+                self.advanceOffset(line, heading_startpos + matched - offset, false);
+                container = try self.addChild(container, .{ .Heading = .{} });
+
+                var hashpos = std.mem.indexOfScalar(u8, line[self.first_nonspace..], '#').? + self.first_nonspace;
+                var level: u8 = 0;
+                while (line[hashpos] == '#') {
+                    if (level < 6)
+                        level += 1;
+                    hashpos += 1;
+                }
+
+                container.data.value = .{ .Heading = .{ .level = level, .setext = false } };
             }
-            // ATX heading start
             // Open code fence
             // HTML block start
             // Setext heading line

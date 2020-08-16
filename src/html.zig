@@ -156,6 +156,14 @@ const HtmlFormatter = struct {
                     try self.writeAll("</li>\n");
                 }
             },
+            .Heading => |nch| {
+                if (entering) {
+                    try self.cr();
+                    try std.fmt.format(Writer{ .formatter = self }, "<h{}>", .{nch.level});
+                } else {
+                    try std.fmt.format(Writer{ .formatter = self }, "</h{}>\n", .{nch.level});
+                }
+            },
             .CodeBlock => |ncb| {
                 if (entering) {
                     try self.cr();
