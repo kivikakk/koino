@@ -764,4 +764,14 @@ test "handles tabs" {
         defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n", output);
     }
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "#\tFoo\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<h1>Foo</h1>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "*\t*\t*\t\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<hr />\n", output);
+    }
 }
