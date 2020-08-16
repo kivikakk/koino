@@ -37,9 +37,8 @@ pub const Parser = struct {
             var process = true;
             var eol = i;
             while (eol < sz) {
-                if (strings.isLineEndChar(s[eol])) {
+                if (strings.isLineEndChar(s[eol]))
                     break;
-                }
                 if (s[eol] == 0) {
                     process = false;
                     break;
@@ -59,12 +58,8 @@ pub const Parser = struct {
                 }
 
                 i = eol;
-                if (i < sz and s[i] == '\r') {
-                    i += 1;
-                }
-                if (i < sz and s[i] == '\n') {
-                    i += 1;
-                }
+                if (i < sz and s[i] == '\r') i += 1;
+                if (i < sz and s[i] == '\n') i += 1;
             } else {
                 assert(eol < sz and s[eol] == 0);
                 try linebuf.appendSlice(s[i..eol]);
@@ -113,8 +108,12 @@ pub const Parser = struct {
 
     fn processLine(self: *Parser, input: []const u8) !void {
         var line: []const u8 = undefined;
+        var new_line: ?[]u8 = null;
         if (input.len == 0 or !strings.isLineEndChar(input[input.len - 1])) {
-            unreachable;
+            new_line = try self.allocator.alloc(u8, input.len + 1);
+            std.mem.copy(u8, new_line.?, input);
+            new_line.?[input.len] = '\n';
+            line = new_line.?;
         } else {
             line = input;
         }
@@ -147,6 +146,9 @@ pub const Parser = struct {
         if (self.last_line_length > 0 and line[self.last_line_length - 1] == '\r') {
             self.last_line_length -= 1;
         }
+
+        // Removing this doesn't cause a detected leak. Worrying.
+        if (new_line) |nl| self.allocator.free(nl);
     }
 
     const CheckOpenBlocksResult = struct {
@@ -492,6 +494,17 @@ pub const Parser = struct {
         };
     }
 };
+
+test "handles EOF without EOL" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    {
+        var output = try main.markdownToHtml(&gpa.allocator, .{}, "hello");
+        defer gpa.allocator.free(output);
+        std.testing.expectEqualStrings("<p>hello</p>\n", output);
+    }
+}
 
 test "accepts multiple lines" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
