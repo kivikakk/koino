@@ -80,7 +80,7 @@ test "chopTrailingHashtags" {
 }
 
 pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
-    var code = std.ArrayList(u8).init(allocator);
+    var code = try std.ArrayList(u8).initCapacity(allocator, s.len);
 
     var i: usize = 0;
     var contains_nonspace = false;
