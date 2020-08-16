@@ -5,6 +5,7 @@ const mem = std.mem;
 
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
+const ctype = @import("ctype.zig");
 
 pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
     var buffer = std.ArrayList(u8).init(allocator);
@@ -123,6 +124,25 @@ const HtmlFormatter = struct {
             .BlockQuote => {
                 try self.cr();
                 try self.writeAll(if (entering) "<blockquote>\n" else "</blockquote>");
+            },
+            .CodeBlock => |ncb| {
+                if (entering) {
+                    try self.cr();
+
+                    if (ncb.info.len == 0) {
+                        try self.writeAll("<pre><code>");
+                    } else {
+                        var first_tag: usize = 0;
+                        while (first_tag < ncb.info.len and !ctype.isspace(ncb.info[first_tag]))
+                            first_tag += 1;
+
+                        try self.writeAll("<pre><code class=\"language-");
+                        try self.escape(ncb.info[0..first_tag]);
+                        try self.writeAll("\">");
+                    }
+                    try self.escape(ncb.literal);
+                    try self.writeAll("</code></pre>\n");
+                }
             },
             .Paragraph => {
                 var tight = node.parent != null and node.parent.?.parent != null and switch (node.parent.?.parent.?.data.value) {
