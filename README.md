@@ -1,6 +1,6 @@
 # koino
 
 ![Build Status](https://action-badges.now.sh/kivikakk/koino)
-![Spec Status: 114/671](https://img.shields.io/badge/specs-114%2F671-red.svg)
+![Spec Status: 190/671](https://img.shields.io/badge/specs-190%2F671-red.svg)
 
 Zig port of [Comrak](https://github.com/kivikakk/comrak).

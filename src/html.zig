@@ -3,13 +3,15 @@ const p = std.debug.print;
 const assert = std.debug.assert;
 const mem = std.mem;
 
+const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 
-pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) ![]u8 {
+pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
     var buffer = std.ArrayList(u8).init(allocator);
 
     var formatter = HtmlFormatter{
         .allocator = allocator,
+        .options = options,
         .buffer = &buffer,
     };
 
@@ -19,6 +21,7 @@ pub fn print(allocator: *mem.Allocator, root: *nodes.AstNode) ![]u8 {
 
 const HtmlFormatter = struct {
     allocator: *mem.Allocator,
+    options: *Options,
     buffer: *std.ArrayList(u8),
     last_was_lf: bool = true,
 
@@ -84,8 +87,11 @@ const HtmlFormatter = struct {
                     var new_plain: bool = undefined;
                     if (entry.plain) {
                         switch (entry.node.data.value) {
-                            .Text, .Code, .HtmlInline => |literal| {
+                            .Text, .HtmlInline => |literal| {
                                 try self.escape(literal.span());
+                            },
+                            .Code => |literal| {
+                                try self.escape(literal);
                             },
                             .LineBreak, .SoftBreak => {
                                 try self.writeAll(" ");
@@ -144,12 +150,14 @@ const HtmlFormatter = struct {
                 }
             },
             .SoftBreak => {
-                unreachable;
+                if (entering) {
+                    try self.writeAll(if (self.options.render.hard_breaks) "<br />\n" else "\n");
+                }
             },
             .Code => |literal| {
                 if (entering) {
                     try self.writeAll("<code>");
-                    try self.escape(literal.span());
+                    try self.escape(literal);
                     try self.writeAll("</code>");
                 }
             },
@@ -170,6 +178,7 @@ const HtmlFormatter = struct {
 
 const TestParts = struct {
     allocator: std.heap.GeneralPurposeAllocator(.{}) = undefined,
+    options: Options = .{},
     buffer: std.ArrayList(u8) = undefined,
     formatter: HtmlFormatter = undefined,
 
@@ -178,6 +187,7 @@ const TestParts = struct {
         self.buffer = std.ArrayList(u8).init(&self.allocator.allocator);
         self.formatter = HtmlFormatter{
             .allocator = &self.allocator.allocator,
+            .options = &self.options,
             .buffer = &self.buffer,
         };
     }

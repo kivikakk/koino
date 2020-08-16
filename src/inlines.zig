@@ -5,11 +5,13 @@ const assert = std.debug.assert;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const unicode = @import("unicode.zig");
+const Options = @import("options.zig").Options;
 
 const MAX_BACKTICKS = 80;
 
 pub const Subject = struct {
     allocator: *mem.Allocator,
+    options: *Options,
     input: []const u8,
     pos: usize = 0,
     last_delimiter: ?*Delimiter = null,
@@ -20,9 +22,10 @@ pub const Subject = struct {
     skip_chars: [256]bool = [_]bool{false} ** 256,
     smart_chars: [256]bool = [_]bool{false} ** 256,
 
-    pub fn init(allocator: *mem.Allocator, input: []const u8) Subject {
+    pub fn init(allocator: *mem.Allocator, options: *Options, input: []const u8) Subject {
         var s = Subject{
             .allocator = allocator,
+            .options = options,
             .input = input,
             .brackets = std.ArrayList(Bracket).init(allocator),
         };
@@ -45,14 +48,14 @@ pub const Subject = struct {
 
         switch (c.?) {
             0 => return false,
-            '\n', '\r' => new_inl = self.handleNewLine(),
+            '\n', '\r' => new_inl = try self.handleNewLine(),
             '`' => new_inl = try self.handleBackticks(),
             '\\' => new_inl = self.handleBackslash(),
             '&' => new_inl = self.handleEntity(),
             '<' => new_inl = self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
             '-' => new_inl = self.handleHyphen(),
-            '.' => new_inl = self.handlePeriod(),
+            '.' => new_inl = try self.handlePeriod(),
             '[' => {
                 unreachable;
                 // self.pos += 1;
@@ -86,7 +89,7 @@ pub const Subject = struct {
 
                 var new_contents = std.ArrayList(u8).init(self.allocator);
                 try new_contents.appendSlice(contents);
-                new_inl = try makeInline(self.allocator, .{ .Text = new_contents });
+                new_inl = try self.makeInline(.{ .Text = new_contents });
             },
         }
 
@@ -95,6 +98,13 @@ pub const Subject = struct {
         }
 
         return true;
+    }
+
+    fn makeInline(self: *Subject, value: nodes.NodeValue) !*nodes.AstNode {
+        return nodes.AstNode.create(self.allocator, .{
+            .value = value,
+            .content = std.ArrayList(u8).init(self.allocator),
+        });
     }
 
     pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) !void {
@@ -130,16 +140,32 @@ pub const Subject = struct {
 
                 var old_closer = closer;
 
-                if (opener.?.delim_char == '*' or closer.?.delim_char == '_') {
+                if (closer.?.delim_char == '*' or closer.?.delim_char == '_') {
                     if (opener_found) {
                         closer = try self.insertEmph(opener.?, closer.?);
                     } else {
                         closer = closer.?.next;
                     }
                 } else if (closer.?.delim_char == '\'') {
-                    unreachable;
+                    var al = closer.?.inl.data.value.text_mut().?;
+                    al.items.len = 0;
+                    try al.appendSlice("’");
+                    if (opener_found) {
+                        al = opener.?.inl.data.value.text_mut().?;
+                        al.items.len = 0;
+                        try al.appendSlice("‘");
+                    }
+                    closer = closer.?.next;
                 } else if (closer.?.delim_char == '"') {
-                    unreachable;
+                    var al = closer.?.inl.data.value.text_mut().?;
+                    al.items.len = 0;
+                    try al.appendSlice("”");
+                    if (opener_found) {
+                        al = opener.?.inl.data.value.text_mut().?;
+                        al.items.len = 0;
+                        try al.appendSlice("“");
+                    }
+                    closer = closer.?.next;
                 }
 
                 if (!opener_found) {
@@ -197,16 +223,21 @@ pub const Subject = struct {
     fn findSpecialChar(self: *Subject) usize {
         var n = self.pos;
         while (n < self.input.len) : (n += 1) {
-            if (self.special_chars[self.input[n]]) {
+            if (self.special_chars[self.input[n]])
                 return n;
-            }
-            // TODO: smart option
+            if (self.options.parse.smart and self.smart_chars[self.input[n]])
+                return n;
         }
         return n;
     }
 
-    fn handleNewLine(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleNewLine(self: *Subject) !*nodes.AstNode {
+        const nlpos = self.pos;
+        if (self.input[self.pos] == '\r') self.pos += 1;
+        if (self.input[self.pos] == '\n') self.pos += 1;
+        self.skipSpaces();
+        const line_break = nlpos > 1 and self.input[nlpos - 1] == ' ' and self.input[nlpos - 2] == ' ';
+        return self.makeInline(if (line_break) .LineBreak else .SoftBreak);
     }
 
     fn takeWhile(self: *Subject, c: u8) usize {
@@ -253,14 +284,21 @@ pub const Subject = struct {
 
         if (endpos) |end| {
             const buf = self.input[startpos .. end - openticks];
-            var code = std.ArrayList(u8).init(self.allocator);
-            try strings.normalizeCode(buf, &code);
-            return try makeInline(self.allocator, .{ .Code = code });
+            var code = try strings.normalizeCode(self.allocator, buf);
+            return try self.makeInline(.{ .Code = code });
         } else {
             self.pos = startpos;
             var new_contents = std.ArrayList(u8).init(self.allocator);
             try new_contents.appendNTimes('`', openticks);
-            return try makeInline(self.allocator, .{ .Text = new_contents });
+            return try self.makeInline(.{ .Text = new_contents });
+        }
+    }
+
+    fn skipSpaces(self: *Subject) void {
+        while (self.peekChar()) |c| {
+            if (!(c == ' ' or c == '\t'))
+                break;
+            self.pos += 1;
         }
     }
 
@@ -278,12 +316,19 @@ pub const Subject = struct {
 
     fn handleDelim(self: *Subject, c: u8) !*nodes.AstNode {
         const scan = try self.scanDelims(c);
-        const contents = self.input[self.pos - scan.num_delims .. self.pos];
+        const contents = if (c == '\'' and self.options.parse.smart)
+            "’"
+        else if (c == '"' and self.options.parse.smart and scan.can_close)
+            "”"
+        else if (c == '"' and self.options.parse.smart and !scan.can_close)
+            "“"
+        else
+            self.input[self.pos - scan.num_delims .. self.pos];
         var text = std.ArrayList(u8).init(self.allocator);
         try text.appendSlice(contents);
-        const inl = try makeInline(self.allocator, .{ .Text = text });
+        const inl = try self.makeInline(.{ .Text = text });
 
-        if ((scan.can_open or scan.can_close) and !(c == '\'' or c == '"')) {
+        if ((scan.can_open or scan.can_close) and (!(c == '\'' or c == '"') or self.options.parse.smart)) {
             try self.pushDelimiter(c, scan.can_open, scan.can_close, inl);
         }
 
@@ -294,8 +339,26 @@ pub const Subject = struct {
         unreachable;
     }
 
-    fn handlePeriod(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handlePeriod(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+        var text = std.ArrayList(u8).init(self.allocator);
+        // Weird `if` nesting due to https://github.com/ziglang/zig/issues/6059.
+        if (self.options.parse.smart) {
+            if (self.peekChar() == @as(u8, '.')) {
+                self.pos += 1;
+                if (self.peekChar() == @as(u8, '.')) {
+                    self.pos += 1;
+                    try text.appendSlice("…");
+                } else {
+                    try text.appendSlice("..");
+                }
+            } else {
+                try text.appendSlice(".");
+            }
+        } else {
+            try text.appendSlice(".");
+        }
+        return try self.makeInline(.{ .Text = text });
     }
 
     const ScanResult = struct {
@@ -401,7 +464,7 @@ pub const Subject = struct {
             delim = delim.?.prev;
         }
 
-        var emph = try makeInline(self.allocator, if (use_delims == 1) .Emph else .Strong);
+        var emph = try self.makeInline(if (use_delims == 1) .Emph else .Strong);
         var tmp = opener.inl.next.?;
         while (tmp != closer.inl) {
             var next = tmp.next;
@@ -451,10 +514,3 @@ const Bracket = struct {
     active: bool,
     bracket_after: bool,
 };
-
-fn makeInline(allocator: *mem.Allocator, value: nodes.NodeValue) !*nodes.AstNode {
-    return nodes.AstNode.create(allocator, .{
-        .value = value,
-        .content = std.ArrayList(u8).init(allocator),
-    });
-}
