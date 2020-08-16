@@ -37,6 +37,16 @@ const HtmlFormatter = struct {
     const NEEDS_ESCAPED = createMap("\"&<>");
     const HREF_SAFE = createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 
+    // Hack so that there's a Writer.Error.
+    const Writer = struct {
+        formatter: *HtmlFormatter,
+        pub const Error = error{OutOfMemory};
+
+        pub fn writeAll(self: @This(), bytes: []const u8) Error!void {
+            try self.formatter.writeAll(bytes);
+        }
+    };
+
     fn cr(self: *HtmlFormatter) !void {
         if (!self.last_was_lf) {
             try self.writeAll("\n");
@@ -61,7 +71,7 @@ const HtmlFormatter = struct {
         try self.writeAll(s[offset..]);
     }
 
-    fn writeAll(self: *HtmlFormatter, s: []const u8) !void {
+    pub fn writeAll(self: *HtmlFormatter, s: []const u8) !void {
         if (s.len == 0) {
             return;
         }
@@ -121,6 +131,22 @@ const HtmlFormatter = struct {
             .BlockQuote => {
                 try self.cr();
                 try self.writeAll(if (entering) "<blockquote>\n" else "</blockquote>");
+            },
+            .List => |nl| {
+                if (entering) {
+                    try self.cr();
+                    if (nl.list_type == .Bullet) {
+                        try self.writeAll("<ul>\n");
+                    } else if (nl.start == 1) {
+                        try self.writeAll("<ol>\n");
+                    } else {
+                        try std.fmt.format(Writer{ .formatter = self }, "<ol start=\"{}\">", .{nl.start});
+                    }
+                } else if (nl.list_type == .Bullet) {
+                    try self.writeAll("</ul>\n");
+                } else {
+                    try self.writeAll("</ol>\n");
+                }
             },
             .CodeBlock => |ncb| {
                 if (entering) {

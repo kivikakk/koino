@@ -7,6 +7,7 @@ const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
 const options = @import("options.zig");
+const ctype = @import("ctype.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -222,6 +223,9 @@ pub const Parser = struct {
             else => false,
         };
 
+        var matched: usize = undefined;
+        var nl: nodes.NodeList = undefined;
+
         while (switch (container.data.value) {
             .CodeBlock, .HtmlBlock => false,
             else => true,
@@ -242,8 +246,45 @@ pub const Parser = struct {
             // HTML block start
             // Setext heading line
             // Thematic break
-            // List marker
-            else if (indented and !maybe_lazy and !self.blank) {
+            else if ((!indented or switch (container.data.value) {
+                .List => true,
+                else => false,
+            }) and self.indent < 4 and parseListMarker(line, self.first_nonspace, switch (container.data.value) {
+                .Paragraph => true,
+                else => false,
+            }, &matched, &nl)) {
+                const offset = self.first_nonspace + matched - self.offset;
+                self.advanceOffset(line, offset, false);
+
+                const save_partially_consumed_tab = self.partially_consumed_tab;
+                const save_offset = self.offset;
+                const save_column = self.column;
+
+                while (self.column - save_column <= 5 and strings.isSpaceOrTab(line[self.offset])) {
+                    self.advanceOffset(line, 1, true);
+                }
+
+                const i = self.column - save_column;
+                if (i >= 5 or i < 1 or strings.isLineEndChar(line[self.offset])) {
+                    nl.padding = matched + 1;
+                    self.partially_consumed_tab = save_partially_consumed_tab;
+                    self.offset = save_offset;
+                    self.column = save_column;
+                    if (i > 0)
+                        self.advanceOffset(line, 1, true);
+                } else {
+                    nl.padding = matched + i;
+                }
+
+                nl.marker_offset = self.indent;
+
+                if (switch (container.data.value) {
+                    .List => |*mnl| !listsMatch(&nl, mnl),
+                    else => true,
+                }) {
+                    container = try self.addChild(container, .{ .List = nl });
+                }
+            } else if (indented and !maybe_lazy and !self.blank) {
                 self.advanceOffset(line, CODE_INDENT, true);
                 container = try self.addChild(container, .{
                     .CodeBlock = .{
@@ -415,8 +456,31 @@ pub const Parser = struct {
             .HtmlBlock => |nhb| {
                 unreachable;
             },
-            .List => {
-                unreachable;
+            .List => |*nl| {
+                nl.tight = true;
+                var it = node.first_child;
+
+                while (it) |item| {
+                    if (item.data.last_line_blank and item.next != null) {
+                        nl.tight = false;
+                        break;
+                    }
+
+                    var subit = item.first_child;
+                    while (subit) |subitem| {
+                        if (subitem.endsWithBlankLine() and (item.next != null or subitem.next != null)) {
+                            nl.tight = false;
+                            break;
+                        }
+                        subit = subitem.next;
+                    }
+
+                    if (!nl.tight) {
+                        break;
+                    }
+
+                    it = item.next;
+                }
             },
             else => {},
         }
@@ -550,6 +614,94 @@ pub const Parser = struct {
             6, 7 => !self.blank,
             else => unreachable,
         };
+    }
+
+    fn parseListMarker(line: []const u8, input_pos: usize, interrupts_paragraph: bool, matched: *usize, nl: *nodes.NodeList) bool {
+        var pos = input_pos;
+        var c = line[pos];
+        const startpos = pos;
+
+        if (c == '*' or c == '-' or c == '+') {
+            pos += 1;
+            if (!ctype.isspace(line[pos])) {
+                return false;
+            }
+
+            if (interrupts_paragraph) {
+                var i = pos;
+                while (strings.isSpaceOrTab(line[i])) : (i += 1) {}
+                if (line[i] == '\n') {
+                    return false;
+                }
+            }
+
+            matched.* = pos - startpos;
+            nl.* = .{
+                .list_type = .Bullet,
+                .marker_offset = 0,
+                .padding = 0,
+                .start = 1,
+                .delimiter = .Period,
+                .bullet_char = c,
+                .tight = false,
+            };
+            return true;
+        }
+
+        if (ctype.isdigit(c)) {
+            var start: usize = 0;
+            var digits: u8 = 0;
+
+            while (digits < 9 and ctype.isdigit(line[pos])) {
+                start = (10 * start) + (line[pos] - '0');
+                pos += 1;
+                digits += 1;
+            }
+
+            if (interrupts_paragraph and start != 1) {
+                return false;
+            }
+
+            c = line[pos];
+            if (c != '.' and c != ')') {
+                return false;
+            }
+
+            pos += 1;
+
+            if (!ctype.isspace(line[pos])) {
+                return false;
+            }
+
+            if (interrupts_paragraph) {
+                var i = pos;
+                while (strings.isSpaceOrTab(line[i])) : (i += 1) {}
+                if (strings.isLineEndChar(line[i])) {
+                    return false;
+                }
+            }
+
+            matched.* = pos - startpos;
+            nl.* = .{
+                .list_type = .Ordered,
+                .marker_offset = 0,
+                .padding = 0,
+                .start = start,
+                .delimiter = if (c == '.')
+                    .Period
+                else
+                    .Paren,
+                .bullet_char = 0,
+                .tight = false,
+            };
+            return true;
+        }
+
+        return false;
+    }
+
+    fn listsMatch(list_data: *const nodes.NodeList, item_data: *const nodes.NodeList) bool {
+        return list_data.list_type == item_data.list_type and list_data.delimiter == item_data.delimiter and list_data.bullet_char == item_data.bullet_char;
     }
 };
 
