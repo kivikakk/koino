@@ -583,22 +583,19 @@ test "accepts multiple lines" {
 test "handles tabs" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    std.debug.print("tab tests skipped", .{});
-    if (false) {
-        {
-            var output = try main.markdownToHtml(&gpa.allocator, .{}, "\tfoo\tbaz\t\tbim\n");
-            defer gpa.allocator.free(output);
-            std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>", output);
-        }
-        {
-            var output = try main.markdownToHtml(&gpa.allocator, .{}, "  \tfoo\tbaz\t\tbim\n");
-            defer gpa.allocator.free(output);
-            std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>", output);
-        }
-        {
-            var output = try main.markdownToHtml(&gpa.allocator, .{}, "  - foo\n\n\tbar\n");
-            defer gpa.allocator.free(output);
-            std.testing.expectEqualStrings("<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n", output);
-        }
+    {
+        var output = try main.markdownToHtml(&gpa.allocator, .{}, "\tfoo\tbaz\t\tbim\n");
+        defer gpa.allocator.free(output);
+        std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(&gpa.allocator, .{}, "  \tfoo\tbaz\t\tbim\n");
+        defer gpa.allocator.free(output);
+        std.testing.expectEqualStrings("<pre><code>foo\tbaz\t\tbim\n</code></pre>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(&gpa.allocator, .{}, "  - foo\n\n\tbar\n");
+        defer gpa.allocator.free(output);
+        std.testing.expectEqualStrings("<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n", output);
     }
 }
