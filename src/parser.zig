@@ -263,8 +263,14 @@ pub const Parser = struct {
             // Open code fence
             // HTML block start
             // Setext heading line
-            // Thematic break
-            else if ((!indented or switch (container.data.value) {
+            else if (!indented and !(switch (container.data.value) {
+                .Paragraph => !all_matched,
+                else => false,
+            }) and try scanners.thematicBreak(line[self.first_nonspace..], &matched)) {
+                container = try self.addChild(container, .ThematicBreak);
+                const adv = line.len - 1 - self.offset;
+                self.advanceOffset(line, adv, false);
+            } else if ((!indented or switch (container.data.value) {
                 .List => true,
                 else => false,
             }) and self.indent < 4 and parseListMarker(line, self.first_nonspace, switch (container.data.value) {

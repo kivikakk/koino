@@ -183,6 +183,12 @@ const HtmlFormatter = struct {
                     try self.writeAll("</code></pre>\n");
                 }
             },
+            .ThematicBreak => {
+                if (entering) {
+                    try self.cr();
+                    try self.writeAll("<hr />\n");
+                }
+            },
             .Paragraph => {
                 var tight = node.parent != null and node.parent.?.parent != null and switch (node.parent.?.parent.?.data.value) {
                     .List => |nl| nl.tight,
