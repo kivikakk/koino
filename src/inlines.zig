@@ -7,8 +7,11 @@ const strings = @import("strings.zig");
 const unicode = @import("unicode.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
+const scanners = @import("scanners.zig");
 
 const MAX_BACKTICKS = 80;
+
+pub const ParseError = error{ OutOfMemory, InvalidUtf8 };
 
 pub const Subject = struct {
     allocator: *mem.Allocator,
@@ -39,7 +42,7 @@ pub const Subject = struct {
         return s;
     }
 
-    pub fn parseInline(self: *Subject, node: *nodes.AstNode) !bool {
+    pub fn parseInline(self: *Subject, node: *nodes.AstNode) ParseError!bool {
         const c = self.peekChar();
         if (c == null) {
             return false;
@@ -53,7 +56,7 @@ pub const Subject = struct {
             '`' => new_inl = try self.handleBackticks(),
             '\\' => new_inl = try self.handleBackslash(),
             '&' => new_inl = self.handleEntity(),
-            '<' => new_inl = self.handlePointyBrace(),
+            '<' => new_inl = try self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
             '-' => new_inl = try self.handleHyphen(),
             '.' => new_inl = try self.handlePeriod(),
@@ -104,6 +107,17 @@ pub const Subject = struct {
             .value = value,
             .content = std.ArrayList(u8).init(self.allocator),
         });
+    }
+
+    fn makeAutolink(self: *Subject, url: []const u8, kind: nodes.AutolinkType) !*nodes.AstNode {
+        var inl = try self.makeInline(.{
+            .Link = .{
+                .url = try strings.cleanAutolink(self.allocator, url, kind),
+                .title = "",
+            },
+        });
+        inl.append(try self.makeInline(.{ .Text = try strings.unescapeHtml(self.allocator, url) }));
+        return inl;
     }
 
     pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) !void {
@@ -325,8 +339,30 @@ pub const Subject = struct {
         unreachable;
     }
 
-    fn handlePointyBrace(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handlePointyBrace(self: *Subject) !*nodes.AstNode {
+        var match_len: usize = undefined;
+        self.pos += 1;
+
+        if (try scanners.autolinkUri(self.input[self.pos..], &match_len)) {
+            var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .URI);
+            self.pos += match_len;
+            return inl;
+        }
+
+        // if (try scanners.autolinkEmail(self.input[self.pos..], &match_len)) {
+        //     var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .Email);
+        //     self.pos += match_len;
+        //     return inl;
+        // }
+        //
+        // if (try scanners.htmlTag(self.input[self.pos..], &match_len)) {
+        //     var contents = self.input[self.pos - 1 .. self.pos + match_len];
+        //     var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
+        //     self.pos += match_len;
+        //     return inl;
+        // }
+
+        return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "<") });
     }
 
     fn handleDelim(self: *Subject, c: u8) !*nodes.AstNode {

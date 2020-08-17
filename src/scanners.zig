@@ -78,3 +78,11 @@ pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) !bool {
     }
     return false;
 }
+
+const scheme = "[A-Za-z][A-Za-z0-9.+\\-]{1,31}";
+
+pub fn autolinkUri(line: []const u8, matched: *usize) !bool {
+    @setEvalBranchQuota(2000);
+    // TODO: deal with unicode weirdness here
+    return search(line, matched, scheme ++ ":[^\x00-\x20<>]*>") catch false;
+}

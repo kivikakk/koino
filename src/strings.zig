@@ -2,6 +2,7 @@ const std = @import("std");
 const mem = std.mem;
 const testing = std.testing;
 const ctype = @import("ctype.zig");
+const nodes = @import("nodes.zig");
 
 pub fn isLineEndChar(ch: u8) bool {
     return switch (ch) {
@@ -36,11 +37,22 @@ test "isBlank" {
     testing.expect(!isBlank("   \t    e "));
 }
 
+pub fn ltrim(s: []const u8) []const u8 {
+    var i: usize = 0;
+    while (i < s.len and ctype.isspace(s[i])) : (i += 1) {}
+    return s[i..];
+}
+
+test "ltrim" {
+    testing.expectEqualStrings("abc", ltrim("abc"));
+    testing.expectEqualStrings("abc", ltrim("   abc"));
+    testing.expectEqualStrings("abc", ltrim("      \n\n \t\r abc"));
+    testing.expectEqualStrings("abc \n zz \n   ", ltrim("\nabc \n zz \n   "));
+}
+
 pub fn rtrim(s: []const u8) []const u8 {
     var len = s.len;
-    while (len > 0 and ctype.isspace(s[len - 1])) {
-        len -= 1;
-    }
+    while (len > 0 and ctype.isspace(s[len - 1])) : (len -= 1) {}
     return s[0..len];
 }
 
@@ -49,6 +61,10 @@ test "rtrim" {
     testing.expectEqualStrings("abc", rtrim("abc   "));
     testing.expectEqualStrings("abc", rtrim("abc      \n\n \t\r "));
     testing.expectEqualStrings("  \nabc \n zz", rtrim("  \nabc \n zz \n"));
+}
+
+pub fn trim(s: []const u8) []const u8 {
+    return rtrim(ltrim(s));
 }
 
 pub fn chopTrailingHashtags(s: []const u8) []const u8 {
@@ -126,8 +142,8 @@ test "normalizeCode" {
 
     for (cases) |case| {
         const result = try normalizeCode(std.testing.allocator, case.in);
+        defer std.testing.allocator.free(result);
         testing.expectEqualStrings(case.out, result);
-        std.testing.allocator.free(result);
     }
 }
 
@@ -161,12 +177,90 @@ test "removeTrailingBlankLines" {
     };
 
     var line = std.ArrayList(u8).init(std.testing.allocator);
+    defer line.deinit();
     for (cases) |case| {
         line.items.len = 0;
         try line.appendSlice(case.in);
         removeTrailingBlankLines(&line);
         testing.expectEqualStrings(case.out, line.span());
     }
+}
 
-    line.deinit();
+fn unescapeInto(text: []const u8, out, *std.ArrayList(u8)) !?usize {
+    unreachable;
+}
+
+fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
+    var size = html.len;
+    var i: usize = 0;
+
+    while (i < size) {
+        const org = i;
+
+        while (i < size and html[i] != '&') : (i += 1) {}
+
+        if (i > org) {
+            if (org == 0 and i >= size) {
+                try out.appendSlice(html);
+                return;
+            }
+
+            try out.appendSlice(html[org..i]);
+        }
+
+        if (i >= size)
+            return;
+
+        i += 1;
+
+        if (try unescapeInto(html[i..], out)) |size| {
+            i += size;
+        } else {
+            try out.append('&');
+        }
+    }
+}
+
+pub fn unescapeHtml(allocator: *mem.Allocator, html: []const u8) ![]u8 {
+    var al = std.ArrayList(u8).init(allocator);
+    try unescapeHtmlInto(html, &al);
+    return al.toOwnedSlice();
+}
+
+test "unescapeHtml" {
+    const cases = [_]Case{
+        // test #123
+        // test #x123
+        // test amp
+        // etc.
+    };
+
+    for (cases) |case| {
+        const result = try unescapeHtml(std.testing.allocator, case.in);
+        defer std.testing.allocator.free(result);
+        testing.expectEqualStrings(case.out, result);
+    }
+}
+
+pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
+    var trimmed = trim(url);
+    if (trimmed.len == 0)
+        return allocator.dupe(u8, trimmed);
+
+    var buf = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
+    if (kind == .Email)
+        try buf.appendSlice("mailto:");
+
+    try unescapeHtmlInto(trimmed, &buf);
+    return buf.toOwnedSlice();
+}
+
+test "cleanAutolink" {
+    var email = try cleanAutolink(std.testing.allocator, "  hello&#x40;world.example ", .Email);
+    defer std.testing.allocator.free(email);
+    testing.expectEqualStrings("mailto:hello@world.example", email);
+
+    var uri = try cleanAutolink(std.testing.allocator, "  www&#46;com ", .URI);
+    defer std.testing.allocator.free(uri);
+    testing.expectEqualStrings("www.com", uri);
 }

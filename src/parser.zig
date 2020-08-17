@@ -560,9 +560,7 @@ pub const Parser = struct {
         try self.processInlinesNode(self.root);
     }
 
-    const InlineParseError = error{ OutOfMemory, InvalidUtf8 };
-
-    fn processInlinesNode(self: *Parser, node: *nodes.AstNode) InlineParseError!void {
+    fn processInlinesNode(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
         if (node.data.value.containsInlines()) {
             try self.parseInlines(node);
         }
@@ -581,7 +579,7 @@ pub const Parser = struct {
         // }
     }
 
-    fn parseInlines(self: *Parser, node: *nodes.AstNode) !void {
+    fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
         var content = strings.rtrim(node.data.content.span());
         var subj = inlines.Subject.init(self.allocator, &self.options, content);
         while (try subj.parseInline(node)) {}
@@ -817,5 +815,5 @@ test "escapes" {
 }
 
 test "setext heading override pointy" {
-    try expectMarkdownHTML(.{}, "<a title=\"a lot\n---\nof dashes\"/>\n", "<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>");
+    try expectMarkdownHTML(.{}, "<a title=\"a lot\n---\nof dashes\"/>\n", "<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n");
 }

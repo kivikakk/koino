@@ -156,3 +156,8 @@ pub const NodeHeading = struct {
     level: u8 = 0,
     setext: bool = false,
 };
+
+pub const AutolinkType = enum {
+    URI,
+    Email,
+};
