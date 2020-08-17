@@ -229,6 +229,7 @@ pub const Parser = struct {
 
         var matched: usize = undefined;
         var nl: nodes.NodeList = undefined;
+        var sc: scanners.SetextChar = undefined;
 
         while (switch (container.data.value) {
             .CodeBlock, .HtmlBlock => false,
@@ -244,13 +245,50 @@ pub const Parser = struct {
                     self.advanceOffset(line, 1, true);
                 }
                 container = try self.addChild(container, .BlockQuote);
+            } else if (!indented and try scanners.atxHeadingStart(line[self.first_nonspace..], &matched)) {
+                const heading_startpos = self.first_nonspace;
+                const offset = self.offset;
+                self.advanceOffset(line, heading_startpos + matched - offset, false);
+                container = try self.addChild(container, .{ .Heading = .{} });
+
+                var hashpos = std.mem.indexOfScalar(u8, line[self.first_nonspace..], '#').? + self.first_nonspace;
+                var level: u8 = 0;
+                while (line[hashpos] == '#') {
+                    if (level < 6)
+                        level += 1;
+                    hashpos += 1;
+                }
+
+                container.data.value = .{ .Heading = .{ .level = level, .setext = false } };
             }
-            // ATX heading start
             // Open code fence
             // HTML block start
-            // Setext heading line
-            // Thematic break
-            else if ((!indented or switch (container.data.value) {
+            else if (!indented and switch (container.data.value) {
+                .Paragraph => try scanners.setextHeadingLine(line[self.first_nonspace..], &sc),
+                else => false,
+            }) {
+                const has_content = self.resolveReferenceLinkDefinitions(&container.data.content);
+                if (has_content) {
+                    container.data.value = .{
+                        .Heading = .{
+                            .level = switch (sc) {
+                                .Equals => 1,
+                                .Hyphen => 2,
+                            },
+                            .setext = true,
+                        },
+                    };
+                    const adv = line.len - 1 - self.offset;
+                    self.advanceOffset(line, adv, false);
+                }
+            } else if (!indented and !(switch (container.data.value) {
+                .Paragraph => !all_matched,
+                else => false,
+            }) and try scanners.thematicBreak(line[self.first_nonspace..], &matched)) {
+                container = try self.addChild(container, .ThematicBreak);
+                const adv = line.len - 1 - self.offset;
+                self.advanceOffset(line, adv, false);
+            } else if ((!indented or switch (container.data.value) {
                 .List => true,
                 else => false,
             }) and self.indent < 4 and parseListMarker(line, self.first_nonspace, switch (container.data.value) {
@@ -446,7 +484,8 @@ pub const Parser = struct {
 
         switch (node.data.value) {
             .Paragraph => {
-                if (strings.isBlank(node.data.content.span())) {
+                const has_content = self.resolveReferenceLinkDefinitions(&node.data.content);
+                if (!has_content) {
                     node.detachDeinit();
                 }
             },
@@ -492,6 +531,29 @@ pub const Parser = struct {
         }
 
         return parent;
+    }
+
+    fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) bool {
+        var seeked: usize = 0;
+        var pos: usize = undefined;
+        var seek = content.span();
+
+        while (seek.len > 0 and seek[0] == '[' and self.parseReferenceInline(seek, &pos)) {
+            seek = seek[pos..];
+            seeked += pos;
+        }
+
+        if (seeked != 0) {
+            // *content = content[seeked..].to_vec();
+            unreachable;
+        }
+
+        return !strings.isBlank(content.span());
+    }
+
+    fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) bool {
+        // TODO
+        return false;
     }
 
     fn processInlines(self: *Parser) !void {
@@ -763,5 +825,15 @@ test "handles tabs" {
         var output = try main.markdownToHtml(std.testing.allocator, .{}, "  - foo\n\n\tbar\n");
         defer std.testing.allocator.free(output);
         std.testing.expectEqualStrings("<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "#\tFoo\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<h1>Foo</h1>\n", output);
+    }
+    {
+        var output = try main.markdownToHtml(std.testing.allocator, .{}, "*\t*\t*\t\n");
+        defer std.testing.allocator.free(output);
+        std.testing.expectEqualStrings("<hr />\n", output);
     }
 }

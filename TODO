@@ -1,2 +1,3 @@
 * use errdefer, actually recover without loss
   * test failed allocations at various stages
+* investigate where we might be able to add comptime to parameters
