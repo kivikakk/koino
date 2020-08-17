@@ -6,6 +6,7 @@ const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const unicode = @import("unicode.zig");
 const Options = @import("options.zig").Options;
+const ctype = @import("ctype.zig");
 
 const MAX_BACKTICKS = 80;
 
@@ -50,7 +51,7 @@ pub const Subject = struct {
             0 => return false,
             '\n', '\r' => new_inl = try self.handleNewLine(),
             '`' => new_inl = try self.handleBackticks(),
-            '\\' => new_inl = self.handleBackslash(),
+            '\\' => new_inl = try self.handleBackslash(),
             '&' => new_inl = self.handleEntity(),
             '<' => new_inl = self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
@@ -300,8 +301,24 @@ pub const Subject = struct {
         }
     }
 
-    fn handleBackslash(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleBackslash(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+        if (ctype.ispunct(self.peekChar() orelse 0)) {
+            self.pos += 1;
+            var contents = try self.allocator.dupe(u8, self.input[self.pos - 1 .. self.pos]);
+            return try self.makeInline(.{ .Text = contents });
+        } else if (!self.eof() and self.skipLineEnd()) {
+            return try self.makeInline(.LineBreak);
+        } else {
+            return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "\\") });
+        }
+    }
+
+    fn skipLineEnd(self: *Subject) bool {
+        const old_pos = self.pos;
+        if (self.peekChar() orelse 0 == '\r') self.pos += 1;
+        if (self.peekChar() orelse 0 == '\n') self.pos += 1;
+        return self.pos > old_pos or self.eof();
     }
 
     fn handleEntity(self: *Subject) *nodes.AstNode {
