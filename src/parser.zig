@@ -815,3 +815,7 @@ test "handles tabs" {
 test "escapes" {
     try expectMarkdownHTML(.{}, "\\## foo\n", "<p>## foo</p>\n");
 }
+
+test "setext heading override pointy" {
+    try expectMarkdownHTML(.{}, "<a title=\"a lot\n---\nof dashes\"/>\n", "<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>");
+}
