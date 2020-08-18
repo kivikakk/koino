@@ -55,7 +55,7 @@ pub const Subject = struct {
             '\n', '\r' => new_inl = try self.handleNewLine(),
             '`' => new_inl = try self.handleBackticks(),
             '\\' => new_inl = try self.handleBackslash(),
-            '&' => new_inl = self.handleEntity(),
+            '&' => new_inl = try self.handleEntity(),
             '<' => new_inl = try self.handlePointyBrace(),
             '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
             '-' => new_inl = try self.handleHyphen(),
@@ -335,8 +335,17 @@ pub const Subject = struct {
         return self.pos > old_pos or self.eof();
     }
 
-    fn handleEntity(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleEntity(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+
+        var out = std.ArrayList(u8).init(self.allocator);
+        if (try strings.unescapeInto(self.input[self.pos..], &out)) |len| {
+            self.pos += len;
+            return try self.makeInline(.{ .Text = out.toOwnedSlice() });
+        }
+
+        try out.append('&');
+        return try self.makeInline(.{ .Text = out.toOwnedSlice() });
     }
 
     fn handlePointyBrace(self: *Subject) !*nodes.AstNode {

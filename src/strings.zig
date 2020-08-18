@@ -190,7 +190,16 @@ test "removeTrailingBlankLines" {
 const ENTITY_MIN_LENGTH: u8 = 2;
 const ENTITY_MAX_LENGTH: u8 = 32;
 
-fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
+var entities: ?std.StringHashMap(htmlentities.Entity) = null;
+var entitiesArena: std.heap.ArenaAllocator = undefined;
+pub fn deinitEntities() void {
+    if (entities != null) {
+        entitiesArena.deinit();
+        entities = null;
+    }
+}
+
+pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
     if (text.len >= 3 and text[0] == '#') {
         var codepoint: u32 = 0;
         var i: usize = 0;
@@ -238,13 +247,15 @@ fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
         if (text[i] == ' ')
             return null;
         if (text[i] == ';') {
-            var entities = try htmlentities.entities(std.testing.allocator);
-            defer htmlentities.freeEntities(std.testing.allocator, &entities);
+            if (entities == null) {
+                entitiesArena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+                entities = try htmlentities.entities(&entitiesArena.allocator);
+            }
 
             var key = [_]u8{'&'} ++ [_]u8{';'} ** (ENTITY_MAX_LENGTH + 1);
             mem.copy(u8, key[1..], text[0..i]);
 
-            if (entities.get(key[0 .. i + 2])) |item| {
+            if (entities.?.get(key[0 .. i + 2])) |item| {
                 try out.appendSlice(item.characters);
                 return i + 1;
             }
@@ -292,6 +303,8 @@ pub fn unescapeHtml(allocator: *mem.Allocator, html: []const u8) ![]u8 {
 }
 
 test "unescapeHtml" {
+    defer deinitEntities();
+
     const cases = [_]Case{
         .{ .in = "&#116;&#101;&#115;&#116;", .out = "test" },
         .{ .in = "&#12486;&#12473;&#12488;", .out = "テスト" },
@@ -325,6 +338,8 @@ pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.Aut
 }
 
 test "cleanAutolink" {
+    defer deinitEntities();
+
     var email = try cleanAutolink(std.testing.allocator, "  hello&#x40;world.example ", .Email);
     defer std.testing.allocator.free(email);
     testing.expectEqualStrings("mailto:hello@world.example", email);
