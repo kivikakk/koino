@@ -240,6 +240,14 @@ fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
         if (text[i] == ';') {
             var entities = try htmlentities.entities(std.testing.allocator);
             defer htmlentities.freeEntities(std.testing.allocator, &entities);
+
+            var key = [_]u8{'&'} ++ [_]u8{';'} ** (ENTITY_MAX_LENGTH + 1);
+            mem.copy(u8, key[1..], text[0..i]);
+
+            if (entities.get(key[0 .. i + 2])) |item| {
+                try out.appendSlice(item.characters);
+                return i + 1;
+            }
         }
     }
 
@@ -301,8 +309,6 @@ test "unescapeHtml" {
         defer std.testing.allocator.free(result);
         testing.expectEqualStrings(case.out, result);
     }
-
-    unreachable;
 }
 
 pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
