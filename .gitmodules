@@ -2,5 +2,8 @@
 	path = vendor/cmark-gfm
 	url = https://github.com/kivikakk/cmark-gfm.git
 [submodule "vendor/ctregex"]
-	path = vendor/ctregex
+	path = vendor/ctregex.zig
 	url = https://github.com/kivikakk/ctregex.zig
+[submodule "vendor/htmlentities"]
+	path = vendor/htmlentities.zig
+	url = https://github.com/kivikakk/htmlentities.zig

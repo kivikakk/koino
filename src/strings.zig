@@ -186,7 +186,7 @@ test "removeTrailingBlankLines" {
     }
 }
 
-fn unescapeInto(text: []const u8, out, *std.ArrayList(u8)) !?usize {
+fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
     unreachable;
 }
 
@@ -213,8 +213,8 @@ fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
 
         i += 1;
 
-        if (try unescapeInto(html[i..], out)) |size| {
-            i += size;
+        if (try unescapeInto(html[i..], out)) |unescaped_size| {
+            i += unescaped_size;
         } else {
             try out.append('&');
         }
@@ -229,10 +229,15 @@ pub fn unescapeHtml(allocator: *mem.Allocator, html: []const u8) ![]u8 {
 
 test "unescapeHtml" {
     const cases = [_]Case{
-        // test #123
-        // test #x123
-        // test amp
-        // etc.
+        .{ .in = "&#116;&#101;&#115;&#116;", .out = "test" },
+        .{ .in = "&#12486;&#12473;&#12488;", .out = "テスト" },
+        .{ .in = "&#x74;&#x65;&#X73;&#X74;", .out = "test" },
+        .{ .in = "&#x30c6;&#x30b9;&#X30c8;", .out = "テスト" },
+
+        // "Although HTML5 does accept some entity references without a trailing semicolon
+        // (such as &copy), these are not recognized here, because it makes the grammar too
+        // ambiguous:"
+        .{ .in = "&hellip;&eacute&Eacute;&rrarr;&oS;", .out = "…&eacuteÉ⇉Ⓢ" },
     };
 
     for (cases) |case| {
@@ -240,6 +245,8 @@ test "unescapeHtml" {
         defer std.testing.allocator.free(result);
         testing.expectEqualStrings(case.out, result);
     }
+
+    unreachable;
 }
 
 pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
