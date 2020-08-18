@@ -187,7 +187,47 @@ test "removeTrailingBlankLines" {
 }
 
 fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
-    unreachable;
+    if (text.len >= 3 and text[0] == '#') {
+        var codepoint: u32 = 0;
+        var i: usize = 0;
+
+        const num_digits = block: {
+            if (ctype.isdigit(text[1])) {
+                i = 1;
+                while (i < text.len and ctype.isdigit(text[i])) {
+                    codepoint = (codepoint * 10) + (@as(u32, text[i]) - '0');
+                    codepoint = std.math.min(codepoint, 0x11_0000);
+                    i += 1;
+                }
+                break :block i - 1;
+            } else if (text[1] == 'x' or text[1] == 'X') {
+                i = 2;
+                while (i < text.len and ctype.isxdigit(text[i])) {
+                    codepoint = (codepoint * 16) + (@as(u32, text[i]) | 32) % 39 - 9;
+                    codepoint = std.math.min(codepoint, 0x11_0000);
+                    i += 1;
+                }
+                break :block i - 2;
+            }
+            break :block 0;
+        };
+
+        if (num_digits >= 1 and num_digits <= 8 and i < text.len and text[i] == ';') {
+            if (codepoint == 0 or (codepoint >= 0xd800 and codepoint <= 0xdfff) or codepoint >= 0x110000) {
+                codepoint = 0xFFFD;
+            }
+            var sequence = [4]u8{ 0, 0, 0, 0 };
+            // utf8Encode throws:
+            // - Utf8CannotEncodeSurrogateHalf, which we guard against that by
+            //   rewriting 0xd800..0xe0000 to 0xfffd.
+            // - CodepointTooLarge, which we guard against by rewriting 0x110000+
+            //   to 0xfffd.
+            const len = std.unicode.utf8Encode(@truncate(u21, codepoint), &sequence) catch unreachable;
+            try out.appendSlice(sequence[0..len]);
+            return i + 1;
+        }
+    }
+    return null;
 }
 
 fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
