@@ -3,6 +3,7 @@ const mem = std.mem;
 const testing = std.testing;
 const ctype = @import("ctype.zig");
 const nodes = @import("nodes.zig");
+const htmlentities = @import("htmlentities");
 
 pub fn isLineEndChar(ch: u8) bool {
     return switch (ch) {
@@ -186,6 +187,9 @@ test "removeTrailingBlankLines" {
     }
 }
 
+const ENTITY_MIN_LENGTH: u8 = 2;
+const ENTITY_MAX_LENGTH: u8 = 32;
+
 fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
     if (text.len >= 3 and text[0] == '#') {
         var codepoint: u32 = 0;
@@ -227,6 +231,18 @@ fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
             return i + 1;
         }
     }
+
+    const size = std.math.min(text.len, ENTITY_MAX_LENGTH);
+    var i = ENTITY_MIN_LENGTH;
+    while (i < size) : (i += 1) {
+        if (text[i] == ' ')
+            return null;
+        if (text[i] == ';') {
+            var entities = try htmlentities.entities(std.testing.allocator);
+            defer htmlentities.freeEntities(std.testing.allocator, &entities);
+        }
+    }
+
     return null;
 }
 
