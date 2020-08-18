@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const ctregex = @import("ctregex");
 
 fn search(line: []const u8, matched: *usize, comptime regex: []const u8) !bool {
@@ -57,13 +58,13 @@ pub fn thematicBreak(line: []const u8, matched: *usize) !bool {
 
 test "thematicBreak" {
     var matched: usize = undefined;
-    std.testing.expect(!try thematicBreak("hello", &matched));
-    std.testing.expect(try thematicBreak("***\n", &matched));
-    std.testing.expectEqual(@as(usize, 4), matched);
-    std.testing.expect(try thematicBreak("-          -   -    \r", &matched));
-    std.testing.expectEqual(@as(usize, 21), matched);
-    std.testing.expect(try thematicBreak("-          -   -    \r\nxyz", &matched));
-    std.testing.expectEqual(@as(usize, 21), matched);
+    testing.expect(!try thematicBreak("hello", &matched));
+    testing.expect(try thematicBreak("***\n", &matched));
+    testing.expectEqual(@as(usize, 4), matched);
+    testing.expect(try thematicBreak("-          -   -    \r", &matched));
+    testing.expectEqual(@as(usize, 21), matched);
+    testing.expect(try thematicBreak("-          -   -    \r\nxyz", &matched));
+    testing.expectEqual(@as(usize, 21), matched);
 }
 
 pub const SetextChar = enum {
@@ -83,6 +84,43 @@ const scheme = "[A-Za-z][A-Za-z0-9.+\\-]{1,31}";
 
 pub fn autolinkUri(line: []const u8, matched: *usize) !bool {
     @setEvalBranchQuota(2000);
-    // TODO: deal with unicode weirdness here
-    return search(line, matched, scheme ++ ":[^\x00-\x20<>]*>") catch false;
+    // TODO: deal with unicode weirdness here instead of `catch false'
+
+    // XXX: working around ctregex weirdness here: "\x00-\x20" is expressed as "\x00-\\ \x20"
+    // because \x20 is in fact 'SPACE' (U+0020), and ctregex skips those (and 'CHARACTER
+    // TABULATION' U+0009).
+    return search(line, matched, scheme ++ ":[^\x00-\\ \x20<>]*" ++ ">") catch false;
+}
+
+test "autolinkUri" {
+    var matched: usize = undefined;
+    testing.expect(!try autolinkUri("www.google.com>", &matched));
+    testing.expect(try autolinkUri("https://www.google.com>", &matched));
+    testing.expectEqual(@as(usize, 23), matched);
+    testing.expect(try autolinkUri("a+b-c:>", &matched));
+    testing.expectEqual(@as(usize, 7), matched);
+    testing.expect(!try autolinkUri("a+b-c:", &matched));
+}
+
+pub fn autolinkEmail(line: []const u8, matched: *usize) !bool {
+    @setEvalBranchQuota(5000);
+    const user_part = "[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~\\-]+";
+    const host_part = "[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?";
+    const rest = "(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*";
+    const re = user_part ++ "@" ++ host_part ++ rest ++ ">";
+    // TODO: as above
+    var r = search(line, matched, re);
+    std.debug.warn("{} ~ {}\n", .{ re, r });
+    return r catch false;
+}
+
+test "autolinkEmail" {
+    var matched: usize = undefined;
+    testing.expect(!try autolinkEmail("abc>", &matched));
+    testing.expect(!try autolinkEmail("abc.def>", &matched));
+    testing.expect(!try autolinkEmail("abc@def", &matched));
+    //testing.expect(try autolinkEmail("abc@def>", &matched));
+    //testing.expectEqual(@as(usize, 8), matched);
+    testing.expect(try autolinkEmail("abc+123!?@96--1>", &matched));
+    testing.expectEqual(@as(usize, 7), matched);
 }
