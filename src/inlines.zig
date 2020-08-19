@@ -43,21 +43,17 @@ pub const Subject = struct {
     }
 
     pub fn parseInline(self: *Subject, node: *nodes.AstNode) ParseError!bool {
-        const c = self.peekChar();
-        if (c == null) {
-            return false;
-        }
-
+        const c = self.peekChar() orelse return false;
         var new_inl: ?*nodes.AstNode = null;
 
-        switch (c.?) {
+        switch (c) {
             0 => return false,
             '\n', '\r' => new_inl = try self.handleNewLine(),
             '`' => new_inl = try self.handleBackticks(),
             '\\' => new_inl = try self.handleBackslash(),
             '&' => new_inl = try self.handleEntity(),
             '<' => new_inl = try self.handlePointyBrace(),
-            '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
+            '*', '_', '\'', '"' => new_inl = try self.handleDelim(c),
             '-' => new_inl = try self.handleHyphen(),
             '.' => new_inl = try self.handlePeriod(),
             '[' => {
