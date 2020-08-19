@@ -5,7 +5,6 @@ const Parser = @import("parser.zig").Parser;
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const html = @import("html.zig");
-const deinitEntities = @import("strings.zig").deinitEntities;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -21,8 +20,6 @@ pub fn main() !void {
     defer gpa.allocator.free(output);
 
     try std.io.getStdOut().writer().writeAll(output);
-
-    deinitEntities();
 }
 
 pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
