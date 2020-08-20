@@ -1,9 +1,9 @@
 [submodule "vendor/cmark-gfm"]
 	path = vendor/cmark-gfm
 	url = https://github.com/kivikakk/cmark-gfm.git
-[submodule "vendor/htmlentities"]
+[submodule "vendor/htmlentities.zig"]
 	path = vendor/htmlentities.zig
 	url = https://github.com/kivikakk/htmlentities.zig
-[submodule "vendor/zig-regex"]
-	path = vendor/zig-regex
-	url = https://github.com/kivikakk/zig-regex
+[submodule "vendor/libpcre.zig"]
+	path = vendor/libpcre.zig
+	url = https://github.com/kivikakk/libpcre.zig

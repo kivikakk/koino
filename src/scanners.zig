@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const Regex = @import("zig-regex").Regex;
+const Regex = @import("libpcre").Regex;
 
 fn search(line: []const u8, matched: *usize, regex: []const u8) !bool {
     var re = try Regex.compile(testing.allocator, regex);
@@ -94,8 +94,7 @@ pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) !bool {
 const scheme = "[A-Za-z][A-Za-z0-9.+\\-]{1,31}";
 
 pub fn autolinkUri(line: []const u8, matched: *usize) !bool {
-    @setEvalBranchQuota(2000);
-    // TODO: deal with unicode weirdness here instead of `catch false'
+    // TODO: catch false
 
     // XXX: working around ctregex weirdness here: "\x00-\x20" is expressed as "\x00-\\ \x20"
     // because \x20 is in fact 'SPACE' (U+0020), and ctregex skips those (and 'CHARACTER
