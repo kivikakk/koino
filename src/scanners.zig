@@ -2,25 +2,29 @@ const std = @import("std");
 const testing = std.testing;
 const Regex = @import("libpcre").Regex;
 
-fn search(line: []const u8, matched: *usize, regex: []const u8) !bool {
-    var re = try Regex.compile(testing.allocator, regex);
+const Error = error{OutOfMemory};
+
+fn search(line: []const u8, matched: *usize, regex: [:0]const u8) Error!bool {
+    var re = Regex.compile(regex, .{}) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => unreachable,
+    };
     defer re.deinit();
-    if (try re.captures(line)) |captures| {
-        if (captures.boundsAt(0).?.lower == 0) {
-            matched.* = captures.boundsAt(0).?.upper;
-            return true;
-        }
+    if (re.matches(line, .{ .Anchored = true }) catch null) |cap| {
+        matched.* = cap.end;
+        return true;
     }
     return false;
 }
 
-fn match(line: []const u8, comptime regex: []const u8) !bool {
-    var re = try Regex.compile(testing.allocator, regex);
+fn match(line: []const u8, regex: [:0]const u8) Error!bool {
+    var re = Regex.compile(regex, .{}) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => unreachable,
+    };
     defer re.deinit();
-    if (try re.captures(line)) |captures| {
-        if (captures.boundsAt(0).?.lower == 0 and captures.boundsAt(0).?.upper == line.len) {
-            return true;
-        }
+    if (re.matches(line, .{ .Anchored = true }) catch null) |cap| {
+        return cap.end == line.len;
     }
     return false;
 }
@@ -49,22 +53,18 @@ pub fn closeCodeFence(line: []const u8) ?usize {
     unreachable;
 }
 
-pub fn atxHeadingStart(line: []const u8, matched: *usize) !bool {
+pub fn atxHeadingStart(line: []const u8, matched: *usize) Error!bool {
     if (line[0] != '#') {
         return false;
     }
     return try search(line, matched, "#{1,6}[ \t\r\n]");
 }
 
-pub fn thematicBreak(line: []const u8, matched: *usize) !bool {
-    if (line[0] == '*') {
-        return try search(line, matched, "(\\*[ \t]*){3,}[ \t]*[\r\n]");
-    } else if (line[0] == '_') {
-        return try search(line, matched, "(_[ \t]*){3,}[ \t]*[\r\n]");
-    } else if (line[0] == '-') {
-        return try search(line, matched, "(-[ \t]*){3,}[ \t]*[\r\n]");
+pub fn thematicBreak(line: []const u8, matched: *usize) Error!bool {
+    if (line[0] != '*' and line[0] != '-' and line[0] != '_') {
+        return false;
     }
-    return false;
+    return try search(line, matched, "((\\*[ \t]*){3,}|(_[ \t]*){3,}|(-[ \t]*){3,})[ \t]*[\r\n]");
 }
 
 test "thematicBreak" {
@@ -83,23 +83,19 @@ pub const SetextChar = enum {
     Hyphen,
 };
 
-pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) !bool {
-    if ((line[0] == '=' or line[0] == '-') and try match(line, "(=+|-+)[\\ \\\t]*[\r\n]")) {
+pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) Error!bool {
+    if ((line[0] == '=' or line[0] == '-') and try match(line, "(=+|-+)[ \t]*[\r\n]")) {
         sc.* = if (line[0] == '=') .Equals else .Hyphen;
         return true;
     }
     return false;
 }
 
-const scheme = "[A-Za-z][A-Za-z0-9.+\\-]{1,31}";
+const scheme = "[A-Za-z][A-Za-z0-9.+-]{1,31}";
 
-pub fn autolinkUri(line: []const u8, matched: *usize) !bool {
+pub fn autolinkUri(line: []const u8, matched: *usize) Error!bool {
     // TODO: catch false
-
-    // XXX: working around ctregex weirdness here: "\x00-\x20" is expressed as "\x00-\\ \x20"
-    // because \x20 is in fact 'SPACE' (U+0020), and ctregex skips those (and 'CHARACTER
-    // TABULATION' U+0009).
-    return search(line, matched, scheme ++ ":[^\x00-\\ \x20<>]*" ++ ">") catch false;
+    return search(line, matched, scheme ++ ":[^\\x00-\\x20<>]*>");
 }
 
 test "autolinkUri" {
@@ -112,16 +108,10 @@ test "autolinkUri" {
     testing.expect(!try autolinkUri("a+b-c:", &matched));
 }
 
-pub fn autolinkEmail(line: []const u8, matched: *usize) !bool {
-    @setEvalBranchQuota(5000);
-    const user_part = "[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~\\-]+";
-    const host_part = "[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?";
-    const rest = "(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*";
-    const re = user_part ++ "@" ++ host_part ++ rest ++ ">";
-    // TODO: as above
-    var r = search(line, matched, re);
-    std.debug.warn("{} ~ {}\n", .{ re, r });
-    return r catch false;
+pub fn autolinkEmail(line: []const u8, matched: *usize) Error!bool {
+    return search(line, matched,
+        \\[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*>
+    );
 }
 
 test "autolinkEmail" {
@@ -129,8 +119,8 @@ test "autolinkEmail" {
     testing.expect(!try autolinkEmail("abc>", &matched));
     testing.expect(!try autolinkEmail("abc.def>", &matched));
     testing.expect(!try autolinkEmail("abc@def", &matched));
-    //testing.expect(try autolinkEmail("abc@def>", &matched));
-    //testing.expectEqual(@as(usize, 8), matched);
+    testing.expect(try autolinkEmail("abc@def>", &matched));
+    testing.expectEqual(@as(usize, 8), matched);
     testing.expect(try autolinkEmail("abc+123!?@96--1>", &matched));
-    testing.expectEqual(@as(usize, 7), matched);
+    testing.expectEqual(@as(usize, 16), matched);
 }

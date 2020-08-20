@@ -792,16 +792,13 @@ fn expectMarkdownHTML(options: Options, markdown: []const u8, html: []const u8) 
 test "handles EOF without EOL" {
     try expectMarkdownHTML(.{}, "hello", "<p>hello</p>\n");
 }
-
 test "accepts multiple lines" {
     try expectMarkdownHTML(.{}, "hello\nthere\n", "<p>hello\nthere</p>\n");
     try expectMarkdownHTML(.{ .render = .{ .hard_breaks = true } }, "hello\nthere\n", "<p>hello<br />\nthere</p>\n");
 }
-
 test "smart hyphens" {
     try expectMarkdownHTML(.{ .parse = .{ .smart = true } }, "hyphen - en -- em --- four ---- five ----- six ------ seven -------\n", "<p>hyphen - en – em — four –– five —– six —— seven —––</p>\n");
 }
-
 test "handles tabs" {
     try expectMarkdownHTML(.{}, "\tfoo\tbaz\t\tbim\n", "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n");
     try expectMarkdownHTML(.{}, "  \tfoo\tbaz\t\tbim\n", "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n");
@@ -809,11 +806,9 @@ test "handles tabs" {
     try expectMarkdownHTML(.{}, "#\tFoo\n", "<h1>Foo</h1>\n");
     try expectMarkdownHTML(.{}, "*\t*\t*\t\n", "<hr />\n");
 }
-
 test "escapes" {
     try expectMarkdownHTML(.{}, "\\## foo\n", "<p>## foo</p>\n");
 }
-
 test "setext heading override pointy" {
     try expectMarkdownHTML(.{}, "<a title=\"a lot\n---\nof dashes\"/>\n", "<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n");
 }
