@@ -33,6 +33,6 @@ pub fn build(b: *Builder) void {
 }
 
 fn addCommonRequirements(b: *Builder, o: *std.build.LibExeObjStep) void {
-    o.addPackagePath("ctregex", "vendor/ctregex.zig/ctregex.zig");
+    o.addPackagePath("zig-regex", "vendor/zig-regex/src/regex.zig");
     o.addPackagePath("htmlentities", "vendor/htmlentities.zig/src/main.zig");
 }

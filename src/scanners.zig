@@ -1,18 +1,26 @@
 const std = @import("std");
 const testing = std.testing;
-const ctregex = @import("ctregex");
+const Regex = @import("zig-regex").Regex;
 
-fn search(line: []const u8, matched: *usize, comptime regex: []const u8) !bool {
-    if (try ctregex.match(regex, .{ .complete = false }, line)) |res| {
-        matched.* = res.slice.len;
-        return true;
+fn search(line: []const u8, matched: *usize, regex: []const u8) !bool {
+    var re = try Regex.compile(testing.allocator, regex);
+    defer re.deinit();
+    if (try re.captures(line)) |captures| {
+        if (captures.boundsAt(0).?.lower == 0) {
+            matched.* = captures.boundsAt(0).?.upper;
+            return true;
+        }
     }
     return false;
 }
 
 fn match(line: []const u8, comptime regex: []const u8) !bool {
-    if (try ctregex.match(regex, .{}, line)) |res| {
-        return true;
+    var re = try Regex.compile(testing.allocator, regex);
+    defer re.deinit();
+    if (try re.captures(line)) |captures| {
+        if (captures.boundsAt(0).?.lower == 0 and captures.boundsAt(0).?.upper == line.len) {
+            return true;
+        }
     }
     return false;
 }
@@ -45,15 +53,18 @@ pub fn atxHeadingStart(line: []const u8, matched: *usize) !bool {
     if (line[0] != '#') {
         return false;
     }
-    return try search(line, matched, "#{1,6}[\\ \\\t\r\n]");
+    return try search(line, matched, "#{1,6}[ \t\r\n]");
 }
 
 pub fn thematicBreak(line: []const u8, matched: *usize) !bool {
-    @setEvalBranchQuota(3000);
-    if (line[0] != '*' and line[0] != '-' and line[0] != '_') {
-        return false;
+    if (line[0] == '*') {
+        return try search(line, matched, "(\\*[ \t]*){3,}[ \t]*[\r\n]");
+    } else if (line[0] == '_') {
+        return try search(line, matched, "(_[ \t]*){3,}[ \t]*[\r\n]");
+    } else if (line[0] == '-') {
+        return try search(line, matched, "(-[ \t]*){3,}[ \t]*[\r\n]");
     }
-    return try search(line, matched, "((\\*[\\ \\\t]*){3,}|(_[\\ \\\t]*){3,}|(-[\\ \\\t]*){3,})[\\ \\\t]*[\r\n]");
+    return false;
 }
 
 test "thematicBreak" {
