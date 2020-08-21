@@ -4,6 +4,7 @@ const Regex = @import("libpcre").Regex;
 
 const Error = error{OutOfMemory};
 
+// TODO: compile once.
 fn search(line: []const u8, matched: *usize, regex: [:0]const u8) Error!bool {
     var re = Regex.compile(regex, .{}) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
@@ -94,7 +95,6 @@ pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) Error!bool {
 const scheme = "[A-Za-z][A-Za-z0-9.+-]{1,31}";
 
 pub fn autolinkUri(line: []const u8, matched: *usize) Error!bool {
-    // TODO: catch false
     return search(line, matched, scheme ++ ":[^\\x00-\\x20<>]*>");
 }
 
