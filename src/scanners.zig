@@ -18,6 +18,26 @@ fn search(line: []const u8, matched: *usize, regex: [:0]const u8) Error!bool {
     return false;
 }
 
+fn searchFirstCapture(line: []const u8, matched: *usize, regex: [:0]const u8) Error!bool {
+    var re = Regex.compile(regex, .{}) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => unreachable,
+    };
+    defer re.deinit();
+    if (re.captures(std.testing.allocator, line, .{ .Anchored = true }) catch null) |caps| {
+        defer std.testing.allocator.free(caps);
+        var i: usize = 1;
+        while (i < caps.len) : (i += 1) {
+            if (caps[i]) |cap| {
+                matched.* = cap.end;
+                return true;
+            }
+        }
+        @panic("no matching capture group");
+    }
+    return false;
+}
+
 fn match(line: []const u8, regex: [:0]const u8) Error!bool {
     var re = Regex.compile(regex, .{}) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
@@ -125,16 +145,16 @@ pub fn openCodeFence(line: []const u8, matched: *usize) Error!bool {
     if (line[0] != '`' and line[0] != '~')
         return false;
 
-    return search(line, matched, "(?:`{3,}[^`\r\n\\x00]*|~{3,}[^\r\n\\x00]*)[\r\n]");
+    return searchFirstCapture(line, matched, "(?:(`{3,})[^`\r\n\\x00]*|(~{3,})[^\r\n\\x00]*)[\r\n]");
 }
 
 test "openCodeFence" {
     var matched: usize = undefined;
     testing.expect(!try openCodeFence("```m", &matched));
     testing.expect(try openCodeFence("```m\n", &matched));
-    testing.expectEqual(@as(usize, 5), matched);
+    testing.expectEqual(@as(usize, 3), matched);
     testing.expect(try openCodeFence("~~~~~~m\n", &matched));
-    testing.expectEqual(@as(usize, 8), matched);
+    testing.expectEqual(@as(usize, 6), matched);
 }
 
 pub fn closeCodeFence(line: []const u8) Error!?usize {
