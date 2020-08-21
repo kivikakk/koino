@@ -850,3 +850,21 @@ test "fenced code blocks" {
     try expectMarkdownHTML(.{}, "```\n<\n >\n```\n", "<pre><code>&lt;\n &gt;\n</code></pre>\n");
     try expectMarkdownHTML(.{}, "````\naaa\n```\n``````\n", "<pre><code>aaa\n```\n</code></pre>\n");
 }
+test "html blocks" {
+    try expectMarkdownHTML(.{},
+        \\<table><tr><td>
+        \\<pre>
+        \\**Hello**,
+        \\
+        \\_world_.
+        \\</pre>
+        \\</td></tr></table>
+    ,
+        \\<table><tr><td>
+        \\<pre>
+        \\**Hello**,
+        \\<p><em>world</em>.
+        \\</pre></p>
+        \\</td></tr></table>
+    );
+}
