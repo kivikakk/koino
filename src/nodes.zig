@@ -148,11 +148,16 @@ pub const NodeCodeBlock = struct {
     fence_char: u8,
     fence_length: usize,
     fence_offset: usize,
-    info: []u8,
-    literal: []u8,
+    info: ?[]u8,
+    literal: std.ArrayList(u8),
 };
 
 pub const NodeHeading = struct {
     level: u8 = 0,
     setext: bool = false,
+};
+
+pub const AutolinkType = enum {
+    URI,
+    Email,
 };

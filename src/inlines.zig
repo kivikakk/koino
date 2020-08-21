@@ -6,8 +6,12 @@ const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const unicode = @import("unicode.zig");
 const Options = @import("options.zig").Options;
+const ctype = @import("ctype.zig");
+const scanners = @import("scanners.zig");
 
 const MAX_BACKTICKS = 80;
+
+pub const ParseError = error{ OutOfMemory, InvalidUtf8 };
 
 pub const Subject = struct {
     allocator: *mem.Allocator,
@@ -38,22 +42,18 @@ pub const Subject = struct {
         return s;
     }
 
-    pub fn parseInline(self: *Subject, node: *nodes.AstNode) !bool {
-        const c = self.peekChar();
-        if (c == null) {
-            return false;
-        }
-
+    pub fn parseInline(self: *Subject, node: *nodes.AstNode) ParseError!bool {
+        const c = self.peekChar() orelse return false;
         var new_inl: ?*nodes.AstNode = null;
 
-        switch (c.?) {
+        switch (c) {
             0 => return false,
             '\n', '\r' => new_inl = try self.handleNewLine(),
             '`' => new_inl = try self.handleBackticks(),
-            '\\' => new_inl = self.handleBackslash(),
-            '&' => new_inl = self.handleEntity(),
-            '<' => new_inl = self.handlePointyBrace(),
-            '*', '_', '\'', '"' => new_inl = try self.handleDelim(c.?),
+            '\\' => new_inl = try self.handleBackslash(),
+            '&' => new_inl = try self.handleEntity(),
+            '<' => new_inl = try self.handlePointyBrace(),
+            '*', '_', '\'', '"' => new_inl = try self.handleDelim(c),
             '-' => new_inl = try self.handleHyphen(),
             '.' => new_inl = try self.handlePeriod(),
             '[' => {
@@ -103,6 +103,17 @@ pub const Subject = struct {
             .value = value,
             .content = std.ArrayList(u8).init(self.allocator),
         });
+    }
+
+    fn makeAutolink(self: *Subject, url: []const u8, kind: nodes.AutolinkType) !*nodes.AstNode {
+        var inl = try self.makeInline(.{
+            .Link = .{
+                .url = try strings.cleanAutolink(self.allocator, url, kind),
+                .title = "",
+            },
+        });
+        inl.append(try self.makeInline(.{ .Text = try strings.unescapeHtml(self.allocator, url) }));
+        return inl;
     }
 
     pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) !void {
@@ -300,16 +311,64 @@ pub const Subject = struct {
         }
     }
 
-    fn handleBackslash(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleBackslash(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+        if (ctype.ispunct(self.peekChar() orelse 0)) {
+            self.pos += 1;
+            var contents = try self.allocator.dupe(u8, self.input[self.pos - 1 .. self.pos]);
+            return try self.makeInline(.{ .Text = contents });
+        } else if (!self.eof() and self.skipLineEnd()) {
+            return try self.makeInline(.LineBreak);
+        } else {
+            return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "\\") });
+        }
     }
 
-    fn handleEntity(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn skipLineEnd(self: *Subject) bool {
+        const old_pos = self.pos;
+        if (self.peekChar() orelse 0 == '\r') self.pos += 1;
+        if (self.peekChar() orelse 0 == '\n') self.pos += 1;
+        return self.pos > old_pos or self.eof();
     }
 
-    fn handlePointyBrace(self: *Subject) *nodes.AstNode {
-        unreachable;
+    fn handleEntity(self: *Subject) !*nodes.AstNode {
+        self.pos += 1;
+
+        var out = std.ArrayList(u8).init(self.allocator);
+        if (try strings.unescapeInto(self.input[self.pos..], &out)) |len| {
+            self.pos += len;
+            return try self.makeInline(.{ .Text = out.toOwnedSlice() });
+        }
+
+        try out.append('&');
+        return try self.makeInline(.{ .Text = out.toOwnedSlice() });
+    }
+
+    fn handlePointyBrace(self: *Subject) !*nodes.AstNode {
+        var match_len: usize = undefined;
+        self.pos += 1;
+
+        if (try scanners.autolinkUri(self.input[self.pos..], &match_len)) {
+            var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .URI);
+            self.pos += match_len;
+            return inl;
+        }
+
+        if (try scanners.autolinkEmail(self.input[self.pos..], &match_len)) {
+            var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .Email);
+            self.pos += match_len;
+            return inl;
+        }
+
+        // unreachable;
+        // if (try scanners.htmlTag(self.input[self.pos..], &match_len)) {
+        //     var contents = self.input[self.pos - 1 .. self.pos + match_len];
+        //     var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
+        //     self.pos += match_len;
+        //     return inl;
+        // }
+        //
+        return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "<") });
     }
 
     fn handleDelim(self: *Subject, c: u8) !*nodes.AstNode {

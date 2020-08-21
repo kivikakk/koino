@@ -36,3 +36,7 @@ pub fn isalpha(ch: u8) bool {
 pub fn isalnum(ch: u8) bool {
     return CMARK_CTYPE_CLASS[ch] == 3 or CMARK_CTYPE_CLASS[ch] == 4;
 }
+
+pub fn isxdigit(ch: u8) bool {
+    return (ch >= '0' and ch <= '9') or (ch >= 'a' and ch <= 'f') or (ch >= 'A' and ch <= 'F');
+}
