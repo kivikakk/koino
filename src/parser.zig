@@ -848,4 +848,5 @@ test "setext heading override pointy" {
 }
 test "fenced code blocks" {
     try expectMarkdownHTML(.{}, "```\n<\n >\n```\n", "<pre><code>&lt;\n &gt;\n</code></pre>\n");
+    try expectMarkdownHTML(.{}, "````\naaa\n```\n``````\n", "<pre><code>aaa\n```\n</code></pre>\n");
 }

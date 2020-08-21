@@ -162,7 +162,7 @@ pub fn closeCodeFence(line: []const u8) Error!?usize {
         return null;
 
     var matched: usize = undefined;
-    if (try search(line, &matched, "(?:`{3,}|~{3,})[\t ]*[\r\n]")) {
+    if (try searchFirstCapture(line, &matched, "(`{3,}|~{3,})[\t ]*[\r\n]")) {
         return matched;
     } else {
         return null;
