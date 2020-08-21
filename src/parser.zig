@@ -260,8 +260,20 @@ pub const Parser = struct {
                 }
 
                 container.data.value = .{ .Heading = .{ .level = level, .setext = false } };
+            } else if (!indented and try scanners.openCodeFence(line[self.first_nonspace..], &matched)) {
+                const first_nonspace = self.first_nonspace;
+                const offset = self.offset;
+                const ncb = nodes.NodeCodeBlock{
+                    .fenced = true,
+                    .fence_char = line[first_nonspace],
+                    .fence_length = matched,
+                    .fence_offset = first_nonspace - offset,
+                    .info = null,
+                    .literal = std.ArrayList(u8).init(self.allocator),
+                };
+                container = try self.addChild(container, .{ .CodeBlock = ncb });
+                self.advanceOffset(line, first_nonspace + matched - offset, false);
             }
-            // Open code fence
             // HTML block start
             else if (!indented and switch (container.data.value) {
                 .Paragraph => try scanners.setextHeadingLine(line[self.first_nonspace..], &sc),
@@ -336,8 +348,8 @@ pub const Parser = struct {
                         .fence_char = 0,
                         .fence_length = 0,
                         .fence_offset = 0,
-                        .info = "",
-                        .literal = "",
+                        .info = null,
+                        .literal = std.ArrayList(u8).init(self.allocator),
                     },
                 });
             }
@@ -494,9 +506,31 @@ pub const Parser = struct {
                     strings.removeTrailingBlankLines(&node.data.content);
                     try node.data.content.append('\n');
                 } else {
-                    unreachable;
+                    var pos: usize = 0;
+                    while (pos < node.data.content.items.len) : (pos += 1) {
+                        if (strings.isLineEndChar(node.data.content.items[pos]))
+                            break;
+                    }
+                    assert(pos < node.data.content.items.len);
+
+                    var info = try strings.unescapeHtml(self.allocator, node.data.content.span()[0..pos]);
+                    defer self.allocator.free(info);
+                    var trimmed = strings.trim(info);
+                    var unescaped = try strings.unescape(self.allocator, trimmed);
+                    if (unescaped.len == 0) {
+                        // TODO: default info string
+                        self.allocator.free(unescaped);
+                    } else {
+                        ncb.info = unescaped;
+                    }
+
+                    if (node.data.content.items[pos] == '\r') pos += 1;
+                    if (node.data.content.items[pos] == '\n') pos += 1;
+
+                    while (pos > 0) : (pos -= 1)
+                        _ = node.data.content.orderedRemove(0);
                 }
-                ncb.literal = node.data.content.toOwnedSlice();
+                std.mem.swap(std.ArrayList(u8), &ncb.literal, &node.data.content);
             },
             .HtmlBlock => |nhb| {
                 unreachable;
@@ -668,7 +702,7 @@ pub const Parser = struct {
         }
 
         const matched = if (self.indent <= 3 and line[self.first_nonspace] == ncb.fence_char)
-            scanners.closeCodeFence(line[self.first_nonspace..]) orelse 0
+            (try scanners.closeCodeFence(line[self.first_nonspace..])) orelse 0
         else
             0;
 

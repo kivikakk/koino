@@ -50,10 +50,6 @@ pub fn htmlBlockEnd5(line: []const u8) bool {
     unreachable;
 }
 
-pub fn closeCodeFence(line: []const u8) ?usize {
-    unreachable;
-}
-
 pub fn atxHeadingStart(line: []const u8, matched: *usize) Error!bool {
     if (line[0] != '#') {
         return false;
@@ -65,7 +61,7 @@ pub fn thematicBreak(line: []const u8, matched: *usize) Error!bool {
     if (line[0] != '*' and line[0] != '-' and line[0] != '_') {
         return false;
     }
-    return try search(line, matched, "((\\*[ \t]*){3,}|(_[ \t]*){3,}|(-[ \t]*){3,})[ \t]*[\r\n]");
+    return try search(line, matched, "(?:(?:\\*[ \t]*){3,}|(?:_[ \t]*){3,}|(?:-[ \t]*){3,})[ \t]*[\r\n]");
 }
 
 test "thematicBreak" {
@@ -85,7 +81,7 @@ pub const SetextChar = enum {
 };
 
 pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) Error!bool {
-    if ((line[0] == '=' or line[0] == '-') and try match(line, "(=+|-+)[ \t]*[\r\n]")) {
+    if ((line[0] == '=' or line[0] == '-') and try match(line, "(?:=+|-+)[ \t]*[\r\n]")) {
         sc.* = if (line[0] == '=') .Equals else .Hyphen;
         return true;
     }
@@ -123,4 +119,40 @@ test "autolinkEmail" {
     testing.expectEqual(@as(usize, 8), matched);
     testing.expect(try autolinkEmail("abc+123!?@96--1>", &matched));
     testing.expectEqual(@as(usize, 16), matched);
+}
+
+pub fn openCodeFence(line: []const u8, matched: *usize) Error!bool {
+    if (line[0] != '`' and line[0] != '~')
+        return false;
+
+    return search(line, matched, "(?:`{3,}[^`\r\n\\x00]*|~{3,}[^\r\n\\x00]*)[\r\n]");
+}
+
+test "openCodeFence" {
+    var matched: usize = undefined;
+    testing.expect(!try openCodeFence("```m", &matched));
+    testing.expect(try openCodeFence("```m\n", &matched));
+    testing.expectEqual(@as(usize, 5), matched);
+    testing.expect(try openCodeFence("~~~~~~m\n", &matched));
+    testing.expectEqual(@as(usize, 8), matched);
+}
+
+pub fn closeCodeFence(line: []const u8) Error!?usize {
+    if (line[0] != '`' and line[0] != '~')
+        return null;
+
+    var matched: usize = undefined;
+    if (try search(line, &matched, "(?:`{3,}|~{3,})[\t ]*[\r\n]")) {
+        return matched;
+    } else {
+        return null;
+    }
+}
+
+test "closeCodeFence" {
+    testing.expectEqual(@as(?usize, null), try closeCodeFence("```m"));
+    //testing.expect(try closeCodeFence("```m\n", &matched));
+    //testing.expectEqual(@as(usize, 5), matched);
+    //testing.expect(try closeCodeFence("~~~~~~m\n", &matched));
+    //testing.expectEqual(@as(usize, 8), matched);
 }

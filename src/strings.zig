@@ -330,3 +330,15 @@ test "cleanAutolink" {
     defer std.testing.allocator.free(uri);
     testing.expectEqualStrings("www.com", uri);
 }
+
+pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+    var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    var r: usize = 0;
+
+    while (r < s.len) : (r += 1) {
+        if (s[r] == '\\' and r + 1 < s.len and ctype.ispunct(s[r + 1]))
+            r += 1;
+        try buffer.append(s[r]);
+    }
+    return buffer.toOwnedSlice();
+}

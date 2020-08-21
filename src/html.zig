@@ -168,18 +168,18 @@ const HtmlFormatter = struct {
                 if (entering) {
                     try self.cr();
 
-                    if (ncb.info.len == 0) {
+                    if (ncb.info == null or ncb.info.?.len == 0) {
                         try self.writeAll("<pre><code>");
                     } else {
                         var first_tag: usize = 0;
-                        while (first_tag < ncb.info.len and !ctype.isspace(ncb.info[first_tag]))
+                        while (first_tag < ncb.info.?.len and !ctype.isspace(ncb.info.?[first_tag]))
                             first_tag += 1;
 
                         try self.writeAll("<pre><code class=\"language-");
-                        try self.escape(ncb.info[0..first_tag]);
+                        try self.escape(ncb.info.?[0..first_tag]);
                         try self.writeAll("\">");
                     }
-                    try self.escape(ncb.literal);
+                    try self.escape(ncb.literal.span());
                     try self.writeAll("</code></pre>\n");
                 }
             },
