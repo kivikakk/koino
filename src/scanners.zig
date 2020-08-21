@@ -171,8 +171,6 @@ pub fn closeCodeFence(line: []const u8) Error!?usize {
 
 test "closeCodeFence" {
     testing.expectEqual(@as(?usize, null), try closeCodeFence("```m"));
-    //testing.expect(try closeCodeFence("```m\n", &matched));
-    //testing.expectEqual(@as(usize, 5), matched);
-    //testing.expect(try closeCodeFence("~~~~~~m\n", &matched));
-    //testing.expectEqual(@as(usize, 8), matched);
+    testing.expectEqual(@as(?usize, 3), try closeCodeFence("```\n"));
+    testing.expectEqual(@as(?usize, 6), try closeCodeFence("~~~~~~\r\n"));
 }
