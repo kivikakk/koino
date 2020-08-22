@@ -3,7 +3,7 @@ const assert = std.debug.assert;
 
 const clap = @import("clap");
 
-const Parser = @import("parser.zig").Parser;
+const parser = @import("parser.zig");
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const html = @import("html.zig");
@@ -51,21 +51,22 @@ pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown:
         .content = std.ArrayList(u8).init(&arena.allocator),
     });
 
-    var parser = Parser{
+    var p = parser.Parser{
         .allocator = &arena.allocator,
+        .refmap = std.StringHashMap(parser.Reference).init(&arena.allocator),
         .root = root,
         .current = root,
         .options = options,
     };
-    try parser.feed(markdown);
-    var doc = try parser.finish();
+    try p.feed(markdown);
+    var doc = try p.finish();
     defer doc.deinit();
 
     var noisy_env = std.process.getEnvVarOwned(&arena.allocator, "KOINO_NOISY") catch "";
     const noisy = noisy_env.len > 0;
     doc.validate(noisy);
 
-    return try html.print(allocator, &parser.options, doc);
+    return try html.print(allocator, &p.options, doc);
 }
 
 test "" {

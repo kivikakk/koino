@@ -12,8 +12,14 @@ const ctype = @import("ctype.zig");
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
 
+pub const Reference = struct {
+    url: []u8,
+    title: []u8,
+};
+
 pub const Parser = struct {
     allocator: *std.mem.Allocator,
+    refmap: std.StringHashMap(Reference),
     root: *nodes.AstNode,
     current: *nodes.AstNode,
     options: Options,
@@ -622,7 +628,7 @@ pub const Parser = struct {
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
         var content = strings.rtrim(node.data.content.items);
-        var subj = inlines.Subject.init(self.allocator, &self.options, content);
+        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, content);
         while (try subj.parseInline(node)) {}
         try subj.processEmphasis(null);
         while (subj.popBracket()) {}
