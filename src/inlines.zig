@@ -57,24 +57,22 @@ pub const Subject = struct {
             '-' => new_inl = try self.handleHyphen(),
             '.' => new_inl = try self.handlePeriod(),
             '[' => {
-                unreachable;
-                // self.pos += 1;
-                // let inl = make_inline(self.allocator, NodeValue::Text(b"[".to_vec()));
-                // new_inl = Some(inl);
-                // self.push_bracket(false, inl);
+                self.pos += 1;
+                var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "[") });
+                try self.pushBracket(.Link, inl);
+                new_inl = inl;
             },
-            ']' => new_inl = self.handleCloseBracket(),
+            ']' => new_inl = try self.handleCloseBracket(),
             '!' => {
-                unreachable;
-                // self.pos += 1;
-                // if self.peek_char() == Some(&(b'[')) && self.peek_char_n(1) != Some(&(b'^')) {
-                // self.pos += 1;
-                // let inl = make_inline(self.allocator, NodeValue::Text(b"![".to_vec()));
-                // new_inl = Some(inl);
-                // self.push_bracket(true, inl);
-                // } else {
-                // new_inl = Some(make_inline(self.allocator, NodeValue::Text(b"!".to_vec())));
-                // }
+                self.pos += 1;
+                if (self.peekChar() orelse 0 == '[') {
+                    self.pos += 1;
+                    var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "[") });
+                    try self.pushBracket(.Image, inl);
+                    new_inl = inl;
+                } else {
+                    new_inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "!") });
+                }
             },
             else => {
                 const endpos = self.findSpecialChar();
@@ -567,8 +565,138 @@ pub const Subject = struct {
         }
     }
 
-    fn handleCloseBracket(self: *Subject) *nodes.AstNode {
+    fn pushBracket(self: *Subject, kind: BracketKind, inl_text: *nodes.AstNode) !void {
+        const len = self.brackets.items.len;
+        if (len > 0)
+            self.brackets.items[len - 1].bracket_after = true;
+        try self.brackets.append(.{
+            .previous_delimiter = self.last_delimiter,
+            .inl_text = inl_text,
+            .position = self.pos,
+            .kind = kind,
+            .active = true,
+            .bracket_after = false,
+        });
+    }
+
+    fn handleCloseBracket(self: *Subject) !?*nodes.AstNode {
+        self.pos += 1;
+        const initial_pos = self.pos;
+
+        const brackets_len = self.brackets.items.len;
+        if (brackets_len == 0) {
+            return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "]") });
+        }
+
+        if (!self.brackets.items[brackets_len - 1].active) {
+            _ = self.brackets.pop();
+            return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "]") });
+        }
+
+        const kind = self.brackets.items[brackets_len - 1].kind;
+        const after_link_text_pos = self.pos;
+
+        var sps: usize = 0;
+        var url: []const u8 = "";
+        var n: usize = 0;
+        if (self.peekChar() orelse 0 == '(' and blk: {
+            sps = (try scanners.spacechars(self.input[self.pos + 1 ..])) orelse 0;
+            break :blk manualScanLinkUrl(self.input[self.pos + 1 + sps ..], &url, &n);
+        }) {
+            const starturl = self.pos + 1 + sps;
+            const endurl = starturl + n;
+            const starttitle = endurl + ((try scanners.spacechars(self.input[endurl..])) orelse 0);
+            const endtitle = if (starttitle == endurl) starttitle else starttitle + ((try scanners.linkTitle(self.input[starttitle..])) orelse 0);
+            const endall = endtitle + ((try scanners.spacechars(self.input[endtitle..])) orelse 0);
+
+            if (endall < self.input.len and self.input[endall] == ')') {
+                self.pos = endall + 1;
+                var cleanUrl = try strings.cleanUrl(self.allocator, url);
+                var cleanTitle = try strings.cleanTitle(self.allocator, self.input[starttitle..endtitle]);
+                try self.closeBracketMatch(kind, cleanUrl, cleanTitle);
+                return null;
+            } else {
+                self.pos = after_link_text_pos;
+            }
+        }
+
         unreachable;
+    }
+
+    fn closeBracketMatch(self: *Subject, kind: BracketKind, url: []u8, title: []u8) !void {
+        unreachable;
+    }
+
+    fn manualScanLinkUrl(input: []const u8, url: *[]const u8, n: *usize) bool {
+        const len = input.len;
+        var i: usize = 0;
+
+        if (i < len and input[i] == '<') {
+            i += 1;
+            while (i < len) {
+                switch (input[i]) {
+                    '>' => {
+                        i += 1;
+                        break;
+                    },
+                    '\\' => {
+                        i += 2;
+                    },
+                    '\n', '<' => {
+                        return false;
+                    },
+                    else => {
+                        i += 1;
+                    },
+                }
+            }
+        } else {
+            return manualScanLinkUrl2(input, url, n);
+        }
+
+        if (i >= len) {
+            return false;
+        } else {
+            url.* = input[1 .. i - 1];
+            n.* = i;
+            return true;
+        }
+    }
+
+    fn manualScanLinkUrl2(input: []const u8, url: *[]const u8, n: *usize) bool {
+        const len = input.len;
+        var i: usize = 0;
+        var nb_p: usize = 0;
+
+        while (i < len) {
+            if (input[i] == '\\' and i + 1 < len and ctype.ispunct(input[i + 1])) {
+                i += 2;
+            } else if (input[i] == '(') {
+                nb_p += 1;
+                i += 1;
+                if (nb_p > 32)
+                    return false;
+            } else if (input[i] == ')') {
+                if (nb_p == 0)
+                    break;
+                nb_p -= 1;
+                i += 1;
+            } else if (ctype.isspace(input[i])) {
+                if (i == 0)
+                    return false;
+                break;
+            } else {
+                i += 1;
+            }
+        }
+
+        if (i >= len) {
+            return false;
+        } else {
+            url.* = input[0..i];
+            n.* = i;
+            return true;
+        }
     }
 };
 
@@ -586,7 +714,9 @@ const Bracket = struct {
     previous_delimiter: ?*Delimiter,
     inl_text: *nodes.AstNode,
     position: usize,
-    image: bool,
+    kind: BracketKind,
     active: bool,
     bracket_after: bool,
 };
+
+const BracketKind = enum { Link, Image };

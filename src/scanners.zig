@@ -274,3 +274,23 @@ test "htmlTag" {
     testing.expect(try htmlTag("![CDATA[\r]abc]].>\n]>]]>", &matched));
     testing.expectEqual(@as(usize, 23), matched);
 }
+
+pub fn spacechars(line: []const u8) Error!?usize {
+    var matched: usize = undefined;
+    if (try search(line, &matched, space_char ++ "+")) {
+        return matched;
+    } else {
+        return null;
+    }
+}
+
+const link_title = "(?:\"(?:\\.|[^\"\\x00])*\"|'(?:\\.|[^'\\x00])*'|\\((?:\\.|[^()\\x00])*\\))";
+
+pub fn linkTitle(line: []const u8) Error!?usize {
+    var matched: usize = undefined;
+    if (try search(line, &matched, link_title)) {
+        return matched;
+    } else {
+        return null;
+    }
+}

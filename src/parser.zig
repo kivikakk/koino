@@ -50,7 +50,7 @@ pub const Parser = struct {
             if (process) {
                 if (linebuf.items.len != 0) {
                     try linebuf.appendSlice(s[i..eol]);
-                    try self.processLine(linebuf.span());
+                    try self.processLine(linebuf.items);
                     linebuf.items.len = 0;
                 } else if (sz > eol and s[eol] == '\n') {
                     try self.processLine(s[i .. eol + 1]);
@@ -520,7 +520,7 @@ pub const Parser = struct {
                     }
                     assert(pos < node.data.content.items.len);
 
-                    var info = try strings.unescapeHtml(self.allocator, node.data.content.span()[0..pos]);
+                    var info = try strings.unescapeHtml(self.allocator, node.data.content.items[0..pos]);
                     defer self.allocator.free(info);
                     var trimmed = strings.trim(info);
                     var unescaped = try strings.unescape(self.allocator, trimmed);
@@ -577,7 +577,7 @@ pub const Parser = struct {
     fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) bool {
         var seeked: usize = 0;
         var pos: usize = undefined;
-        var seek = content.span();
+        var seek = content.items;
 
         while (seek.len > 0 and seek[0] == '[' and self.parseReferenceInline(seek, &pos)) {
             seek = seek[pos..];
@@ -589,7 +589,7 @@ pub const Parser = struct {
             unreachable;
         }
 
-        return !strings.isBlank(content.span());
+        return !strings.isBlank(content.items);
     }
 
     fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) bool {
@@ -621,7 +621,7 @@ pub const Parser = struct {
     }
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
-        var content = strings.rtrim(node.data.content.span());
+        var content = strings.rtrim(node.data.content.items);
         var subj = inlines.Subject.init(self.allocator, &self.options, content);
         while (try subj.parseInline(node)) {}
         try subj.processEmphasis(null);

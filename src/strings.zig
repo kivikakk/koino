@@ -120,7 +120,7 @@ pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
         i += 1;
     }
 
-    if (contains_nonspace and code.items.len != 0 and code.span()[0] == ' ' and code.span()[code.items.len - 1] == ' ') {
+    if (contains_nonspace and code.items.len != 0 and code.items[0] == ' ' and code.items[code.items.len - 1] == ' ') {
         _ = code.orderedRemove(0);
         _ = code.pop();
     }
@@ -183,7 +183,7 @@ test "removeTrailingBlankLines" {
         line.items.len = 0;
         try line.appendSlice(case.in);
         removeTrailingBlankLines(&line);
-        testing.expectEqualStrings(case.out, line.span());
+        testing.expectEqualStrings(case.out, line.items);
     }
 }
 
@@ -311,7 +311,7 @@ test "unescapeHtml" {
 pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
     var trimmed = trim(url);
     if (trimmed.len == 0)
-        return allocator.dupe(u8, trimmed);
+        return allocator.alloc(u8, 0);
 
     var buf = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
     if (kind == .Email)
@@ -341,4 +341,52 @@ pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
         try buffer.append(s[r]);
     }
     return buffer.toOwnedSlice();
+}
+
+pub fn cleanUrl(allocator: *mem.Allocator, url: []const u8) ![]u8 {
+    var trimmed = trim(url);
+    if (trimmed.len == 0) {
+        return allocator.alloc(u8, 0);
+    }
+
+    var b = try unescapeHtml(allocator, trimmed);
+    defer allocator.free(b);
+    return unescape(allocator, b);
+}
+
+test "cleanUrl" {
+    var url = try cleanUrl(std.testing.allocator, "  \\(hello\\)&#x40;world  ");
+    defer std.testing.allocator.free(url);
+    testing.expectEqualStrings("(hello)@world", url);
+}
+
+pub fn cleanTitle(allocator: *mem.Allocator, title: []const u8) ![]u8 {
+    if (title.len == 0) {
+        return allocator.alloc(u8, 0);
+    }
+
+    const first = title[0];
+    const last = title[title.len - 1];
+    var b = if ((first == '\'' and last == '\'') or (first == '(' and last == ')') or (first == '"' and last == '"'))
+        try unescapeHtml(allocator, title[1 .. title.len - 1])
+    else
+        try unescapeHtml(allocator, title);
+    defer allocator.free(b);
+    return unescape(allocator, b);
+}
+
+test "cleanTitle" {
+    const cases = [_]Case{
+        .{ .in = "\\'title", .out = "'title" },
+        .{ .in = "'title'", .out = "title" },
+        .{ .in = "(&#x74;&#x65;&#X73;&#X74;)", .out = "test" },
+        .{ .in = "\"&#x30c6;&#x30b9;&#X30c8;\"", .out = "テスト" },
+        .{ .in = "'&hellip;&eacute&Eacute;&rrarr;&oS;'", .out = "…&eacuteÉ⇉Ⓢ" },
+    };
+
+    for (cases) |case| {
+        const result = try cleanTitle(std.testing.allocator, case.in);
+        defer std.testing.allocator.free(result);
+        testing.expectEqualStrings(case.out, result);
+    }
 }

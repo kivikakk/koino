@@ -179,7 +179,7 @@ const HtmlFormatter = struct {
                         try self.escape(ncb.info.?[0..first_tag]);
                         try self.writeAll("\">");
                     }
-                    try self.escape(ncb.literal.span());
+                    try self.escape(ncb.literal.items);
                     try self.writeAll("</code></pre>\n");
                 }
             },
@@ -189,7 +189,7 @@ const HtmlFormatter = struct {
                     if (!self.options.render.unsafe) {
                         try self.writeAll("<!-- raw HTML omitted -->");
                     } else {
-                        try self.writeAll(nhb.literal.span());
+                        try self.writeAll(nhb.literal.items);
                     }
                     try self.cr();
                 }
@@ -289,5 +289,5 @@ test "escaping works as expected" {
     defer testParts.deinit();
 
     try testParts.formatter.escape("<hello & goodbye>");
-    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.span());
+    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.items);
 }
