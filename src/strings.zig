@@ -404,6 +404,6 @@ test "normalizeLabel" {
     try testCases(normalizeLabel, &[_]Case{
         .{ .in = "Hello", .out = "hello" },
         .{ .in = "   Y        E  S  ", .out = "y e s" },
-        // TODO: unicode
+        .{ .in = "yÉs", .out = "yés" },
     });
 }
