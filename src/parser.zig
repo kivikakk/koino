@@ -279,7 +279,7 @@ pub const Parser = struct {
             })) {
                 const nhb = nodes.NodeHtmlBlock{
                     .block_type = @truncate(u8, matched),
-                    .literal = "",
+                    .literal = std.ArrayList(u8).init(self.allocator),
                 };
                 container = try self.addChild(container, .{ .HtmlBlock = nhb });
             } else if (!indented and switch (container.data.value) {
@@ -539,8 +539,8 @@ pub const Parser = struct {
                 }
                 std.mem.swap(std.ArrayList(u8), &ncb.literal, &node.data.content);
             },
-            .HtmlBlock => |nhb| {
-                unreachable;
+            .HtmlBlock => |*nhb| {
+                std.mem.swap(std.ArrayList(u8), &nhb.literal, &node.data.content);
             },
             .List => |*nl| {
                 nl.tight = true;
@@ -858,7 +858,7 @@ test "fenced code blocks" {
     try expectMarkdownHTML(.{}, "````\naaa\n```\n``````\n", "<pre><code>aaa\n```\n</code></pre>\n");
 }
 test "html blocks" {
-    try expectMarkdownHTML(.{},
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
         \\<table><tr><td>
         \\<pre>
         \\**Hello**,

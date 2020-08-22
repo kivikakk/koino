@@ -5,14 +5,14 @@ const Regex = @import("libpcre").Regex;
 const Error = error{OutOfMemory};
 
 // TODO: compile once.
-fn search(line: []const u8, matched: *usize, regex: [:0]const u8) Error!bool {
+fn search(line: []const u8, matched: ?*usize, regex: [:0]const u8) Error!bool {
     var re = Regex.compile(regex, .{}) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => unreachable,
     };
     defer re.deinit();
     if (re.matches(line, .{ .Anchored = true }) catch null) |cap| {
-        matched.* = cap.end;
+        if (matched) |m| m.* = cap.end;
         return true;
     }
     return false;
@@ -34,18 +34,6 @@ fn searchFirstCapture(line: []const u8, matched: *usize, regex: [:0]const u8) Er
             }
         }
         @panic("no matching capture group");
-    }
-    return false;
-}
-
-fn match(line: []const u8, regex: [:0]const u8) Error!bool {
-    var re = Regex.compile(regex, .{}) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        else => unreachable,
-    };
-    defer re.deinit();
-    if (re.matches(line, .{ .Anchored = true }) catch null) |cap| {
-        return cap.end == line.len;
     }
     return false;
 }
@@ -81,7 +69,7 @@ pub const SetextChar = enum {
 };
 
 pub fn setextHeadingLine(line: []const u8, sc: *SetextChar) Error!bool {
-    if ((line[0] == '=' or line[0] == '-') and try match(line, "(?:=+|-+)[ \t]*[\r\n]")) {
+    if ((line[0] == '=' or line[0] == '-') and try search(line, null, "(?:=+|-+)[ \t]*[\r\n]")) {
         sc.* = if (line[0] == '=') .Equals else .Hyphen;
         return true;
     }
@@ -179,17 +167,17 @@ pub fn htmlBlockStart(line: []const u8, matched: *usize) Error!bool {
     if (line[0] != '<')
         return false;
 
-    if (try match(line, "<(?i:script|pre|style)[ \t\\x0b\\x0c\r\n>]")) {
+    if (try search(line, null, "<(?i:script|pre|style)[ \t\\x0b\\x0c\r\n>]")) {
         matched.* = 1;
     } else if (std.mem.startsWith(u8, line, "<!--")) {
         matched.* = 2;
     } else if (std.mem.startsWith(u8, line, "<?")) {
         matched.* = 3;
-    } else if (try match(line, "<![A-Z]")) {
+    } else if (try search(line, null, "<![A-Z]")) {
         matched.* = 4;
     } else if (std.mem.startsWith(u8, line, "<![CDATA[")) {
         matched.* = 5;
-    } else if (try match(line, "</?(:i?address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|title|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t\\x0b\\x0c\r\n>]|/>)")) {
+    } else if (try search(line, null, "</?(:i?address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|title|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t\\x0b\\x0c\r\n>]|/>)")) {
         matched.* = 6;
     } else {
         return false;
@@ -220,8 +208,17 @@ test "htmlBlockStart" {
     testing.expect(!try htmlBlockStart("<xhtml>", &matched));
 }
 
+const space_char = "[ \t\\x0b\\x0c\r\n]";
+const tag_name = "(?:[A-Za-z][A-Za-z0-9-]*)";
+const close_tag = "(?:/" ++ tag_name ++ space_char ++ "*>)";
+const attribute_name = "(?:[a-zA_Z_:][a-zA-Z0-9:._-]*)";
+const attribute_value = "(?:(?:[^ \t\r\n\\x0b\\x0c\"'=<>`\\x00]+)|(?:'[^\\x00']*')|(?:\"[^\\x00\"]*\"))";
+const attribute_value_spec = "(?:" ++ space_char ++ "*=" ++ space_char ++ "*" ++ attribute_value ++ ")";
+const attribute = "(?:" ++ space_char ++ "+" ++ attribute_name ++ attribute_value_spec ++ "?)";
+const open_tag = "(?:" ++ tag_name ++ attribute ++ "*" ++ space_char ++ "*/?>)";
+
 pub fn htmlBlockStart7(line: []const u8, matched: *usize) Error!bool {
-    if (try match(line, "< ... >")) {
+    if (try search(line, null, "<(?:" ++ open_tag ++ "|" ++ close_tag ++ ")[\t\\x0c ]*[\r\n]")) {
         matched.* = 7;
         return true;
     }
@@ -231,7 +228,11 @@ pub fn htmlBlockStart7(line: []const u8, matched: *usize) Error!bool {
 test "htmlBlockStart7" {
     var matched: usize = 1;
 
-    testing.expect(!try htmlBlockStart7("l", &matched));
-    testing.expect(try htmlBlockStart7("l", &matched));
+    testing.expect(!try htmlBlockStart7("<a", &matched));
+    testing.expect(try htmlBlockStart7("<a>  \n", &matched));
     testing.expectEqual(@as(usize, 7), matched);
+    testing.expect(try htmlBlockStart7("<b2/>\r", &matched));
+    testing.expect(try htmlBlockStart7("<b2\ndata=\"foo\" >\t\x0c\n", &matched));
+    testing.expect(try htmlBlockStart7("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n", &matched));
+    testing.expect(!try htmlBlockStart7("<a h*#ref=\"hi\">\n", &matched));
 }

@@ -140,7 +140,7 @@ pub const NodeList = struct {
 
 pub const NodeHtmlBlock = struct {
     block_type: u8,
-    literal: []u8,
+    literal: std.ArrayList(u8),
 };
 
 pub const NodeCodeBlock = struct {

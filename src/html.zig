@@ -183,6 +183,17 @@ const HtmlFormatter = struct {
                     try self.writeAll("</code></pre>\n");
                 }
             },
+            .HtmlBlock => |nhb| {
+                if (entering) {
+                    try self.cr();
+                    if (!self.options.render.unsafe) {
+                        try self.writeAll("<!-- raw HTML omitted -->");
+                    } else {
+                        try self.writeAll(nhb.literal.span());
+                    }
+                    try self.cr();
+                }
+            },
             .ThematicBreak => {
                 if (entering) {
                     try self.cr();
