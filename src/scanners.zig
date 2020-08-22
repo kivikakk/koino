@@ -144,23 +144,31 @@ test "closeCodeFence" {
 }
 
 pub fn htmlBlockEnd1(line: []const u8) bool {
-    unreachable;
+    return std.ascii.indexOfIgnoreCase(line, "</script>") != null or
+        std.ascii.indexOfIgnoreCase(line, "</pre>") != null or
+        std.ascii.indexOfIgnoreCase(line, "</style>") != null;
+}
+
+test "htmlBlockEnd1" {
+    testing.expect(htmlBlockEnd1(" xyz </script> "));
+    testing.expect(htmlBlockEnd1(" xyz </SCRIPT> "));
+    testing.expect(!htmlBlockEnd1(" xyz </ script> "));
 }
 
 pub fn htmlBlockEnd2(line: []const u8) bool {
-    unreachable;
+    return std.mem.indexOf(u8, line, "-->") != null;
 }
 
 pub fn htmlBlockEnd3(line: []const u8) bool {
-    unreachable;
+    return std.mem.indexOf(u8, line, "?>") != null;
 }
 
 pub fn htmlBlockEnd4(line: []const u8) bool {
-    unreachable;
+    return std.mem.indexOfScalar(u8, line, '>') != null;
 }
 
 pub fn htmlBlockEnd5(line: []const u8) bool {
-    unreachable;
+    return std.mem.indexOf(u8, line, "]]>") != null;
 }
 
 pub fn htmlBlockStart(line: []const u8, sc: *usize) Error!bool {
