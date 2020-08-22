@@ -903,11 +903,26 @@ pub const Parser = struct {
 };
 
 fn expectMarkdownHTML(options: Options, markdown: []const u8, html: []const u8) !void {
-    var output = try main.markdownToHtml(std.testing.allocator, options, markdown);
+    var output = try main.testMarkdownToHtml(options, markdown);
     defer std.testing.allocator.free(output);
     std.testing.expectEqualStrings(html, output);
 }
 
+test "convert simple emphases" {
+    try expectMarkdownHTML(.{},
+        \\hello, _world_ __world__ ___world___ *_world_* **_world_** *__world__*
+        \\
+        \\this is `yummy`
+        \\
+    ,
+        \\<p>hello, <em>world</em> <strong>world</strong> <em><strong>world</strong></em> <em><em>world</em></em> <strong><em>world</em></strong> <em><strong>world</strong></em></p>
+        \\<p>this is <code>yummy</code></p>
+        \\
+    );
+}
+test "smart quotes" {
+    try expectMarkdownHTML(.{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's 'up'?\"\n", "<p>“Hey,” she said. “What’s ‘up’?”</p>\n");
+}
 test "handles EOF without EOL" {
     try expectMarkdownHTML(.{}, "hello", "<p>hello</p>\n");
 }
