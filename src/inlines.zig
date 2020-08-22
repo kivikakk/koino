@@ -212,6 +212,7 @@ pub const Subject = struct {
         if (delimiter.prev != null) {
             delimiter.prev.?.next = delimiter.next;
         }
+        self.allocator.destroy(delimiter);
     }
 
     pub fn popBracket(self: *Subject) bool {
@@ -542,14 +543,15 @@ pub const Subject = struct {
         closer_num_chars -= use_delims;
 
         var opener_text = opener.inl.data.value.text_mut().?;
-        opener_text.* = opener_text.*[0..opener_num_chars];
+        opener_text.* = self.allocator.shrink(opener_text.*, opener_num_chars);
         var closer_text = closer.inl.data.value.text_mut().?;
-        closer_text.* = closer_text.*[0..closer_num_chars];
+        closer_text.* = self.allocator.shrink(closer_text.*, closer_num_chars);
 
         var delim = closer.prev;
         while (delim != null and delim != opener) {
+            var prev = delim.?.prev;
             self.removeDelimiter(delim.?);
-            delim = delim.?.prev;
+            delim = prev;
         }
 
         var emph = try self.makeInline(if (use_delims == 1) .Emph else .Strong);
@@ -572,8 +574,9 @@ pub const Subject = struct {
 
         if (closer_num_chars == 0) {
             closer.inl.detachDeinit();
+            var next = closer.next;
             self.removeDelimiter(closer);
-            return closer.next;
+            return next;
         } else {
             return closer;
         }
@@ -648,6 +651,7 @@ pub const Subject = struct {
         }
 
         var normalized = try strings.normalizeLabel(self.allocator, label orelse "");
+        defer self.allocator.free(normalized);
         var maybe_ref = if (label != null) self.refmap.get(normalized) else null;
 
         if (maybe_ref) |ref| {
@@ -702,6 +706,7 @@ pub const Subject = struct {
         }
     }
 
+    /// Takes ownership of `url' and `title'.
     fn closeBracketMatch(self: *Subject, kind: BracketKind, url: []u8, title: []u8) !void {
         const nl = nodes.NodeLink{ .url = url, .title = title };
         var inl = try self.makeInline(switch (kind) {

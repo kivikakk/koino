@@ -42,51 +42,40 @@ pub fn main() !void {
     try std.io.getStdOut().writer().writeAll(output);
 }
 
-pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-
-    var root = try nodes.AstNode.create(&arena.allocator, .{
-        .value = .Document,
-        .content = std.ArrayList(u8).init(&arena.allocator),
-    });
-
-    var p = parser.Parser{
-        .allocator = &arena.allocator,
-        .refmap = std.StringHashMap(parser.Reference).init(&arena.allocator),
-        .root = root,
-        .current = root,
-        .options = options,
-    };
+fn markdownToHtmlInternal(resultAllocator: *std.mem.Allocator, internalAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
+    var p = try parser.Parser.init(internalAllocator, options);
     try p.feed(markdown);
     var doc = try p.finish();
+    p.deinit();
+
     defer doc.deinit();
 
-    var noisy_env = std.process.getEnvVarOwned(&arena.allocator, "KOINO_NOISY") catch "";
-    const noisy = noisy_env.len > 0;
+    var noisy = false;
+    var noisy_env = std.process.getEnvVarOwned(internalAllocator, "KOINO_NOISY");
+    if (noisy_env) |v| {
+        noisy = v.len > 0;
+        internalAllocator.free(v);
+    } else |err| {}
     doc.validate(noisy);
 
-    return try html.print(allocator, &p.options, doc);
+    return try html.print(resultAllocator, &p.options, doc);
+}
+
+pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    return markdownToHtmlInternal(allocator, &arena.allocator, options, markdown);
+}
+
+/// Uses a GeneralPurposeAllocator for scratch work instead of an ArenaAllocator
+/// to aid in locating memory leaks.  Returned memory is allocated by std.testing.allocator
+/// and must be freed by the caller
+pub fn testMarkdownToHtml(options: Options, markdown: []const u8) ![]u8 {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    return markdownToHtmlInternal(std.testing.allocator, &gpa.allocator, options, markdown);
 }
 
 test "" {
     std.meta.refAllDecls(@This());
-}
-
-test "convert simple emphases" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
-    var output = try markdownToHtml(&gpa.allocator, .{}, "hello, _world_ __world__ ___world___ *_world_* **_world_** *__world__*\n\nthis is `yummy`\n");
-    defer gpa.allocator.free(output);
-    std.testing.expectEqualStrings("<p>hello, <em>world</em> <strong>world</strong> <em><strong>world</strong></em> <em><em>world</em></em> <strong><em>world</em></strong> <em><strong>world</strong></em></p>\n<p>this is <code>yummy</code></p>\n", output);
-}
-
-test "smart quotes" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
-    var output = try markdownToHtml(&gpa.allocator, .{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's 'up'?\"\n");
-    defer gpa.allocator.free(output);
-    std.testing.expectEqualStrings("<p>“Hey,” she said. “What’s ‘up’?”</p>\n", output);
 }

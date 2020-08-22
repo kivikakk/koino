@@ -20,6 +20,7 @@ pub const Reference = struct {
 pub const Parser = struct {
     allocator: *std.mem.Allocator,
     refmap: std.StringHashMap(Reference),
+    hack_refmapKeys: std.ArrayList([]u8),
     root: *nodes.AstNode,
     current: *nodes.AstNode,
     options: Options,
@@ -33,6 +34,22 @@ pub const Parser = struct {
     blank: bool = false,
     partially_consumed_tab: bool = false,
     last_line_length: usize = 0,
+
+    pub fn init(allocator: *std.mem.Allocator, options: Options) !Parser {
+        var root = try nodes.AstNode.create(allocator, .{
+            .value = .Document,
+            .content = std.ArrayList(u8).init(allocator),
+        });
+
+        return Parser{
+            .allocator = allocator,
+            .refmap = std.StringHashMap(Reference).init(allocator),
+            .hack_refmapKeys = std.ArrayList([]u8).init(allocator),
+            .root = root,
+            .current = root,
+            .options = options,
+        };
+    }
 
     pub fn feed(self: *Parser, s: []const u8) !void {
         var i: usize = 0;
@@ -74,6 +91,17 @@ pub const Parser = struct {
                 i = eol + 1;
             }
         }
+    }
+
+    pub fn deinit(self: *Parser) void {
+        for (self.refmap.items()) |entry| {
+            self.allocator.free(entry.value.url);
+            self.allocator.free(entry.value.title);
+        }
+        self.refmap.deinit();
+        for (self.hack_refmapKeys.items) |i|
+            self.allocator.free(i);
+        self.hack_refmapKeys.deinit();
     }
 
     pub fn finish(self: *Parser) !*nodes.AstNode {
@@ -647,8 +675,7 @@ pub const Parser = struct {
         }
 
         var normalized = try strings.normalizeLabel(self.allocator, lab);
-        // defer self.allocator.free(normalized);
-        // TODO: make sure the above is caught.
+        try self.hack_refmapKeys.append(normalized);
         if (normalized.len > 0) {
             const result = try subj.refmap.getOrPut(normalized);
             if (!result.found_existing) {
@@ -892,11 +919,26 @@ pub const Parser = struct {
 };
 
 fn expectMarkdownHTML(options: Options, markdown: []const u8, html: []const u8) !void {
-    var output = try main.markdownToHtml(std.testing.allocator, options, markdown);
+    var output = try main.testMarkdownToHtml(options, markdown);
     defer std.testing.allocator.free(output);
     std.testing.expectEqualStrings(html, output);
 }
 
+test "convert simple emphases" {
+    try expectMarkdownHTML(.{},
+        \\hello, _world_ __world__ ___world___ *_world_* **_world_** *__world__*
+        \\
+        \\this is `yummy`
+        \\
+    ,
+        \\<p>hello, <em>world</em> <strong>world</strong> <em><strong>world</strong></em> <em><em>world</em></em> <strong><em>world</em></strong> <em><strong>world</strong></em></p>
+        \\<p>this is <code>yummy</code></p>
+        \\
+    );
+}
+test "smart quotes" {
+    try expectMarkdownHTML(.{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's 'up'?\"\n", "<p>“Hey,” she said. “What’s ‘up’?”</p>\n");
+}
 test "handles EOF without EOL" {
     try expectMarkdownHTML(.{}, "hello", "<p>hello</p>\n");
 }
