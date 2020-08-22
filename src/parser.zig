@@ -273,9 +273,16 @@ pub const Parser = struct {
                 };
                 container = try self.addChild(container, .{ .CodeBlock = ncb });
                 self.advanceOffset(line, first_nonspace + matched - offset, false);
-            }
-            // HTML block start
-            else if (!indented and switch (container.data.value) {
+            } else if (!indented and ((try scanners.htmlBlockStart(line[self.first_nonspace..], &matched)) or switch (container.data.value) {
+                .Paragraph => false,
+                else => try scanners.htmlBlockStart7(line[self.first_nonspace..], &matched),
+            })) {
+                const nhb = nodes.NodeHtmlBlock{
+                    .block_type = @truncate(u8, matched),
+                    .literal = "",
+                };
+                container = try self.addChild(container, .{ .HtmlBlock = nhb });
+            } else if (!indented and switch (container.data.value) {
                 .Paragraph => try scanners.setextHeadingLine(line[self.first_nonspace..], &sc),
                 else => false,
             }) {

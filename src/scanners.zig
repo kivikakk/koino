@@ -50,26 +50,6 @@ fn match(line: []const u8, regex: [:0]const u8) Error!bool {
     return false;
 }
 
-pub fn htmlBlockEnd1(line: []const u8) bool {
-    unreachable;
-}
-
-pub fn htmlBlockEnd2(line: []const u8) bool {
-    unreachable;
-}
-
-pub fn htmlBlockEnd3(line: []const u8) bool {
-    unreachable;
-}
-
-pub fn htmlBlockEnd4(line: []const u8) bool {
-    unreachable;
-}
-
-pub fn htmlBlockEnd5(line: []const u8) bool {
-    unreachable;
-}
-
 pub fn atxHeadingStart(line: []const u8, matched: *usize) Error!bool {
     if (line[0] != '#') {
         return false;
@@ -173,4 +153,85 @@ test "closeCodeFence" {
     testing.expectEqual(@as(?usize, null), try closeCodeFence("```m"));
     testing.expectEqual(@as(?usize, 3), try closeCodeFence("```\n"));
     testing.expectEqual(@as(?usize, 6), try closeCodeFence("~~~~~~\r\n"));
+}
+
+pub fn htmlBlockEnd1(line: []const u8) bool {
+    unreachable;
+}
+
+pub fn htmlBlockEnd2(line: []const u8) bool {
+    unreachable;
+}
+
+pub fn htmlBlockEnd3(line: []const u8) bool {
+    unreachable;
+}
+
+pub fn htmlBlockEnd4(line: []const u8) bool {
+    unreachable;
+}
+
+pub fn htmlBlockEnd5(line: []const u8) bool {
+    unreachable;
+}
+
+pub fn htmlBlockStart(line: []const u8, matched: *usize) Error!bool {
+    if (line[0] != '<')
+        return false;
+
+    if (try match(line, "<(?i:script|pre|style)[ \t\\x0b\\x0c\r\n>]")) {
+        matched.* = 1;
+    } else if (std.mem.startsWith(u8, line, "<!--")) {
+        matched.* = 2;
+    } else if (std.mem.startsWith(u8, line, "<?")) {
+        matched.* = 3;
+    } else if (try match(line, "<![A-Z]")) {
+        matched.* = 4;
+    } else if (std.mem.startsWith(u8, line, "<![CDATA[")) {
+        matched.* = 5;
+    } else if (try match(line, "</?(:i?address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|title|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t\\x0b\\x0c\r\n>]|/>)")) {
+        matched.* = 6;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+test "htmlBlockStart" {
+    var matched: usize = undefined;
+
+    testing.expect(!try htmlBlockStart("<xyz", &matched));
+    testing.expect(try htmlBlockStart("<Script\r", &matched));
+    testing.expectEqual(@as(usize, 1), matched);
+    testing.expect(try htmlBlockStart("<pre>", &matched));
+    testing.expectEqual(@as(usize, 1), matched);
+    testing.expect(try htmlBlockStart("<!-- h", &matched));
+    testing.expectEqual(@as(usize, 2), matched);
+    testing.expect(try htmlBlockStart("<?m", &matched));
+    testing.expectEqual(@as(usize, 3), matched);
+    testing.expect(try htmlBlockStart("<!Q", &matched));
+    testing.expectEqual(@as(usize, 4), matched);
+    testing.expect(try htmlBlockStart("<![CDATA[\n", &matched));
+    testing.expectEqual(@as(usize, 5), matched);
+    testing.expect(try htmlBlockStart("</ul>", &matched));
+    testing.expectEqual(@as(usize, 6), matched);
+    testing.expect(try htmlBlockStart("<figcaption/>", &matched));
+    testing.expectEqual(@as(usize, 6), matched);
+    testing.expect(!try htmlBlockStart("<xhtml>", &matched));
+}
+
+pub fn htmlBlockStart7(line: []const u8, matched: *usize) Error!bool {
+    if (try match(line, "< ... >")) {
+        matched.* = 7;
+        return true;
+    }
+    return false;
+}
+
+test "htmlBlockStart7" {
+    var matched: usize = 1;
+
+    testing.expect(!try htmlBlockStart7("l", &matched));
+    testing.expect(try htmlBlockStart7("l", &matched));
+    testing.expectEqual(@as(usize, 7), matched);
 }
