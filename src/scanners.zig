@@ -245,3 +245,24 @@ const cdata = "(?:!\\[CDATA\\[(?:[^\\]\\x00]+|\\][^\\]\\x00]|\\]\\][^>\\x00])*]]
 pub fn htmlTag(line: []const u8, matched: *usize) Error!bool {
     return search(line, matched, "(?:" ++ open_tag ++ "|" ++ close_tag ++ "|" ++ html_comment ++ "|" ++ processing_instruction ++ "|" ++ declaration ++ "|" ++ cdata ++ ")");
 }
+
+test "htmlTag" {
+    var matched: usize = undefined;
+
+    testing.expect(try htmlTag("!---->", &matched));
+    testing.expectEqual(@as(usize, 6), matched);
+    testing.expect(try htmlTag("!--x-y-->", &matched));
+    testing.expectEqual(@as(usize, 9), matched);
+    testing.expect(try htmlTag("?zy?>", &matched));
+    testing.expectEqual(@as(usize, 5), matched);
+    testing.expect(try htmlTag("?z?y?>", &matched));
+    testing.expectEqual(@as(usize, 6), matched);
+    testing.expect(try htmlTag("!ABCD aoea@#&>", &matched));
+    testing.expectEqual(@as(usize, 14), matched);
+    testing.expect(try htmlTag("![CDATA[]]>", &matched));
+    testing.expectEqual(@as(usize, 11), matched);
+    testing.expect(try htmlTag("![CDATA[a b\n c d ]]>", &matched));
+    testing.expectEqual(@as(usize, 20), matched);
+    testing.expect(try htmlTag("![CDATA[\r]abc]].>\n]>]]>", &matched));
+    testing.expectEqual(@as(usize, 23), matched);
+}
