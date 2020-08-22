@@ -402,10 +402,8 @@ pub fn normalizeLabel(allocator: *mem.Allocator, s: []const u8) ![]u8 {
 
 test "normalizeLabel" {
     try testCases(normalizeLabel, &[_]Case{
-        .{ .in = "\\'title", .out = "'title" },
-        .{ .in = "'title'", .out = "title" },
-        .{ .in = "(&#x74;&#x65;&#X73;&#X74;)", .out = "test" },
-        .{ .in = "\"&#x30c6;&#x30b9;&#X30c8;\"", .out = "テスト" },
-        .{ .in = "'&hellip;&eacute&Eacute;&rrarr;&oS;'", .out = "…&eacuteÉ⇉Ⓢ" },
+        .{ .in = "Hello", .out = "hello" },
+        .{ .in = "   Y        E  S  ", .out = "y e s" },
+        // TODO: unicode
     });
 }

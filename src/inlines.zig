@@ -46,6 +46,10 @@ pub const Subject = struct {
         return s;
     }
 
+    pub fn deinit(self: *Subject) void {
+        self.brackets.deinit();
+    }
+
     pub fn parseInline(self: *Subject, node: *nodes.AstNode) ParseError!bool {
         const c = self.peekChar() orelse return false;
         var new_inl: ?*nodes.AstNode = null;
@@ -218,7 +222,7 @@ pub const Subject = struct {
         return self.pos >= self.input.len;
     }
 
-    fn peekChar(self: *Subject) ?u8 {
+    pub fn peekChar(self: *Subject) ?u8 {
         return self.peekCharN(0);
     }
 
@@ -229,6 +233,12 @@ pub const Subject = struct {
         const c = self.input[self.pos + n];
         assert(c > 0);
         return c;
+    }
+
+    pub fn spnl(self: *Subject) void {
+        self.skipSpaces();
+        if (self.skipLineEnd())
+            self.skipSpaces();
     }
 
     fn findSpecialChar(self: *Subject) usize {
@@ -305,7 +315,7 @@ pub const Subject = struct {
         }
     }
 
-    fn skipSpaces(self: *Subject) void {
+    pub fn skipSpaces(self: *Subject) void {
         while (self.peekChar()) |c| {
             if (!(c == ' ' or c == '\t'))
                 break;
@@ -326,7 +336,7 @@ pub const Subject = struct {
         }
     }
 
-    fn skipLineEnd(self: *Subject) bool {
+    pub fn skipLineEnd(self: *Subject) bool {
         const old_pos = self.pos;
         if (self.peekChar() orelse 0 == '\r') self.pos += 1;
         if (self.peekChar() orelse 0 == '\n') self.pos += 1;
@@ -650,7 +660,7 @@ pub const Subject = struct {
         return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "]") });
     }
 
-    fn linkLabel(self: *Subject) ?[]const u8 {
+    pub fn linkLabel(self: *Subject) ?[]const u8 {
         const startpos = self.pos;
         if (self.peekChar() orelse 0 != '[') {
             return null;
@@ -726,7 +736,7 @@ pub const Subject = struct {
         }
     }
 
-    fn manualScanLinkUrl(input: []const u8, url: *[]const u8, n: *usize) bool {
+    pub fn manualScanLinkUrl(input: []const u8, url: *[]const u8, n: *usize) bool {
         const len = input.len;
         var i: usize = 0;
 
