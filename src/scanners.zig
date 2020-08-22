@@ -284,7 +284,7 @@ pub fn spacechars(line: []const u8) Error!?usize {
     }
 }
 
-const link_title = "(?:\"(?:\\.|[^\"\\x00])*\"|'(?:\\.|[^'\\x00])*'|\\((?:\\.|[^()\\x00])*\\))";
+const link_title = "(?:\"(?:\\\\.|[^\"\\x00])*\"|'(?:\\\\.|[^'\\x00])*'|\\((?:\\\\.|[^()\\x00])*\\))";
 
 pub fn linkTitle(line: []const u8) Error!?usize {
     var matched: usize = undefined;
@@ -298,6 +298,7 @@ pub fn linkTitle(line: []const u8) Error!?usize {
 test "linkTitle" {
     testing.expectEqual(@as(?usize, null), try linkTitle("\"xyz"));
     testing.expectEqual(@as(?usize, 5), try linkTitle("\"xyz\""));
+    testing.expectEqual(@as(?usize, 7), try linkTitle("\"x\\\"yz\""));
     testing.expectEqual(@as(?usize, null), try linkTitle("'xyz"));
     testing.expectEqual(@as(?usize, 5), try linkTitle("'xyz'"));
     testing.expectEqual(@as(?usize, null), try linkTitle("(xyz"));
