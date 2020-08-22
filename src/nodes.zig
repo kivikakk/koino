@@ -54,6 +54,10 @@ pub const NodeValue = union(enum) {
             .Text, .HtmlInline, .Code => |content| {
                 allocator.free(content);
             },
+            .Link, .Image => |nl| {
+                allocator.free(nl.title);
+                allocator.free(nl.url);
+            },
             else => {},
         }
     }

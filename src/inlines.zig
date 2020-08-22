@@ -702,6 +702,7 @@ pub const Subject = struct {
         }
     }
 
+    /// Takes ownership of `url' and `title'.
     fn closeBracketMatch(self: *Subject, kind: BracketKind, url: []u8, title: []u8) !void {
         const nl = nodes.NodeLink{ .url = url, .title = title };
         var inl = try self.makeInline(switch (kind) {
