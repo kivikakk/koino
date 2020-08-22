@@ -294,3 +294,32 @@ pub fn linkTitle(line: []const u8) Error!?usize {
         return null;
     }
 }
+
+test "linkTitle" {
+    testing.expectEqual(@as(?usize, null), try linkTitle("\"xyz"));
+    testing.expectEqual(@as(?usize, 5), try linkTitle("\"xyz\""));
+    testing.expectEqual(@as(?usize, null), try linkTitle("'xyz"));
+    testing.expectEqual(@as(?usize, 5), try linkTitle("'xyz'"));
+    testing.expectEqual(@as(?usize, null), try linkTitle("(xyz"));
+    testing.expectEqual(@as(?usize, 5), try linkTitle("(xyz)"));
+}
+
+const dangerous_url = "(?:data:(?!png|gif|jpeg|webp)|javascript:|vbscript:|file:)";
+
+pub fn dangerousUrl(line: []const u8) Error!?usize {
+    var matched: usize = undefined;
+    if (try search(line, &matched, dangerous_url)) {
+        return matched;
+    } else {
+        return null;
+    }
+}
+
+test "dangerousUrl" {
+    testing.expectEqual(@as(?usize, null), try dangerousUrl("http://thing"));
+    testing.expectEqual(@as(?usize, 5), try dangerousUrl("data:xyz"));
+    testing.expectEqual(@as(?usize, null), try dangerousUrl("data:png"));
+    testing.expectEqual(@as(?usize, null), try dangerousUrl("data:webp"));
+    testing.expectEqual(@as(?usize, 5), try dangerousUrl("data:a"));
+    testing.expectEqual(@as(?usize, 11), try dangerousUrl("javascript:"));
+}

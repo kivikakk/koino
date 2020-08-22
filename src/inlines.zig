@@ -624,7 +624,37 @@ pub const Subject = struct {
     }
 
     fn closeBracketMatch(self: *Subject, kind: BracketKind, url: []u8, title: []u8) !void {
-        unreachable;
+        const nl = nodes.NodeLink{ .url = url, .title = title };
+        var inl = try self.makeInline(switch (kind) {
+            .Link => .{ .Link = nl },
+            .Image => .{ .Image = nl },
+        });
+
+        var brackets_len = self.brackets.items.len;
+        self.brackets.items[brackets_len - 1].inl_text.insertBefore(inl);
+        var tmpch = self.brackets.items[brackets_len - 1].inl_text.next;
+        while (tmpch) |tmp| {
+            tmpch = tmp.next;
+            inl.append(tmp);
+        }
+        self.brackets.items[brackets_len - 1].inl_text.detachDeinit(); // XXX ???
+        const previous_delimiter = self.brackets.items[brackets_len - 1].previous_delimiter;
+        try self.processEmphasis(previous_delimiter);
+        _ = self.brackets.pop();
+        brackets_len -= 1;
+
+        if (kind == .Link) {
+            var i = @intCast(i32, brackets_len) - 1;
+            while (i >= 0) : (i -= 1) {
+                if (self.brackets.items[@intCast(usize, i)].kind == .Link) {
+                    if (!self.brackets.items[@intCast(usize, i)].active) {
+                        break;
+                    } else {
+                        self.brackets.items[@intCast(usize, i)].active = false;
+                    }
+                }
+            }
+        }
     }
 
     fn manualScanLinkUrl(input: []const u8, url: *[]const u8, n: *usize) bool {

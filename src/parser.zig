@@ -918,3 +918,7 @@ test "html blocks" {
         \\
     );
 }
+test "links" {
+    try expectMarkdownHTML(.{}, "[foo](/url)\n", "<p><a href=\"/url\">foo</a></p>\n");
+    try expectMarkdownHTML(.{}, "[foo](/url \"title\")\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
+}
