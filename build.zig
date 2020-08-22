@@ -25,5 +25,6 @@ pub fn build(b: *std.build.Builder) !void {
 fn addCommonRequirements(exe: *std.build.LibExeObjStep) !void {
     exe.addPackagePath("libpcre", "vendor/libpcre.zig/src/main.zig");
     exe.addPackagePath("htmlentities", "vendor/htmlentities.zig/src/main.zig");
+    exe.addPackagePath("clap", "vendor/zig-clap/clap.zig");
     try linkPcre(exe);
 }
