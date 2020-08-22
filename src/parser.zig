@@ -884,4 +884,17 @@ test "html blocks" {
         \\</td></tr></table>
         \\
     );
+
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\<DIV CLASS="foo">
+        \\
+        \\*Markdown*
+        \\
+        \\</DIV>
+    ,
+        \\<DIV CLASS="foo">
+        \\<p><em>Markdown</em></p>
+        \\</DIV>
+        \\
+    );
 }
