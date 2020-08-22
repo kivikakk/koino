@@ -859,6 +859,15 @@ test "fenced code blocks" {
 }
 test "html blocks" {
     try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\_world_.
+        \\</pre>
+    ,
+        \\<p><em>world</em>.
+        \\</pre></p>
+        \\
+    );
+
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
         \\<table><tr><td>
         \\<pre>
         \\**Hello**,
@@ -873,5 +882,6 @@ test "html blocks" {
         \\<p><em>world</em>.
         \\</pre></p>
         \\</td></tr></table>
+        \\
     );
 }

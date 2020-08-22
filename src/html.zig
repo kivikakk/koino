@@ -237,6 +237,15 @@ const HtmlFormatter = struct {
                     try self.writeAll("</code>");
                 }
             },
+            .HtmlInline => |literal| {
+                if (entering) {
+                    if (!self.options.render.unsafe) {
+                        try self.writeAll("<!-- raw HTML omitted -->");
+                    } else {
+                        try self.writeAll(literal);
+                    }
+                }
+            },
             .Strong => {
                 try self.writeAll(if (entering) "<strong>" else "</strong>");
             },

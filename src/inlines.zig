@@ -360,14 +360,13 @@ pub const Subject = struct {
             return inl;
         }
 
-        // unreachable;
-        // if (try scanners.htmlTag(self.input[self.pos..], &match_len)) {
-        //     var contents = self.input[self.pos - 1 .. self.pos + match_len];
-        //     var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
-        //     self.pos += match_len;
-        //     return inl;
-        // }
-        //
+        if (try scanners.htmlTag(self.input[self.pos..], &match_len)) {
+            var contents = self.input[self.pos - 1 .. self.pos + match_len];
+            var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
+            self.pos += match_len;
+            return inl;
+        }
+
         return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "<") });
     }
 

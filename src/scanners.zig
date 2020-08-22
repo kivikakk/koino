@@ -163,22 +163,22 @@ pub fn htmlBlockEnd5(line: []const u8) bool {
     unreachable;
 }
 
-pub fn htmlBlockStart(line: []const u8, matched: *usize) Error!bool {
+pub fn htmlBlockStart(line: []const u8, sc: *usize) Error!bool {
     if (line[0] != '<')
         return false;
 
     if (try search(line, null, "<(?i:script|pre|style)[ \t\\x0b\\x0c\r\n>]")) {
-        matched.* = 1;
+        sc.* = 1;
     } else if (std.mem.startsWith(u8, line, "<!--")) {
-        matched.* = 2;
+        sc.* = 2;
     } else if (std.mem.startsWith(u8, line, "<?")) {
-        matched.* = 3;
+        sc.* = 3;
     } else if (try search(line, null, "<![A-Z]")) {
-        matched.* = 4;
+        sc.* = 4;
     } else if (std.mem.startsWith(u8, line, "<![CDATA[")) {
-        matched.* = 5;
+        sc.* = 5;
     } else if (try search(line, null, "</?(:i?address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|title|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t\\x0b\\x0c\r\n>]|/>)")) {
-        matched.* = 6;
+        sc.* = 6;
     } else {
         return false;
     }
@@ -186,26 +186,26 @@ pub fn htmlBlockStart(line: []const u8, matched: *usize) Error!bool {
 }
 
 test "htmlBlockStart" {
-    var matched: usize = undefined;
+    var sc: usize = undefined;
 
-    testing.expect(!try htmlBlockStart("<xyz", &matched));
-    testing.expect(try htmlBlockStart("<Script\r", &matched));
-    testing.expectEqual(@as(usize, 1), matched);
-    testing.expect(try htmlBlockStart("<pre>", &matched));
-    testing.expectEqual(@as(usize, 1), matched);
-    testing.expect(try htmlBlockStart("<!-- h", &matched));
-    testing.expectEqual(@as(usize, 2), matched);
-    testing.expect(try htmlBlockStart("<?m", &matched));
-    testing.expectEqual(@as(usize, 3), matched);
-    testing.expect(try htmlBlockStart("<!Q", &matched));
-    testing.expectEqual(@as(usize, 4), matched);
-    testing.expect(try htmlBlockStart("<![CDATA[\n", &matched));
-    testing.expectEqual(@as(usize, 5), matched);
-    testing.expect(try htmlBlockStart("</ul>", &matched));
-    testing.expectEqual(@as(usize, 6), matched);
-    testing.expect(try htmlBlockStart("<figcaption/>", &matched));
-    testing.expectEqual(@as(usize, 6), matched);
-    testing.expect(!try htmlBlockStart("<xhtml>", &matched));
+    testing.expect(!try htmlBlockStart("<xyz", &sc));
+    testing.expect(try htmlBlockStart("<Script\r", &sc));
+    testing.expectEqual(@as(usize, 1), sc);
+    testing.expect(try htmlBlockStart("<pre>", &sc));
+    testing.expectEqual(@as(usize, 1), sc);
+    testing.expect(try htmlBlockStart("<!-- h", &sc));
+    testing.expectEqual(@as(usize, 2), sc);
+    testing.expect(try htmlBlockStart("<?m", &sc));
+    testing.expectEqual(@as(usize, 3), sc);
+    testing.expect(try htmlBlockStart("<!Q", &sc));
+    testing.expectEqual(@as(usize, 4), sc);
+    testing.expect(try htmlBlockStart("<![CDATA[\n", &sc));
+    testing.expectEqual(@as(usize, 5), sc);
+    testing.expect(try htmlBlockStart("</ul>", &sc));
+    testing.expectEqual(@as(usize, 6), sc);
+    testing.expect(try htmlBlockStart("<figcaption/>", &sc));
+    testing.expectEqual(@as(usize, 6), sc);
+    testing.expect(!try htmlBlockStart("<xhtml>", &sc));
 }
 
 const space_char = "[ \t\\x0b\\x0c\r\n]";
@@ -217,22 +217,31 @@ const attribute_value_spec = "(?:" ++ space_char ++ "*=" ++ space_char ++ "*" ++
 const attribute = "(?:" ++ space_char ++ "+" ++ attribute_name ++ attribute_value_spec ++ "?)";
 const open_tag = "(?:" ++ tag_name ++ attribute ++ "*" ++ space_char ++ "*/?>)";
 
-pub fn htmlBlockStart7(line: []const u8, matched: *usize) Error!bool {
+pub fn htmlBlockStart7(line: []const u8, sc: *usize) Error!bool {
     if (try search(line, null, "<(?:" ++ open_tag ++ "|" ++ close_tag ++ ")[\t\\x0c ]*[\r\n]")) {
-        matched.* = 7;
+        sc.* = 7;
         return true;
     }
     return false;
 }
 
 test "htmlBlockStart7" {
-    var matched: usize = 1;
+    var sc: usize = 1;
 
-    testing.expect(!try htmlBlockStart7("<a", &matched));
-    testing.expect(try htmlBlockStart7("<a>  \n", &matched));
-    testing.expectEqual(@as(usize, 7), matched);
-    testing.expect(try htmlBlockStart7("<b2/>\r", &matched));
-    testing.expect(try htmlBlockStart7("<b2\ndata=\"foo\" >\t\x0c\n", &matched));
-    testing.expect(try htmlBlockStart7("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n", &matched));
-    testing.expect(!try htmlBlockStart7("<a h*#ref=\"hi\">\n", &matched));
+    testing.expect(!try htmlBlockStart7("<a", &sc));
+    testing.expect(try htmlBlockStart7("<a>  \n", &sc));
+    testing.expectEqual(@as(usize, 7), sc);
+    testing.expect(try htmlBlockStart7("<b2/>\r", &sc));
+    testing.expect(try htmlBlockStart7("<b2\ndata=\"foo\" >\t\x0c\n", &sc));
+    testing.expect(try htmlBlockStart7("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n", &sc));
+    testing.expect(!try htmlBlockStart7("<a h*#ref=\"hi\">\n", &sc));
+}
+
+const html_comment = "(?:!---->|(?:!---?[^\\x00>-](?:-?[^\\x00-])*-->))";
+const processing_instruction = "(?:\\?(?:[^?>\\x00]+|\\?[^>\\x00]|>)*\\?>)";
+const declaration = "(?:![A-Z]+" ++ space_char ++ "+[^>\\x00]*>)";
+const cdata = "(?:!\\[CDATA\\[(?:[^\\]\\x00]+|\\][^\\]\\x00]|\\]\\][^>\\x00])*]]>)";
+
+pub fn htmlTag(line: []const u8, matched: *usize) Error!bool {
+    return search(line, matched, "(?:" ++ open_tag ++ "|" ++ close_tag ++ "|" ++ html_comment ++ "|" ++ processing_instruction ++ "|" ++ declaration ++ "|" ++ cdata ++ ")");
 }
