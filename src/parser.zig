@@ -12,8 +12,14 @@ const ctype = @import("ctype.zig");
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
 
+pub const Reference = struct {
+    url: []u8,
+    title: []u8,
+};
+
 pub const Parser = struct {
     allocator: *std.mem.Allocator,
+    refmap: std.StringHashMap(Reference),
     root: *nodes.AstNode,
     current: *nodes.AstNode,
     options: Options,
@@ -148,7 +154,6 @@ pub const Parser = struct {
             self.last_line_length -= 1;
         }
 
-        // Removing this doesn't cause a detected leak. Worrying.
         if (new_line) |nl| self.allocator.free(nl);
     }
 
@@ -286,7 +291,7 @@ pub const Parser = struct {
                 .Paragraph => try scanners.setextHeadingLine(line[self.first_nonspace..], &sc),
                 else => false,
             }) {
-                const has_content = self.resolveReferenceLinkDefinitions(&container.data.content);
+                const has_content = try self.resolveReferenceLinkDefinitions(&container.data.content);
                 if (has_content) {
                     container.data.value = .{
                         .Heading = .{
@@ -503,7 +508,7 @@ pub const Parser = struct {
 
         switch (node.data.value) {
             .Paragraph => {
-                const has_content = self.resolveReferenceLinkDefinitions(&node.data.content);
+                const has_content = try self.resolveReferenceLinkDefinitions(&node.data.content);
                 if (!has_content) {
                     node.detachDeinit();
                 }
@@ -574,27 +579,88 @@ pub const Parser = struct {
         return parent;
     }
 
-    fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) bool {
+    fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) !bool {
         var seeked: usize = 0;
         var pos: usize = undefined;
         var seek = content.items;
 
-        while (seek.len > 0 and seek[0] == '[' and self.parseReferenceInline(seek, &pos)) {
+        while (seek.len > 0 and seek[0] == '[' and try self.parseReferenceInline(seek, &pos)) {
             seek = seek[pos..];
             seeked += pos;
         }
 
-        if (seeked != 0) {
-            // *content = content[seeked..].to_vec();
-            unreachable;
-        }
+        while (seeked > 0) : (seeked -= 1)
+            _ = content.orderedRemove(0);
 
         return !strings.isBlank(content.items);
     }
 
-    fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) bool {
-        // TODO
-        return false;
+    fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) !bool {
+        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, content);
+        defer subj.deinit();
+
+        var lab = if (subj.linkLabel()) |l| lab: {
+            if (l.len == 0)
+                return false;
+            break :lab l;
+        } else return false;
+
+        if (subj.peekChar() orelse 0 != ':')
+            return false;
+
+        subj.pos += 1;
+        subj.spnl();
+
+        var url: []const u8 = undefined;
+        var match_len: usize = undefined;
+        if (!inlines.Subject.manualScanLinkUrl(subj.input[subj.pos..], &url, &match_len))
+            return false;
+        subj.pos += match_len;
+
+        const beforetitle = subj.pos;
+        subj.spnl();
+        const title_search: ?usize = if (subj.pos == beforetitle)
+            null
+        else
+            try scanners.linkTitle(subj.input[subj.pos..]);
+        const title = if (title_search) |title_match| title: {
+            const t = subj.input[subj.pos .. subj.pos + title_match];
+            subj.pos += title_match;
+            break :title try self.allocator.dupe(u8, t);
+        } else title: {
+            subj.pos = beforetitle;
+            break :title try self.allocator.alloc(u8, 0);
+        };
+        defer self.allocator.free(title);
+
+        subj.skipSpaces();
+        if (!subj.skipLineEnd()) {
+            if (title.len > 0) {
+                subj.pos = beforetitle;
+                subj.skipSpaces();
+                if (!subj.skipLineEnd()) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        var normalized = try strings.normalizeLabel(self.allocator, lab);
+        // defer self.allocator.free(normalized);
+        // TODO: make sure the above is caught.
+        if (normalized.len > 0) {
+            const result = try subj.refmap.getOrPut(normalized);
+            if (!result.found_existing) {
+                result.entry.*.value = Reference{
+                    .url = try strings.cleanUrl(self.allocator, url),
+                    .title = try strings.cleanTitle(self.allocator, title),
+                };
+            }
+        }
+
+        pos.* = subj.pos;
+        return true;
     }
 
     fn processInlines(self: *Parser) !void {
@@ -622,7 +688,8 @@ pub const Parser = struct {
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
         var content = strings.rtrim(node.data.content.items);
-        var subj = inlines.Subject.init(self.allocator, &self.options, content);
+        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, content);
+        defer subj.deinit();
         while (try subj.parseInline(node)) {}
         try subj.processEmphasis(null);
         while (subj.popBracket()) {}
@@ -921,4 +988,7 @@ test "html blocks" {
 test "links" {
     try expectMarkdownHTML(.{}, "[foo](/url)\n", "<p><a href=\"/url\">foo</a></p>\n");
     try expectMarkdownHTML(.{}, "[foo](/url \"title\")\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
+}
+test "link reference definitions" {
+    try expectMarkdownHTML(.{}, "[foo]: /url \"title\"\n\n[foo]\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
 }

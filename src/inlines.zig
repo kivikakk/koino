@@ -8,13 +8,16 @@ const unicode = @import("unicode.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
 const scanners = @import("scanners.zig");
+const Reference = @import("parser.zig").Reference;
 
 const MAX_BACKTICKS = 80;
+const MAX_LINK_LABEL_LENGTH = 1000;
 
 pub const ParseError = error{ OutOfMemory, InvalidUtf8 };
 
 pub const Subject = struct {
     allocator: *mem.Allocator,
+    refmap: *std.StringHashMap(Reference),
     options: *Options,
     input: []const u8,
     pos: usize = 0,
@@ -26,9 +29,10 @@ pub const Subject = struct {
     skip_chars: [256]bool = [_]bool{false} ** 256,
     smart_chars: [256]bool = [_]bool{false} ** 256,
 
-    pub fn init(allocator: *mem.Allocator, options: *Options, input: []const u8) Subject {
+    pub fn init(allocator: *mem.Allocator, refmap: *std.StringHashMap(Reference), options: *Options, input: []const u8) Subject {
         var s = Subject{
             .allocator = allocator,
+            .refmap = refmap,
             .options = options,
             .input = input,
             .brackets = std.ArrayList(Bracket).init(allocator),
@@ -40,6 +44,10 @@ pub const Subject = struct {
             s.smart_chars[c] = true;
         }
         return s;
+    }
+
+    pub fn deinit(self: *Subject) void {
+        self.brackets.deinit();
     }
 
     pub fn parseInline(self: *Subject, node: *nodes.AstNode) ParseError!bool {
@@ -214,7 +222,7 @@ pub const Subject = struct {
         return self.pos >= self.input.len;
     }
 
-    fn peekChar(self: *Subject) ?u8 {
+    pub fn peekChar(self: *Subject) ?u8 {
         return self.peekCharN(0);
     }
 
@@ -225,6 +233,12 @@ pub const Subject = struct {
         const c = self.input[self.pos + n];
         assert(c > 0);
         return c;
+    }
+
+    pub fn spnl(self: *Subject) void {
+        self.skipSpaces();
+        if (self.skipLineEnd())
+            self.skipSpaces();
     }
 
     fn findSpecialChar(self: *Subject) usize {
@@ -301,7 +315,7 @@ pub const Subject = struct {
         }
     }
 
-    fn skipSpaces(self: *Subject) void {
+    pub fn skipSpaces(self: *Subject) void {
         while (self.peekChar()) |c| {
             if (!(c == ' ' or c == '\t'))
                 break;
@@ -322,7 +336,7 @@ pub const Subject = struct {
         }
     }
 
-    fn skipLineEnd(self: *Subject) bool {
+    pub fn skipLineEnd(self: *Subject) bool {
         const old_pos = self.pos;
         if (self.peekChar() orelse 0 == '\r') self.pos += 1;
         if (self.peekChar() orelse 0 == '\n') self.pos += 1;
@@ -620,7 +634,72 @@ pub const Subject = struct {
             }
         }
 
-        unreachable;
+        var label: ?[]const u8 = null;
+        if (self.linkLabel()) |lab| {
+            label = lab;
+        }
+
+        if (label == null) {
+            self.pos = initial_pos;
+        }
+
+        if ((label == null or label.?.len == 0) and !self.brackets.items[brackets_len - 1].bracket_after) {
+            label = self.input[self.brackets.items[brackets_len - 1].position .. initial_pos - 1];
+        }
+
+        var normalized = try strings.normalizeLabel(self.allocator, label orelse "");
+        var maybe_ref = if (label != null) self.refmap.get(normalized) else null;
+
+        if (maybe_ref) |ref| {
+            try self.closeBracketMatch(kind, try self.allocator.dupe(u8, ref.url), try self.allocator.dupe(u8, ref.title));
+            return null;
+        }
+
+        _ = self.brackets.pop();
+        self.pos = initial_pos;
+        return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "]") });
+    }
+
+    pub fn linkLabel(self: *Subject) ?[]const u8 {
+        const startpos = self.pos;
+        if (self.peekChar() orelse 0 != '[') {
+            return null;
+        }
+
+        self.pos += 1;
+
+        var length: usize = 0;
+        var c: u8 = 0;
+        while (true) {
+            c = self.peekChar() orelse 0;
+            if (c == '[' or c == ']') {
+                break;
+            }
+
+            if (c == '\\') {
+                self.pos += 1;
+                length += 1;
+                if (ctype.ispunct(self.peekChar() orelse 0)) {
+                    self.pos += 1;
+                    length += 1;
+                }
+            } else {
+                self.pos += 1;
+                length += 1;
+            }
+            if (length > MAX_LINK_LABEL_LENGTH) {
+                self.pos = startpos;
+                return null;
+            }
+        }
+        if (c == ']') {
+            const raw_label = strings.trim(self.input[startpos + 1 .. self.pos]);
+            self.pos += 1;
+            return raw_label;
+        } else {
+            self.pos = startpos;
+            return null;
+        }
     }
 
     fn closeBracketMatch(self: *Subject, kind: BracketKind, url: []u8, title: []u8) !void {
@@ -657,7 +736,7 @@ pub const Subject = struct {
         }
     }
 
-    fn manualScanLinkUrl(input: []const u8, url: *[]const u8, n: *usize) bool {
+    pub fn manualScanLinkUrl(input: []const u8, url: *[]const u8, n: *usize) bool {
         const len = input.len;
         var i: usize = 0;
 

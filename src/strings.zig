@@ -133,19 +133,21 @@ const Case = struct {
     out: []const u8,
 };
 
+fn testCases(function: fn (*mem.Allocator, []const u8) anyerror![]u8, cases: []const Case) !void {
+    for (cases) |case| {
+        const result = try function(std.testing.allocator, case.in);
+        defer std.testing.allocator.free(result);
+        testing.expectEqualStrings(case.out, result);
+    }
+}
+
 test "normalizeCode" {
-    const cases = [_]Case{
+    try testCases(normalizeCode, &[_]Case{
         .{ .in = "qwe", .out = "qwe" },
         .{ .in = " qwe ", .out = "qwe" },
         .{ .in = "  qwe  ", .out = " qwe " },
         .{ .in = " abc\rdef'\r\ndef ", .out = "abc def' def" },
-    };
-
-    for (cases) |case| {
-        const result = try normalizeCode(std.testing.allocator, case.in);
-        defer std.testing.allocator.free(result);
-        testing.expectEqualStrings(case.out, result);
-    }
+    });
 }
 
 pub fn removeTrailingBlankLines(line: *std.ArrayList(u8)) void {
@@ -289,7 +291,7 @@ pub fn unescapeHtml(allocator: *mem.Allocator, html: []const u8) ![]u8 {
 }
 
 test "unescapeHtml" {
-    const cases = [_]Case{
+    try testCases(unescapeHtml, &[_]Case{
         .{ .in = "&#116;&#101;&#115;&#116;", .out = "test" },
         .{ .in = "&#12486;&#12473;&#12488;", .out = "テスト" },
         .{ .in = "&#x74;&#x65;&#X73;&#X74;", .out = "test" },
@@ -299,13 +301,7 @@ test "unescapeHtml" {
         // (such as &copy), these are not recognized here, because it makes the grammar too
         // ambiguous:"
         .{ .in = "&hellip;&eacute&Eacute;&rrarr;&oS;", .out = "…&eacuteÉ⇉Ⓢ" },
-    };
-
-    for (cases) |case| {
-        const result = try unescapeHtml(std.testing.allocator, case.in);
-        defer std.testing.allocator.free(result);
-        testing.expectEqualStrings(case.out, result);
-    }
+    });
 }
 
 pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
@@ -376,17 +372,38 @@ pub fn cleanTitle(allocator: *mem.Allocator, title: []const u8) ![]u8 {
 }
 
 test "cleanTitle" {
-    const cases = [_]Case{
+    try testCases(cleanTitle, &[_]Case{
         .{ .in = "\\'title", .out = "'title" },
         .{ .in = "'title'", .out = "title" },
         .{ .in = "(&#x74;&#x65;&#X73;&#X74;)", .out = "test" },
         .{ .in = "\"&#x30c6;&#x30b9;&#X30c8;\"", .out = "テスト" },
         .{ .in = "'&hellip;&eacute&Eacute;&rrarr;&oS;'", .out = "…&eacuteÉ⇉Ⓢ" },
-    };
+    });
+}
 
-    for (cases) |case| {
-        const result = try cleanTitle(std.testing.allocator, case.in);
-        defer std.testing.allocator.free(result);
-        testing.expectEqualStrings(case.out, result);
+pub fn normalizeLabel(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+    var trimmed = trim(s);
+    var buffer = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
+    var last_was_whitespace = false;
+    for (trimmed) |c| {
+        // TODO unicode awareness
+        if (ctype.isspace(c)) {
+            if (!last_was_whitespace) {
+                last_was_whitespace = true;
+                try buffer.append(' ');
+            }
+        } else {
+            last_was_whitespace = false;
+            try buffer.append(std.ascii.toLower(c));
+        }
     }
+    return buffer.toOwnedSlice();
+}
+
+test "normalizeLabel" {
+    try testCases(normalizeLabel, &[_]Case{
+        .{ .in = "Hello", .out = "hello" },
+        .{ .in = "   Y        E  S  ", .out = "y e s" },
+        // TODO: unicode
+    });
 }
