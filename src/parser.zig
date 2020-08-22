@@ -35,6 +35,22 @@ pub const Parser = struct {
     partially_consumed_tab: bool = false,
     last_line_length: usize = 0,
 
+    pub fn init(allocator: *std.mem.Allocator, options: Options) !Parser {
+        var root = try nodes.AstNode.create(allocator, .{
+            .value = .Document,
+            .content = std.ArrayList(u8).init(allocator),
+        });
+
+        return Parser{
+            .allocator = allocator,
+            .refmap = std.StringHashMap(Reference).init(allocator),
+            .hack_refmapKeys = std.ArrayList([]u8).init(allocator),
+            .root = root,
+            .current = root,
+            .options = options,
+        };
+    }
+
     pub fn feed(self: *Parser, s: []const u8) !void {
         var i: usize = 0;
         var sz = s.len;

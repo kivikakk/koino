@@ -43,19 +43,7 @@ pub fn main() !void {
 }
 
 fn markdownToHtmlInternal(resultAllocator: *std.mem.Allocator, internalAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
-    var root = try nodes.AstNode.create(internalAllocator, .{
-        .value = .Document,
-        .content = std.ArrayList(u8).init(internalAllocator),
-    });
-
-    var p = parser.Parser{
-        .allocator = internalAllocator,
-        .refmap = std.StringHashMap(parser.Reference).init(internalAllocator),
-        .hack_refmapKeys = std.ArrayList([]u8).init(internalAllocator),
-        .root = root,
-        .current = root,
-        .options = options,
-    };
+    var p = try parser.Parser.init(internalAllocator, options);
     try p.feed(markdown);
     var doc = try p.finish();
     p.deinit();
