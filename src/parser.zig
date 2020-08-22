@@ -897,4 +897,24 @@ test "html blocks" {
         \\</DIV>
         \\
     );
+
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\<pre language="haskell"><code>
+        \\import Text.HTML.TagSoup
+        \\
+        \\main :: IO ()
+        \\main = print $ parseTags tags
+        \\</code></pre>
+        \\okay
+        \\
+    ,
+        \\<pre language="haskell"><code>
+        \\import Text.HTML.TagSoup
+        \\
+        \\main :: IO ()
+        \\main = print $ parseTags tags
+        \\</code></pre>
+        \\<p>okay</p>
+        \\
+    );
 }
