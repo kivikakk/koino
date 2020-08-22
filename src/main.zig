@@ -61,10 +61,7 @@ pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown:
     };
     try p.feed(markdown);
     var doc = try p.finish();
-    p.refmap.deinit();
-    for (p.hack_refmapKeys.items) |i|
-        arena.allocator.free(i);
-    p.hack_refmapKeys.deinit();
+    p.deinit();
 
     defer doc.deinit();
 

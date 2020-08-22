@@ -54,6 +54,12 @@ pub const NodeValue = union(enum) {
             .Text, .HtmlInline, .Code => |content| {
                 allocator.free(content);
             },
+            .CodeBlock => |ncb| {
+                ncb.literal.deinit();
+            },
+            .HtmlBlock => |nhb| {
+                nhb.literal.deinit();
+            },
             .Link, .Image => |nl| {
                 allocator.free(nl.title);
                 allocator.free(nl.url);

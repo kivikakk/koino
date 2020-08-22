@@ -77,6 +77,17 @@ pub const Parser = struct {
         }
     }
 
+    pub fn deinit(self: *Parser) void {
+        for (self.refmap.items()) |entry| {
+            self.allocator.free(entry.value.url);
+            self.allocator.free(entry.value.title);
+        }
+        self.refmap.deinit();
+        for (self.hack_refmapKeys.items) |i|
+            self.allocator.free(i);
+        self.hack_refmapKeys.deinit();
+    }
+
     pub fn finish(self: *Parser) !*nodes.AstNode {
         try self.finalizeDocument();
         return self.root;
