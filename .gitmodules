@@ -7,3 +7,6 @@
 [submodule "vendor/libpcre.zig"]
 	path = vendor/libpcre.zig
 	url = https://github.com/kivikakk/libpcre.zig
+[submodule "vendor/zig-clap"]
+	path = vendor/zig-clap
+	url = https://github.com/kivikakk/zig-clap

@@ -50,7 +50,7 @@ pub const Parser = struct {
             if (process) {
                 if (linebuf.items.len != 0) {
                     try linebuf.appendSlice(s[i..eol]);
-                    try self.processLine(linebuf.span());
+                    try self.processLine(linebuf.items);
                     linebuf.items.len = 0;
                 } else if (sz > eol and s[eol] == '\n') {
                     try self.processLine(s[i .. eol + 1]);
@@ -273,9 +273,16 @@ pub const Parser = struct {
                 };
                 container = try self.addChild(container, .{ .CodeBlock = ncb });
                 self.advanceOffset(line, first_nonspace + matched - offset, false);
-            }
-            // HTML block start
-            else if (!indented and switch (container.data.value) {
+            } else if (!indented and ((try scanners.htmlBlockStart(line[self.first_nonspace..], &matched)) or switch (container.data.value) {
+                .Paragraph => false,
+                else => try scanners.htmlBlockStart7(line[self.first_nonspace..], &matched),
+            })) {
+                const nhb = nodes.NodeHtmlBlock{
+                    .block_type = @truncate(u8, matched),
+                    .literal = std.ArrayList(u8).init(self.allocator),
+                };
+                container = try self.addChild(container, .{ .HtmlBlock = nhb });
+            } else if (!indented and switch (container.data.value) {
                 .Paragraph => try scanners.setextHeadingLine(line[self.first_nonspace..], &sc),
                 else => false,
             }) {
@@ -513,7 +520,7 @@ pub const Parser = struct {
                     }
                     assert(pos < node.data.content.items.len);
 
-                    var info = try strings.unescapeHtml(self.allocator, node.data.content.span()[0..pos]);
+                    var info = try strings.unescapeHtml(self.allocator, node.data.content.items[0..pos]);
                     defer self.allocator.free(info);
                     var trimmed = strings.trim(info);
                     var unescaped = try strings.unescape(self.allocator, trimmed);
@@ -532,8 +539,8 @@ pub const Parser = struct {
                 }
                 std.mem.swap(std.ArrayList(u8), &ncb.literal, &node.data.content);
             },
-            .HtmlBlock => |nhb| {
-                unreachable;
+            .HtmlBlock => |*nhb| {
+                std.mem.swap(std.ArrayList(u8), &nhb.literal, &node.data.content);
             },
             .List => |*nl| {
                 nl.tight = true;
@@ -570,7 +577,7 @@ pub const Parser = struct {
     fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) bool {
         var seeked: usize = 0;
         var pos: usize = undefined;
-        var seek = content.span();
+        var seek = content.items;
 
         while (seek.len > 0 and seek[0] == '[' and self.parseReferenceInline(seek, &pos)) {
             seek = seek[pos..];
@@ -582,7 +589,7 @@ pub const Parser = struct {
             unreachable;
         }
 
-        return !strings.isBlank(content.span());
+        return !strings.isBlank(content.items);
     }
 
     fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) bool {
@@ -614,7 +621,7 @@ pub const Parser = struct {
     }
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
-        var content = strings.rtrim(node.data.content.span());
+        var content = strings.rtrim(node.data.content.items);
         var subj = inlines.Subject.init(self.allocator, &self.options, content);
         while (try subj.parseInline(node)) {}
         try subj.processEmphasis(null);
@@ -848,4 +855,70 @@ test "setext heading override pointy" {
 }
 test "fenced code blocks" {
     try expectMarkdownHTML(.{}, "```\n<\n >\n```\n", "<pre><code>&lt;\n &gt;\n</code></pre>\n");
+    try expectMarkdownHTML(.{}, "````\naaa\n```\n``````\n", "<pre><code>aaa\n```\n</code></pre>\n");
+}
+test "html blocks" {
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\_world_.
+        \\</pre>
+    ,
+        \\<p><em>world</em>.
+        \\</pre></p>
+        \\
+    );
+
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\<table><tr><td>
+        \\<pre>
+        \\**Hello**,
+        \\
+        \\_world_.
+        \\</pre>
+        \\</td></tr></table>
+    ,
+        \\<table><tr><td>
+        \\<pre>
+        \\**Hello**,
+        \\<p><em>world</em>.
+        \\</pre></p>
+        \\</td></tr></table>
+        \\
+    );
+
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\<DIV CLASS="foo">
+        \\
+        \\*Markdown*
+        \\
+        \\</DIV>
+    ,
+        \\<DIV CLASS="foo">
+        \\<p><em>Markdown</em></p>
+        \\</DIV>
+        \\
+    );
+
+    try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
+        \\<pre language="haskell"><code>
+        \\import Text.HTML.TagSoup
+        \\
+        \\main :: IO ()
+        \\main = print $ parseTags tags
+        \\</code></pre>
+        \\okay
+        \\
+    ,
+        \\<pre language="haskell"><code>
+        \\import Text.HTML.TagSoup
+        \\
+        \\main :: IO ()
+        \\main = print $ parseTags tags
+        \\</code></pre>
+        \\<p>okay</p>
+        \\
+    );
+}
+test "links" {
+    try expectMarkdownHTML(.{}, "[foo](/url)\n", "<p><a href=\"/url\">foo</a></p>\n");
+    try expectMarkdownHTML(.{}, "[foo](/url \"title\")\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
 }

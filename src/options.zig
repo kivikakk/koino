@@ -4,6 +4,7 @@ pub const Options = struct {
     };
     pub const Render = struct {
         hard_breaks: bool = false,
+        unsafe: bool = false,
     };
 
     parse: Parse = .{},

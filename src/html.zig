@@ -6,6 +6,7 @@ const mem = std.mem;
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const ctype = @import("ctype.zig");
+const scanners = @import("scanners.zig");
 
 pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
     var buffer = std.ArrayList(u8).init(allocator);
@@ -36,6 +37,10 @@ const HtmlFormatter = struct {
 
     const NEEDS_ESCAPED = createMap("\"&<>");
     const HREF_SAFE = createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+
+    fn dangerousUrl(input: []const u8) !bool {
+        return (try scanners.dangerousUrl(input)) != null;
+    }
 
     // Hack so that there's a Writer.Error.
     const Writer = struct {
@@ -69,6 +74,31 @@ const HtmlFormatter = struct {
             }
         }
         try self.writeAll(s[offset..]);
+    }
+
+    fn escapeHref(self: *HtmlFormatter, s: []const u8) !void {
+        var i: usize = 0;
+        const size = s.len;
+
+        while (i < size) : (i += 1) {
+            const org = i;
+            while (i < size and HREF_SAFE[s[i]])
+                i += 1;
+
+            if (i > org) {
+                try self.writeAll(s[org..i]);
+            }
+
+            if (i >= size) {
+                break;
+            }
+
+            switch (s[i]) {
+                '&' => try self.writeAll("&amp;"),
+                '\'' => try self.writeAll("&#x27;"),
+                else => try std.fmt.format(Writer{ .formatter = self }, "%{X:0>2}", .{s[i]}),
+            }
+        }
     }
 
     pub fn writeAll(self: *HtmlFormatter, s: []const u8) !void {
@@ -179,8 +209,19 @@ const HtmlFormatter = struct {
                         try self.escape(ncb.info.?[0..first_tag]);
                         try self.writeAll("\">");
                     }
-                    try self.escape(ncb.literal.span());
+                    try self.escape(ncb.literal.items);
                     try self.writeAll("</code></pre>\n");
+                }
+            },
+            .HtmlBlock => |nhb| {
+                if (entering) {
+                    try self.cr();
+                    if (!self.options.render.unsafe) {
+                        try self.writeAll("<!-- raw HTML omitted -->");
+                    } else {
+                        try self.writeAll(nhb.literal.items);
+                    }
+                    try self.cr();
                 }
             },
             .ThematicBreak => {
@@ -226,11 +267,35 @@ const HtmlFormatter = struct {
                     try self.writeAll("</code>");
                 }
             },
+            .HtmlInline => |literal| {
+                if (entering) {
+                    if (!self.options.render.unsafe) {
+                        try self.writeAll("<!-- raw HTML omitted -->");
+                    } else {
+                        try self.writeAll(literal);
+                    }
+                }
+            },
             .Strong => {
                 try self.writeAll(if (entering) "<strong>" else "</strong>");
             },
             .Emph => {
                 try self.writeAll(if (entering) "<em>" else "</em>");
+            },
+            .Link => |nl| {
+                if (entering) {
+                    try self.writeAll("<a href=\"");
+                    if (self.options.render.unsafe or !(try dangerousUrl(nl.url))) {
+                        try self.escapeHref(nl.url);
+                    }
+                    if (nl.title.len > 0) {
+                        try self.writeAll("\" title=\"");
+                        try self.escape(nl.title);
+                    }
+                    try self.writeAll("\">");
+                } else {
+                    try self.writeAll("</a>");
+                }
             },
             else => {
                 std.debug.print("what to do with {}?\n", .{node.data.value});
@@ -269,5 +334,5 @@ test "escaping works as expected" {
     defer testParts.deinit();
 
     try testParts.formatter.escape("<hello & goodbye>");
-    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.span());
+    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.items);
 }

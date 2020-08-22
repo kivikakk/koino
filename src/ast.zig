@@ -61,9 +61,23 @@ pub fn Ast(comptime T: type) type {
             } else if (self.parent) |parent| {
                 assert(parent.last_child.? == self);
                 parent.last_child = sibling;
-                sibling.next = null;
             }
             self.next = sibling;
+        }
+
+        pub fn insertBefore(self: *Self, sibling: *Self) void {
+            sibling.detach();
+            sibling.parent = self.parent;
+            sibling.next = self;
+            if (self.prev) |prev| {
+                sibling.prev = prev;
+                assert(prev.next.? == self);
+                prev.next = sibling;
+            } else if (self.parent) |parent| {
+                assert(parent.first_child.? == self);
+                parent.first_child = sibling;
+            }
+            self.prev = sibling;
         }
 
         pub fn detach(self: *Self) void {

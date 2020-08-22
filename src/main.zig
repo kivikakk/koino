@@ -1,20 +1,40 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const clap = @import("clap");
+
 const Parser = @import("parser.zig").Parser;
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const html = @import("html.zig");
 
 pub fn main() !void {
+    const params = comptime [_]clap.Param(clap.Help){
+        try clap.parseParam("-h, --help      Display this help and exit"),
+        try clap.parseParam("-u, --unsafe    Render raw HTML and dangerous URLs"),
+    };
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
+
+    var args = try clap.parse(clap.Help, &params, &gpa.allocator);
+    defer args.deinit();
+
+    if (args.flag("--help")) {
+        var stderr = std.io.getStdErr().writer();
+        try stderr.writeAll("Usage: koino ");
+        try clap.usage(stderr, &params);
+        try stderr.writeAll("\n\nOptions:\n");
+        try clap.help(stderr, &params);
+        return;
+    }
 
     var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
     defer gpa.allocator.free(markdown);
 
-    const options = .{};
-    // TODO: parse CLI
+    var options = Options{};
+    if (args.flag("--unsafe"))
+        options.render.unsafe = true;
 
     var output = try markdownToHtml(&gpa.allocator, options, markdown);
     defer gpa.allocator.free(output);
