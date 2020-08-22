@@ -43,8 +43,8 @@ pub fn main() !void {
 }
 
 pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+    var arena = std.heap.GeneralPurposeAllocator(.{}){}; //.init(allocator);
+    defer _ = arena.deinit();
 
     var root = try nodes.AstNode.create(&arena.allocator, .{
         .value = .Document,
@@ -54,12 +54,18 @@ pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown:
     var p = parser.Parser{
         .allocator = &arena.allocator,
         .refmap = std.StringHashMap(parser.Reference).init(&arena.allocator),
+        .hack_refmapKeys = std.ArrayList([]u8).init(&arena.allocator),
         .root = root,
         .current = root,
         .options = options,
     };
     try p.feed(markdown);
     var doc = try p.finish();
+    p.refmap.deinit();
+    for (p.hack_refmapKeys.items) |i|
+        arena.allocator.free(i);
+    p.hack_refmapKeys.deinit();
+
     defer doc.deinit();
 
     var noisy_env = std.process.getEnvVarOwned(&arena.allocator, "KOINO_NOISY") catch "";

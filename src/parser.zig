@@ -20,6 +20,7 @@ pub const Reference = struct {
 pub const Parser = struct {
     allocator: *std.mem.Allocator,
     refmap: std.StringHashMap(Reference),
+    hack_refmapKeys: std.ArrayList([]u8),
     root: *nodes.AstNode,
     current: *nodes.AstNode,
     options: Options,
@@ -647,8 +648,7 @@ pub const Parser = struct {
         }
 
         var normalized = try strings.normalizeLabel(self.allocator, lab);
-        // defer self.allocator.free(normalized);
-        // TODO: make sure the above is caught.
+        try self.hack_refmapKeys.append(normalized);
         if (normalized.len > 0) {
             const result = try subj.refmap.getOrPut(normalized);
             if (!result.found_existing) {
