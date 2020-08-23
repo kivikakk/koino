@@ -60,6 +60,9 @@ pub const NodeValue = union(enum) {
             .HtmlBlock => |nhb| {
                 nhb.literal.deinit();
             },
+            .Table => |aligns| {
+                allocator.free(aligns);
+            },
             .Link, .Image => |nl| {
                 allocator.free(nl.title);
                 allocator.free(nl.url);

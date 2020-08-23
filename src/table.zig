@@ -20,8 +20,7 @@ pub fn freeNested(allocator: *std.mem.Allocator, v: [][]u8) void {
 fn row(allocator: *std.mem.Allocator, line: []const u8) !?[][]u8 {
     const len = line.len;
     var v = std.ArrayList([]u8).init(allocator);
-    // errdefer v.deinit();
-    // XXX deinit is not enough; need to free each item
+    errdefer freeNested(allocator, v.toOwnedSlice());
     var offset: usize = 0;
 
     if (len > 0 and line[0] == '|')
@@ -127,6 +126,7 @@ fn tryOpeningRow(parser: *Parser, container: *nodes.AstNode, aligns: []nodes.Tab
         return null;
 
     const this_row = (try row(parser.allocator, line[parser.first_nonspace..])).?;
+    defer freeNested(parser.allocator, this_row);
     const new_row = try parser.addChild(container, .{ .TableRow = .Body });
 
     var i: usize = 0;
