@@ -10,8 +10,9 @@ const html = @import("html.zig");
 
 pub fn main() !void {
     const params = comptime [_]clap.Param(clap.Help){
-        try clap.parseParam("-h, --help      Display this help and exit"),
-        try clap.parseParam("-u, --unsafe    Render raw HTML and dangerous URLs"),
+        try clap.parseParam("-h, --help                       Display this help and exit"),
+        try clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs"),
+        try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension. (table)"),
     };
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -29,12 +30,15 @@ pub fn main() !void {
         return;
     }
 
-    var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
-    defer gpa.allocator.free(markdown);
-
     var options = Options{};
     if (args.flag("--unsafe"))
         options.render.unsafe = true;
+
+    for (args.allOptions("--extension")) |extension|
+        std.debug.print("enabling {}\n", .{extension});
+
+    var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
+    defer gpa.allocator.free(markdown);
 
     var output = try markdownToHtml(&gpa.allocator, options, markdown);
     defer gpa.allocator.free(output);
