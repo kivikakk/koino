@@ -1147,3 +1147,6 @@ test "strikethroughs" {
 test "images" {
     try expectMarkdownHTML(.{}, "[![moon](moon.jpg)](/uri)\n", "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n");
 }
+test "autolink" {
+    try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "www.commonmark.org\n", "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n");
+}
