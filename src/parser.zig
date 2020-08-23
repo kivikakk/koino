@@ -51,6 +51,15 @@ pub const Parser = struct {
         };
     }
 
+    pub fn deinit(self: *Parser) void {
+        for (self.refmap.items()) |entry| {
+            self.allocator.free(entry.key);
+            self.allocator.free(entry.value.url);
+            self.allocator.free(entry.value.title);
+        }
+        self.refmap.deinit();
+    }
+
     pub fn feed(self: *Parser, s: []const u8) !void {
         var i: usize = 0;
         var sz = s.len;
@@ -91,17 +100,6 @@ pub const Parser = struct {
                 i = eol + 1;
             }
         }
-    }
-
-    pub fn deinit(self: *Parser) void {
-        for (self.refmap.items()) |entry| {
-            self.allocator.free(entry.value.url);
-            self.allocator.free(entry.value.title);
-        }
-        self.refmap.deinit();
-        for (self.hack_refmapKeys.items) |i|
-            self.allocator.free(i);
-        self.hack_refmapKeys.deinit();
     }
 
     pub fn finish(self: *Parser) !*nodes.AstNode {
@@ -675,7 +673,6 @@ pub const Parser = struct {
         }
 
         var normalized = try strings.normalizeLabel(self.allocator, lab);
-        try self.hack_refmapKeys.append(normalized);
         if (normalized.len > 0) {
             const result = try subj.refmap.getOrPut(normalized);
             if (!result.found_existing) {
@@ -683,6 +680,8 @@ pub const Parser = struct {
                     .url = try strings.cleanUrl(self.allocator, url),
                     .title = try strings.cleanTitle(self.allocator, title),
                 };
+            } else {
+                self.allocator.free(normalized);
             }
         }
 
