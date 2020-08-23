@@ -298,6 +298,33 @@ const table_newline = "(?:\r?\n)";
 const table_marker = "(?:" ++ table_spacechar ++ "*:?-+:?" ++ table_spacechar ++ "*)";
 const table_cell = "(?:(\\\\.|[^|\r\n])*)";
 
-pub fn tableStart(line: []const u8) ?usize {
+pub fn tableStart(line: []const u8) Error!?usize {
+    return search(line, "\\|?" ++ table_marker ++ "(?:\\|" ++ table_marker ++ ")*\\|?" ++ table_spacechar ++ "*" ++ table_newline);
+}
+
+test "tableStart" {
+    unreachable;
+}
+
+pub fn tableCell(line: []const u8) Error!?usize {
+    return search(line, table_cell);
+}
+
+test "tableCell" {
+    unreachable;
+}
+
+pub fn tableCellEnd(line: []const u8) Error!?usize {
+    return search(line, "\\|" ++ table_spacechar ++ "*" ++ table_newline ++ "?");
+}
+
+test "tableCellEnd" {
+    unreachable;
+}
+pub fn tableRowEnd(line: []const u8) Error!?usize {
+    return search(line, table_spacechar ++ "*" ++ table_newline);
+}
+
+test "tableRowEnd" {
     unreachable;
 }

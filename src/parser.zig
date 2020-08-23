@@ -240,7 +240,7 @@ pub const Parser = struct {
                     }
                 },
                 .Table => {
-                    if (!table.matches(line[self.first_nonspace..])) {
+                    if (!(try table.matches(self.allocator, line[self.first_nonspace..]))) {
                         return CheckOpenBlocksResult{ .container = container };
                     }
                 },
