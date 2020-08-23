@@ -33,8 +33,9 @@ fn row(allocator: *std.mem.Allocator, line: []const u8) !?[][]u8 {
 
         if (cell_matched > 0 or pipe_matched > 0) {
             var cell = try unescapePipes(allocator, line[offset .. offset + cell_matched]);
-            // TODO: trim
-            try v.append(cell);
+            defer allocator.free(cell);
+            // TODO DO BETTER
+            try v.append(try allocator.dupe(u8, strings.trim(cell)));
         }
 
         offset += cell_matched + pipe_matched;
