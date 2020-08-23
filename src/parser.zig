@@ -282,7 +282,7 @@ pub const Parser = struct {
                     self.advanceOffset(line, 1, true);
                 }
                 container = try self.addChild(container, .BlockQuote);
-            } else if (!indented and try scanners.atxHeadingStart(line[self.first_nonspace..], &matched)) {
+            } else if (!indented and try scanners.unwrap(scanners.atxHeadingStart(line[self.first_nonspace..]), &matched)) {
                 const heading_startpos = self.first_nonspace;
                 const offset = self.offset;
                 self.advanceOffset(line, heading_startpos + matched - offset, false);
@@ -297,7 +297,7 @@ pub const Parser = struct {
                 }
 
                 container.data.value = .{ .Heading = .{ .level = level, .setext = false } };
-            } else if (!indented and try scanners.openCodeFence(line[self.first_nonspace..], &matched)) {
+            } else if (!indented and try scanners.unwrap(scanners.openCodeFence(line[self.first_nonspace..]), &matched)) {
                 const first_nonspace = self.first_nonspace;
                 const offset = self.offset;
                 const ncb = nodes.NodeCodeBlock{
@@ -340,7 +340,7 @@ pub const Parser = struct {
             } else if (!indented and !(switch (container.data.value) {
                 .Paragraph => !all_matched,
                 else => false,
-            }) and try scanners.thematicBreak(line[self.first_nonspace..], &matched)) {
+            }) and try scanners.unwrap(scanners.thematicBreak(line[self.first_nonspace..]), &matched)) {
                 container = try self.addChild(container, .ThematicBreak);
                 const adv = line.len - 1 - self.offset;
                 self.advanceOffset(line, adv, false);
@@ -399,7 +399,7 @@ pub const Parser = struct {
             } else {
                 var replace: bool = undefined;
                 var new_container = if (!indented and self.options.extensions.table)
-                    table.tryOpeningBlock(self, container, line, &replace)
+                    try table.tryOpeningBlock(self, container, line, &replace)
                 else
                     null;
 
@@ -426,7 +426,7 @@ pub const Parser = struct {
         return container;
     }
 
-    fn addChild(self: *Parser, input_parent: *nodes.AstNode, value: nodes.NodeValue) !*nodes.AstNode {
+    pub fn addChild(self: *Parser, input_parent: *nodes.AstNode, value: nodes.NodeValue) !*nodes.AstNode {
         var parent = input_parent;
         while (!parent.data.value.canContainType(value)) {
             parent = (try self.finalize(parent)).?;
@@ -741,7 +741,7 @@ pub const Parser = struct {
         while (subj.popBracket()) {}
     }
 
-    fn advanceOffset(self: *Parser, line: []const u8, in_count: usize, columns: bool) void {
+    pub fn advanceOffset(self: *Parser, line: []const u8, in_count: usize, columns: bool) void {
         var count = in_count;
         while (count > 0) {
             switch (line[self.offset]) {

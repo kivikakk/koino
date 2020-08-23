@@ -358,22 +358,21 @@ pub const Subject = struct {
     }
 
     fn handlePointyBrace(self: *Subject) !*nodes.AstNode {
-        var match_len: usize = undefined;
         self.pos += 1;
 
-        if (try scanners.autolinkUri(self.input[self.pos..], &match_len)) {
+        if (try scanners.autolinkUri(self.input[self.pos..])) |match_len| {
             var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .URI);
             self.pos += match_len;
             return inl;
         }
 
-        if (try scanners.autolinkEmail(self.input[self.pos..], &match_len)) {
+        if (try scanners.autolinkEmail(self.input[self.pos..])) |match_len| {
             var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .Email);
             self.pos += match_len;
             return inl;
         }
 
-        if (try scanners.htmlTag(self.input[self.pos..], &match_len)) {
+        if (try scanners.htmlTag(self.input[self.pos..])) |match_len| {
             var contents = self.input[self.pos - 1 .. self.pos + match_len];
             var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
             self.pos += match_len;
