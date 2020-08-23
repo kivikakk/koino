@@ -304,7 +304,22 @@ const HtmlFormatter = struct {
                     try self.writeAll("</a>");
                 }
             },
-            .Image => |nl| unreachable,
+            .Image => |nl| {
+                if (entering) {
+                    try self.writeAll("<img src=\"");
+                    if (self.options.render.unsafe or !(try dangerousUrl(nl.url))) {
+                        try self.escapeHref(nl.url);
+                    }
+                    try self.writeAll("\" alt=\"");
+                    return true;
+                } else {
+                    if (nl.title.len > 0) {
+                        try self.writeAll("\" title=\"");
+                        try self.escape(nl.title);
+                    }
+                    try self.writeAll("\" />");
+                }
+            },
             .Table => {
                 if (entering) {
                     try self.cr();
