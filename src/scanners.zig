@@ -303,7 +303,10 @@ pub fn tableStart(line: []const u8) Error!?usize {
 }
 
 test "tableStart" {
-    unreachable;
+    testing.expectEqual(@as(?usize, null), try tableStart("  \r\n"));
+    testing.expectEqual(@as(?usize, 7), try tableStart(" -- |\r\n"));
+    testing.expectEqual(@as(?usize, 14), try tableStart("| :-- | -- |\r\n"));
+    testing.expectEqual(@as(?usize, null), try tableStart("| -:- | -- |\r\n"));
 }
 
 pub fn tableCell(line: []const u8) Error!?usize {
@@ -311,7 +314,9 @@ pub fn tableCell(line: []const u8) Error!?usize {
 }
 
 test "tableCell" {
-    unreachable;
+    testing.expectEqual(@as(?usize, 3), try tableCell("abc|def"));
+    testing.expectEqual(@as(?usize, 8), try tableCell("abc\\|def"));
+    testing.expectEqual(@as(?usize, 5), try tableCell("abc\\\\|def"));
 }
 
 pub fn tableCellEnd(line: []const u8) Error!?usize {
@@ -319,12 +324,22 @@ pub fn tableCellEnd(line: []const u8) Error!?usize {
 }
 
 test "tableCellEnd" {
-    unreachable;
+    testing.expectEqual(@as(?usize, 1), try tableCellEnd("|"));
+    testing.expectEqual(@as(?usize, null), try tableCellEnd(" |"));
+    testing.expectEqual(@as(?usize, 1), try tableCellEnd("|a"));
+    testing.expectEqual(@as(?usize, 3), try tableCellEnd("|  \r"));
+    testing.expectEqual(@as(?usize, 4), try tableCellEnd("|  \n"));
+    testing.expectEqual(@as(?usize, 5), try tableCellEnd("|  \r\n"));
 }
+
 pub fn tableRowEnd(line: []const u8) Error!?usize {
     return search(line, table_spacechar ++ "*" ++ table_newline);
 }
 
 test "tableRowEnd" {
-    unreachable;
+    testing.expectEqual(@as(?usize, null), try tableRowEnd("a"));
+    testing.expectEqual(@as(?usize, 1), try tableRowEnd("\na"));
+    testing.expectEqual(@as(?usize, null), try tableRowEnd("  a"));
+    testing.expectEqual(@as(?usize, 4), try tableRowEnd("   \na"));
+    testing.expectEqual(@as(?usize, 5), try tableRowEnd("   \r\na"));
 }
