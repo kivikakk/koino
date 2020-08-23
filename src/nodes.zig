@@ -33,9 +33,9 @@ pub const NodeValue = union(enum) {
     Heading: NodeHeading,
     ThematicBreak,
     // FootnoteDefinition
-    // Table
-    // TableRow
-    // TableCell
+    Table: []TableAlignment,
+    TableRow: TableHeader,
+    TableCell,
     Text: []u8,
     // TaskItem
     SoftBreak,
@@ -90,20 +90,32 @@ pub const NodeValue = union(enum) {
                 else => false,
             },
             .Paragraph, .Heading, .Emph, .Strong, .Link, .Image => !child.block(),
+            .Table => switch (child) {
+                .TableRow => true,
+                else => false,
+            },
+            .TableRow => switch (child) {
+                .TableCell => true,
+                else => false,
+            },
+            .TableCell => switch (child) {
+                .Text, .Code, .Emph, .Strong, .Link, .Image, .Strikethrough, .HtmlInline => true,
+                else => false,
+            },
             else => false,
         };
     }
 
     pub fn containsInlines(self: NodeValue) bool {
         return switch (self) {
-            .Paragraph, .Heading => true,
+            .Paragraph, .Heading, .TableCell => true,
             else => false,
         };
     }
 
     pub fn block(self: NodeValue) bool {
         return switch (self) {
-            .Document, .BlockQuote, .List, .Item, .CodeBlock, .HtmlBlock, .Paragraph, .Heading, .ThematicBreak => true,
+            .Document, .BlockQuote, .List, .Item, .CodeBlock, .HtmlBlock, .Paragraph, .Heading, .ThematicBreak, .Table, .TableRow, .TableCell => true,
             else => false,
         };
     }
@@ -170,4 +182,16 @@ pub const NodeHeading = struct {
 pub const AutolinkType = enum {
     URI,
     Email,
+};
+
+pub const TableAlignment = enum {
+    None,
+    Left,
+    Center,
+    Right,
+};
+
+pub const TableHeader = enum {
+    Header,
+    Body,
 };

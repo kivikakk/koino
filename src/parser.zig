@@ -1035,3 +1035,27 @@ test "link reference definitions" {
     try expectMarkdownHTML(.{}, "[foo]: /url \"title\"\n\n[foo]\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
     try expectMarkdownHTML(.{}, "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n", "<p><a href=\"/url%5Cbar*baz\" title=\"foo&quot;bar\\baz\">foo</a></p>\n");
 }
+test "tables" {
+    try expectMarkdownHTML(.{ .extensions = .{ .table = true } },
+        \\| foo | bar |
+        \\| --- | --- |
+        \\| baz | bim |
+        \\
+    ,
+        \\<table>
+        \\<thead>
+        \\<tr>
+        \\<th>foo</th>
+        \\<th>bar</th>
+        \\</tr>
+        \\</thead>
+        \\<tbody>
+        \\<tr>
+        \\<td>baz</td>
+        \\<td>bim</td>
+        \\</tr>
+        \\</tbody>
+        \\</table>
+        \\
+    );
+}
