@@ -1081,3 +1081,6 @@ test "tables" {
 test "strikethroughs" {
     try expectMarkdownHTML(.{ .extensions = .{ .strikethrough = true } }, "Hello ~world~ there.\n", "<p>Hello <del>world</del> there.</p>\n");
 }
+test "images" {
+    try expectMarkdownHTML(.{}, "[![moon](moon.jpg)](/uri)\n", "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n");
+}
