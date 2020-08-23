@@ -9,6 +9,7 @@ const inlines = @import("inlines.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
 const table = @import("table.zig");
+const AutolinkProcessor = @import("autolink.zig").AutolinkProcessor;
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -682,7 +683,7 @@ pub const Parser = struct {
 
     fn postprocessTextNode(self: *Parser, node: *nodes.AstNode, text: *[]u8) !void {
         if (self.options.extensions.autolink) {
-            // autolink.processAutolinks(self.allocator, node, next);
+            try AutolinkProcessor.init(self.allocator, text).process(node);
         }
     }
 

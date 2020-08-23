@@ -417,3 +417,25 @@ test "normalizeLabel" {
         .{ .in = "yÉs", .out = "yés" },
     });
 }
+
+pub fn createMap(chars: []const u8) [256]bool {
+    var arr = [_]bool{false} ** 256;
+    for (chars) |c| {
+        arr[c] = true;
+    }
+    return arr;
+}
+
+test "createMap" {
+    comptime {
+        const m = createMap("abcxyz");
+        testing.expect(m['a']);
+        testing.expect(m['b']);
+        testing.expect(m['c']);
+        testing.expect(!m['d']);
+        testing.expect(!m['e']);
+        testing.expect(!m['f']);
+        testing.expect(m['x']);
+        testing.expect(!m[0]);
+    }
+}

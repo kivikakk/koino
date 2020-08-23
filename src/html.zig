@@ -6,6 +6,7 @@ const mem = std.mem;
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const ctype = @import("ctype.zig");
+const strings = @import("strings.zig");
 const scanners = @import("scanners.zig");
 
 pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
@@ -27,16 +28,8 @@ const HtmlFormatter = struct {
     buffer: *std.ArrayList(u8),
     last_was_lf: bool = true,
 
-    fn createMap(chars: []const u8) [256]bool {
-        var arr = [_]bool{false} ** 256;
-        for (chars) |c| {
-            arr[c] = true;
-        }
-        return arr;
-    }
-
-    const NEEDS_ESCAPED = createMap("\"&<>");
-    const HREF_SAFE = createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+    const NEEDS_ESCAPED = strings.createMap("\"&<>");
+    const HREF_SAFE = strings.createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 
     fn dangerousUrl(input: []const u8) !bool {
         return (try scanners.dangerousUrl(input)) != null;
