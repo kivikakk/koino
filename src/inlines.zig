@@ -1,10 +1,10 @@
 const std = @import("std");
 const mem = std.mem;
 const assert = std.debug.assert;
+const zunicode = @import("zunicode");
 
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
-const unicode = @import("unicode.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
 const scanners = @import("scanners.zig");
@@ -503,14 +503,14 @@ pub const Subject = struct {
             }
         }
 
-        const left_flanking = num_delims > 0 and !unicode.isWhitespace(after_char) and !(unicode.isPunctuation(after_char) and !unicode.isWhitespace(before_char) and !unicode.isPunctuation(before_char));
-        const right_flanking = num_delims > 0 and !unicode.isWhitespace(before_char) and !(unicode.isPunctuation(before_char) and !unicode.isWhitespace(after_char) and !unicode.isPunctuation(after_char));
+        const left_flanking = num_delims > 0 and !zunicode.isSpace(after_char) and !(zunicode.isPunct(after_char) and !zunicode.isSpace(before_char) and !zunicode.isPunct(before_char));
+        const right_flanking = num_delims > 0 and !zunicode.isSpace(before_char) and !(zunicode.isPunct(before_char) and !zunicode.isSpace(after_char) and !zunicode.isPunct(after_char));
 
         if (c == '_') {
             return ScanResult{
                 .num_delims = num_delims,
-                .can_open = left_flanking and (!right_flanking or unicode.isPunctuation(before_char)),
-                .can_close = right_flanking and (!left_flanking or unicode.isPunctuation(after_char)),
+                .can_open = left_flanking and (!right_flanking or zunicode.isPunct(before_char)),
+                .can_close = right_flanking and (!left_flanking or zunicode.isPunct(after_char)),
             };
         } else if (c == '\'' or c == '"') {
             return ScanResult{
