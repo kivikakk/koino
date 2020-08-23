@@ -40,6 +40,10 @@ pub const Subject = struct {
         for ([_]u8{ '\n', '\r', '_', '*', '"', '`', '\'', '\\', '&', '<', '[', ']', '!' }) |c| {
             s.special_chars[c] = true;
         }
+        if (options.extensions.strikethrough) {
+            s.special_chars['~'] = true;
+            s.skip_chars['~'] = true;
+        }
         for ([_]u8{ '"', '\'', '.', '-' }) |c| {
             s.smart_chars[c] = true;
         }
@@ -83,17 +87,21 @@ pub const Subject = struct {
                 }
             },
             else => {
-                const endpos = self.findSpecialChar();
-                var contents = self.input[self.pos..endpos];
-                self.pos = endpos;
+                if (self.options.extensions.strikethrough and c == '~') {
+                    new_inl = try self.handleDelim(c);
+                } else {
+                    const endpos = self.findSpecialChar();
+                    var contents = self.input[self.pos..endpos];
+                    self.pos = endpos;
 
-                if (self.peekChar()) |n| {
-                    if (strings.isLineEndChar(n)) {
-                        contents = strings.rtrim(contents);
+                    if (self.peekChar()) |n| {
+                        if (strings.isLineEndChar(n)) {
+                            contents = strings.rtrim(contents);
+                        }
                     }
-                }
 
-                new_inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, contents) });
+                    new_inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, contents) });
+                }
             },
         }
 
@@ -131,6 +139,8 @@ pub const Subject = struct {
             i['_'] = stack_bottom;
             i['\''] = stack_bottom;
             i['"'] = stack_bottom;
+            if (self.options.extensions.strikethrough)
+                i['~'] = stack_bottom;
         }
 
         while (closer != null and closer.?.prev != stack_bottom) {
@@ -155,7 +165,9 @@ pub const Subject = struct {
 
                 var old_closer = closer;
 
-                if (closer.?.delim_char == '*' or closer.?.delim_char == '_') {
+                if (closer.?.delim_char == '*' or closer.?.delim_char == '_' or
+                    (self.options.extensions.strikethrough and closer.?.delim_char == '~'))
+                {
                     if (opener_found) {
                         closer = try self.insertEmph(opener.?, closer.?);
                     } else {
@@ -541,6 +553,9 @@ pub const Subject = struct {
         opener_num_chars -= use_delims;
         closer_num_chars -= use_delims;
 
+        if (self.options.extensions.strikethrough and opener_char == '~' and (opener_num_chars != closer_num_chars or opener_num_chars > 0))
+            return null;
+
         var opener_text = opener.inl.data.value.text_mut().?;
         opener_text.* = self.allocator.shrink(opener_text.*, opener_num_chars);
         var closer_text = closer.inl.data.value.text_mut().?;
@@ -553,7 +568,15 @@ pub const Subject = struct {
             delim = prev;
         }
 
-        var emph = try self.makeInline(if (use_delims == 1) .Emph else .Strong);
+        var value: nodes.NodeValue = undefined;
+        if (self.options.extensions.strikethrough and opener_char == '~') {
+            value = .Strikethrough;
+        } else if (use_delims == 1) {
+            value = .Emph;
+        } else {
+            value = .Strong;
+        }
+        var emph = try self.makeInline(value);
         var tmp = opener.inl.next.?;
         while (tmp != closer.inl) {
             var next = tmp.next;

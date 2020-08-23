@@ -9,12 +9,15 @@ const nodes = @import("nodes.zig");
 const html = @import("html.zig");
 
 pub fn main() !void {
+    @setEvalBranchQuota(1500);
+
     var stderr = std.io.getStdErr().writer();
 
     const params = comptime [_]clap.Param(clap.Help){
         try clap.parseParam("-h, --help                       Display this help and exit"),
         try clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs"),
         try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension. (" ++ extensionsFriendly ++ ")"),
+        try clap.parseParam("    --smart                      Use smart punctuation."),
     };
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -34,6 +37,8 @@ pub fn main() !void {
     var options = Options{};
     if (args.flag("--unsafe"))
         options.render.unsafe = true;
+    if (args.flag("--smart"))
+        options.parse.smart = true;
 
     for (args.allOptions("--extension")) |extension|
         try enableExtension(extension, &options);
