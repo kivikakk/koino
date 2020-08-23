@@ -10,3 +10,6 @@
 [submodule "vendor/zig-clap"]
 	path = vendor/zig-clap
 	url = https://github.com/Hejsil/zig-clap
+[submodule "vendor/zunicode"]
+	path = vendor/zunicode
+	url = https://github.com/kivikakk/zunicode
