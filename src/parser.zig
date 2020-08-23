@@ -8,6 +8,7 @@ const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
+const table = @import("table.zig");
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -238,10 +239,15 @@ pub const Parser = struct {
                         return CheckOpenBlocksResult{ .container = container };
                     }
                 },
-                .Heading => {
+                .Table => {
+                    if (!table.matches(line[self.first_nonspace..])) {
+                        return CheckOpenBlocksResult{ .container = container };
+                    }
+                },
+                .Heading, .TableRow, .TableCell => {
                     return CheckOpenBlocksResult{ .container = container };
                 },
-                else => {},
+                .Document, .List, .ThematicBreak, .Text, .SoftBreak, .LineBreak, .Code, .HtmlInline, .Emph, .Strong, .Strikethrough, .Link, .Image => {},
             }
         }
 
@@ -390,11 +396,24 @@ pub const Parser = struct {
                         .literal = std.ArrayList(u8).init(self.allocator),
                     },
                 });
-            }
-            // ...
-            else {
-                // TODO: table stuff
-                break;
+            } else {
+                var replace: bool = undefined;
+                var new_container = if (!indented and self.options.extensions.table)
+                    table.tryOpeningBlock(self, container, line, &replace)
+                else
+                    null;
+
+                if (new_container) |new| {
+                    if (replace) {
+                        container.insertAfter(new);
+                        container.detachDeinit();
+                        container = new;
+                    } else {
+                        container = new;
+                    }
+                } else {
+                    break;
+                }
             }
 
             if (container.data.value.acceptsLines()) {
