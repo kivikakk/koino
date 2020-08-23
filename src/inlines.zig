@@ -79,7 +79,7 @@ pub const Subject = struct {
                 self.pos += 1;
                 if (self.peekChar() orelse 0 == '[') {
                     self.pos += 1;
-                    var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "[") });
+                    var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "![") });
                     try self.pushBracket(.Image, inl);
                     new_inl = inl;
                 } else {
