@@ -674,6 +674,7 @@ pub const Parser = struct {
 
         var normalized = try strings.normalizeLabel(self.allocator, lab);
         if (normalized.len > 0) {
+            // refmap takes ownership of `normalized'.
             const result = try subj.refmap.getOrPut(normalized);
             if (!result.found_existing) {
                 result.entry.*.value = Reference{
