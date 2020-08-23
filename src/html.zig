@@ -282,6 +282,13 @@ const HtmlFormatter = struct {
             .Emph => {
                 try self.writeAll(if (entering) "<em>" else "</em>");
             },
+            .Strikethrough => {
+                if (entering) {
+                    try self.writeAll("<del>");
+                } else {
+                    try self.writeAll("</del>");
+                }
+            },
             .Link => |nl| {
                 if (entering) {
                     try self.writeAll("<a href=\"");
@@ -297,9 +304,76 @@ const HtmlFormatter = struct {
                     try self.writeAll("</a>");
                 }
             },
-            else => {
-                std.debug.print("what to do with {}?\n", .{node.data.value});
-                unreachable;
+            .Image => |nl| unreachable,
+            .Table => {
+                if (entering) {
+                    try self.cr();
+                    try self.writeAll("<table>\n");
+                } else {
+                    if (node.last_child.? != node.first_child.?) {
+                        try self.cr();
+                        try self.writeAll("</tbody>\n");
+                    }
+                    try self.cr();
+                    try self.writeAll("</table>\n");
+                }
+            },
+            .TableRow => |kind| {
+                if (entering) {
+                    try self.cr();
+                    if (kind == .Header) {
+                        try self.writeAll("<thead>\n");
+                    } else if (node.prev) |prev| {
+                        switch (prev.data.value) {
+                            .TableRow => |k| {
+                                if (k == .Header)
+                                    try self.writeAll("<tbody>\n");
+                            },
+                            else => {},
+                        }
+                    }
+                    try self.writeAll("<tr>");
+                } else {
+                    try self.cr();
+                    try self.writeAll("</tr>");
+                    if (kind == .Header) {
+                        try self.cr();
+                        try self.writeAll("</thead>");
+                    }
+                }
+            },
+            .TableCell => {
+                const kind = node.parent.?.data.value.TableRow;
+                const alignments = node.parent.?.parent.?.data.value.Table;
+
+                if (entering) {
+                    try self.cr();
+                    if (kind == .Header) {
+                        try self.writeAll("<th");
+                    } else {
+                        try self.writeAll("<td");
+                    }
+
+                    var start = node.parent.?.first_child.?;
+                    var i: usize = 0;
+                    while (start != node) {
+                        i += 1;
+                        start = start.next.?;
+                    }
+
+                    switch (alignments[i]) {
+                        .Left => try self.writeAll(" align=\"left\""),
+                        .Right => try self.writeAll(" align=\"right\""),
+                        .Center => try self.writeAll(" align=\"center\""),
+                        .None => {},
+                    }
+
+                    try self.writeAll(">");
+                } else if (kind == .Header) {
+                    try self.writeAll("</th>");
+                } else {
+                    try self.writeAll("</td>");
+                }
             },
         }
         return false;
