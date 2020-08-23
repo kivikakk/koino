@@ -2,6 +2,7 @@ pub const Options = struct {
     pub const Extensions = struct {
         table: bool = false,
         strikethrough: bool = false,
+        autolink: bool = false,
     };
     pub const Parse = struct {
         smart: bool = false,

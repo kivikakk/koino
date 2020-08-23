@@ -105,6 +105,7 @@ pub const Parser = struct {
 
     pub fn finish(self: *Parser) !*nodes.AstNode {
         try self.finalizeDocument();
+        try self.postprocessTextNodes();
         return self.root;
     }
 
@@ -622,6 +623,67 @@ pub const Parser = struct {
         }
 
         return parent;
+    }
+
+    fn postprocessTextNodes(self: *Parser) !void {
+        var stack = try std.ArrayList(*nodes.AstNode).initCapacity(self.allocator, 1);
+        defer stack.deinit();
+        var children = std.ArrayList(*nodes.AstNode).init(self.allocator);
+        defer children.deinit();
+
+        try stack.append(self.root);
+
+        while (stack.popOrNull()) |node| {
+            var nch = node.first_child;
+
+            while (nch) |n| {
+                var this_bracket = false;
+
+                while (true) {
+                    switch (n.data.value) {
+                        .Text => |root| {
+                            var ns = n.next orelse {
+                                try self.postprocessTextNode(n, root);
+                                break;
+                            };
+
+                            switch (ns.data.value) {
+                                .Text => |adj| {
+                                    @compileLog("TypeOf root:", @TypeOf(root));
+                                    // root.extend_from_slice(adj);
+                                    // ns.detach();
+                                    unreachable;
+                                },
+                                else => {
+                                    try self.postprocessTextNode(n, root);
+                                    break;
+                                },
+                            }
+                        },
+                        .Link, .Image => {
+                            this_bracket = true;
+                            break;
+                        },
+                        else => break,
+                    }
+                }
+
+                if (!this_bracket) {
+                    try children.append(n);
+                }
+
+                nch = n.next;
+            }
+
+            while (children.popOrNull()) |child|
+                try stack.append(child);
+        }
+    }
+
+    fn postprocessTextNode(self: *Parser, node: *nodes.AstNode, text: *std.ArrayList(u8)) !void {
+        if (self.options.extensions.autolink) {
+            // autolink.processAutolinks(self.allocator, node, next);
+        }
     }
 
     fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) !bool {
