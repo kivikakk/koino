@@ -1078,3 +1078,6 @@ test "tables" {
         \\
     );
 }
+test "strikethroughs" {
+    try expectMarkdownHTML(.{ .extensions = .{ .strikethrough = true } }, "Hello ~world~ there.\n", "<p>Hello <del>world</del> there.</p>\n");
+}
