@@ -641,7 +641,7 @@ pub const Parser = struct {
 
                 while (true) {
                     switch (n.data.value) {
-                        .Text => |root| {
+                        .Text => |*root| {
                             var ns = n.next orelse {
                                 try self.postprocessTextNode(n, root);
                                 break;
@@ -649,10 +649,10 @@ pub const Parser = struct {
 
                             switch (ns.data.value) {
                                 .Text => |adj| {
-                                    @compileLog("TypeOf root:", @TypeOf(root));
-                                    // root.extend_from_slice(adj);
-                                    // ns.detach();
-                                    unreachable;
+                                    const old_len = root.len;
+                                    root.* = try self.allocator.realloc(root.*, old_len + adj.len);
+                                    std.mem.copy(u8, root.*[old_len..], adj);
+                                    ns.detachDeinit();
                                 },
                                 else => {
                                     try self.postprocessTextNode(n, root);
@@ -680,7 +680,7 @@ pub const Parser = struct {
         }
     }
 
-    fn postprocessTextNode(self: *Parser, node: *nodes.AstNode, text: *std.ArrayList(u8)) !void {
+    fn postprocessTextNode(self: *Parser, node: *nodes.AstNode, text: *[]u8) !void {
         if (self.options.extensions.autolink) {
             // autolink.processAutolinks(self.allocator, node, next);
         }
