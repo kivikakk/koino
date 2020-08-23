@@ -4,6 +4,7 @@ const testing = std.testing;
 const ctype = @import("ctype.zig");
 const nodes = @import("nodes.zig");
 const htmlentities = @import("htmlentities");
+const zunicode = @import("zunicode");
 
 pub fn isLineEndChar(ch: u8) bool {
     return switch (ch) {
@@ -189,6 +190,21 @@ test "removeTrailingBlankLines" {
     }
 }
 
+fn encodeUtf8Into(in_cp: u21, al: *std.ArrayList(u8)) !void {
+    // utf8Encode throws:
+    // - Utf8CannotEncodeSurrogateHalf, which we guard against that by
+    //   rewriting 0xd800..0xe0000 to 0xfffd.
+    // - CodepointTooLarge, which we guard against by rewriting 0x110000+
+    //   to 0xfffd.
+    var cp = in_cp;
+    if (cp == 0 or (cp >= 0xd800 and cp <= 0xdfff) or cp >= 0x110000) {
+        cp = 0xFFFD;
+    }
+    var sequence = [4]u8{ 0, 0, 0, 0 };
+    const len = std.unicode.utf8Encode(cp, &sequence) catch unreachable;
+    try al.appendSlice(sequence[0..len]);
+}
+
 const ENTITY_MIN_LENGTH: u8 = 2;
 const ENTITY_MAX_LENGTH: u8 = 32;
 
@@ -219,17 +235,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
         };
 
         if (num_digits >= 1 and num_digits <= 8 and i < text.len and text[i] == ';') {
-            if (codepoint == 0 or (codepoint >= 0xd800 and codepoint <= 0xdfff) or codepoint >= 0x110000) {
-                codepoint = 0xFFFD;
-            }
-            var sequence = [4]u8{ 0, 0, 0, 0 };
-            // utf8Encode throws:
-            // - Utf8CannotEncodeSurrogateHalf, which we guard against that by
-            //   rewriting 0xd800..0xe0000 to 0xfffd.
-            // - CodepointTooLarge, which we guard against by rewriting 0x110000+
-            //   to 0xfffd.
-            const len = std.unicode.utf8Encode(@truncate(u21, codepoint), &sequence) catch unreachable;
-            try out.appendSlice(sequence[0..len]);
+            try encodeUtf8Into(@truncate(u21, codepoint), out);
             return i + 1;
         }
     }
@@ -385,16 +391,20 @@ pub fn normalizeLabel(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var trimmed = trim(s);
     var buffer = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
     var last_was_whitespace = false;
-    for (trimmed) |c| {
-        // TODO unicode awareness
-        if (ctype.isspace(c)) {
+
+    var view = try std.unicode.Utf8View.init(trimmed);
+    var it = view.iterator();
+    while (it.nextCodepoint()) |cp| {
+        var rune = @intCast(i32, cp);
+        if (zunicode.isSpace(rune)) {
             if (!last_was_whitespace) {
                 last_was_whitespace = true;
                 try buffer.append(' ');
             }
         } else {
             last_was_whitespace = false;
-            try buffer.append(std.ascii.toLower(c));
+            var lower = zunicode.toLower(rune);
+            try encodeUtf8Into(@intCast(u21, lower), &buffer);
         }
     }
     return buffer.toOwnedSlice();
@@ -404,6 +414,6 @@ test "normalizeLabel" {
     try testCases(normalizeLabel, &[_]Case{
         .{ .in = "Hello", .out = "hello" },
         .{ .in = "   Y        E  S  ", .out = "y e s" },
-        // TODO: unicode
+        .{ .in = "yÉs", .out = "yés" },
     });
 }
