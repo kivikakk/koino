@@ -97,8 +97,50 @@ pub const AutolinkProcessor = struct {
         };
     }
 
+    const SCHEMES = [_][]const u8{ "http", "https", "ftp" };
     fn urlMatch(self: AutolinkProcessor, i: usize) !?Match {
-        unreachable;
+        const size = self.text.len;
+
+        if (size - i < 4 or self.text.*[i + 1] != '/' or self.text.*[i + 2] != '/') {
+            return null;
+        }
+
+        var rewind: usize = 0;
+        while (rewind < i and
+            ctype.isalpha(self.text.*[i - rewind - 1])) : (rewind += 1)
+        {}
+
+        if (!scheme_matched: {
+            for (SCHEMES) |scheme| {
+                if (size - i + rewind >= scheme.len and std.mem.eql(u8, self.text.*[i - rewind .. i], scheme)) {
+                    break :scheme_matched true;
+                }
+            }
+            break :scheme_matched false;
+        }) {
+            return null;
+        }
+
+        var link_end = (try checkDomain(self.text.*[i + 3 ..], true)) orelse return null;
+
+        while (link_end < size - i and !ctype.isspace(self.text.*[i + link_end])) : (link_end += 1) {}
+
+        link_end = autolinkDelim(self.text.*[i..], link_end);
+
+        const url = self.text.*[i - rewind .. i + link_end];
+
+        var inl = try self.makeInline(.{
+            .Link = .{
+                .url = try self.allocator.dupe(u8, url),
+                .title = try self.allocator.alloc(u8, 0),
+            },
+        });
+        inl.append(try self.makeInline(.{ .Text = try self.allocator.dupe(u8, url) }));
+        return Match{
+            .post = inl,
+            .reverse = rewind,
+            .skip = rewind + link_end,
+        };
     }
 
     fn emailMatch(self: AutolinkProcessor, i: usize) !?Match {
