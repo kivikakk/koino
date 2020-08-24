@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const ctype = @import("ctype.zig");
@@ -46,7 +47,14 @@ pub const AutolinkProcessor = struct {
 
             if (post_org) |org| {
                 i -= org.reverse;
-                unreachable;
+                node.insertAfter(org.post);
+                if (i + org.skip < len) {
+                    const remain = self.text.*[i + org.skip ..];
+                    assert(remain.len > 0);
+                    org.post.insertAfter(try self.makeInline(.{ .Text = try self.allocator.dupe(u8, remain) }));
+                }
+                self.text.* = self.allocator.shrink(self.text.*, i);
+                return;
             }
         }
     }
@@ -80,7 +88,7 @@ pub const AutolinkProcessor = struct {
             },
         });
         inl.append(try self.makeInline(.{
-            .Text = self.allocator.dupe(u8, self.text.*[i .. link_end + i]),
+            .Text = try self.allocator.dupe(u8, self.text.*[i .. link_end + i]),
         }));
         return Match{
             .post = inl,
@@ -140,9 +148,49 @@ pub const AutolinkProcessor = struct {
         var link_end = in_link_end;
 
         for (data[0..link_end]) |c, i| {
-            // X
-            unreachable;
+            if (c == '<') {
+                link_end = i;
+                break;
+            }
         }
+
+        while (link_end > 0) {
+            const cclose = data[link_end - 1];
+            const copen: ?u8 = if (cclose == ')') '(' else null;
+
+            if (LINK_END_ASSORTMENT[cclose]) {
+                link_end -= 1;
+            } else if (cclose == ';') {
+                var new_end = link_end - 2;
+
+                while (new_end > 0 and
+                    ctype.isalnum(data[new_end])) : (new_end -= 1)
+                {}
+
+                if (new_end < link_end - 2 and data[new_end] == '&') {
+                    link_end = new_end;
+                } else {
+                    link_end -= 1;
+                }
+            } else if (copen) |c| {
+                var opening: usize = 0;
+                var closing: usize = 0;
+                for (data[0..link_end]) |b| {
+                    if (b == c) {
+                        opening += 1;
+                    } else if (b == cclose) {
+                        closing += 1;
+                    }
+                }
+
+                if (closing <= opening) break;
+
+                link_end -= 1;
+            } else {
+                break;
+            }
+        }
+
         return link_end;
     }
 
