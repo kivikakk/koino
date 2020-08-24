@@ -9,9 +9,15 @@ const nodes = @import("nodes.zig");
 const html = @import("html.zig");
 
 pub fn main() !void {
+    @setEvalBranchQuota(1500);
+
+    var stderr = std.io.getStdErr().writer();
+
     const params = comptime [_]clap.Param(clap.Help){
-        try clap.parseParam("-h, --help      Display this help and exit"),
-        try clap.parseParam("-u, --unsafe    Render raw HTML and dangerous URLs"),
+        try clap.parseParam("-h, --help                       Display this help and exit"),
+        try clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs"),
+        try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension. (" ++ extensionsFriendly ++ ")"),
+        try clap.parseParam("    --smart                      Use smart punctuation."),
     };
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -21,7 +27,6 @@ pub fn main() !void {
     defer args.deinit();
 
     if (args.flag("--help")) {
-        var stderr = std.io.getStdErr().writer();
         try stderr.writeAll("Usage: koino ");
         try clap.usage(stderr, &params);
         try stderr.writeAll("\n\nOptions:\n");
@@ -29,17 +34,55 @@ pub fn main() !void {
         return;
     }
 
-    var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
-    defer gpa.allocator.free(markdown);
-
     var options = Options{};
     if (args.flag("--unsafe"))
         options.render.unsafe = true;
+    if (args.flag("--smart"))
+        options.parse.smart = true;
+
+    for (args.allOptions("--extension")) |extension|
+        try enableExtension(extension, &options);
+
+    var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
+    defer gpa.allocator.free(markdown);
 
     var output = try markdownToHtml(&gpa.allocator, options, markdown);
     defer gpa.allocator.free(output);
 
     try std.io.getStdOut().writer().writeAll(output);
+}
+
+const extensions = blk: {
+    var exts: []const []const u8 = &[_][]const u8{};
+    for (@typeInfo(Options.Extensions).Struct.fields) |field| {
+        exts = exts ++ [_][]const u8{field.name};
+    }
+    break :blk exts;
+};
+
+const extensionsFriendly = blk: {
+    var extsFriendly: []const u8 = &[_]u8{};
+    var first = true;
+    for (extensions) |extension| {
+        if (first) {
+            first = false;
+        } else {
+            extsFriendly = extsFriendly ++ ",";
+        }
+        extsFriendly = extsFriendly ++ extension;
+    }
+    break :blk extsFriendly;
+};
+
+fn enableExtension(extension: []const u8, options: *Options) !void {
+    inline for (extensions) |valid_extension| {
+        if (std.mem.eql(u8, valid_extension, extension)) {
+            @field(options.extensions, valid_extension) = true;
+            return;
+        }
+    }
+    try std.fmt.format(std.io.getStdErr().writer(), "unknown extension: {}\n", .{extension});
+    std.os.exit(1);
 }
 
 fn markdownToHtmlInternal(resultAllocator: *std.mem.Allocator, internalAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {

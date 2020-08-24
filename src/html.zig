@@ -6,6 +6,7 @@ const mem = std.mem;
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const ctype = @import("ctype.zig");
+const strings = @import("strings.zig");
 const scanners = @import("scanners.zig");
 
 pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
@@ -27,16 +28,8 @@ const HtmlFormatter = struct {
     buffer: *std.ArrayList(u8),
     last_was_lf: bool = true,
 
-    fn createMap(chars: []const u8) [256]bool {
-        var arr = [_]bool{false} ** 256;
-        for (chars) |c| {
-            arr[c] = true;
-        }
-        return arr;
-    }
-
-    const NEEDS_ESCAPED = createMap("\"&<>");
-    const HREF_SAFE = createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+    const NEEDS_ESCAPED = strings.createMap("\"&<>");
+    const HREF_SAFE = strings.createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 
     fn dangerousUrl(input: []const u8) !bool {
         return (try scanners.dangerousUrl(input)) != null;
@@ -218,6 +211,8 @@ const HtmlFormatter = struct {
                     try self.cr();
                     if (!self.options.render.unsafe) {
                         try self.writeAll("<!-- raw HTML omitted -->");
+                    } else if (self.options.extensions.tagfilter) {
+                        try self.tagfilterBlock(nhb.literal.items);
                     } else {
                         try self.writeAll(nhb.literal.items);
                     }
@@ -271,6 +266,9 @@ const HtmlFormatter = struct {
                 if (entering) {
                     if (!self.options.render.unsafe) {
                         try self.writeAll("<!-- raw HTML omitted -->");
+                    } else if (self.options.extensions.tagfilter and tagfilter(literal)) {
+                        try self.writeAll("&lt;");
+                        try self.writeAll(literal[1..]);
                     } else {
                         try self.writeAll(literal);
                     }
@@ -281,6 +279,13 @@ const HtmlFormatter = struct {
             },
             .Emph => {
                 try self.writeAll(if (entering) "<em>" else "</em>");
+            },
+            .Strikethrough => {
+                if (entering) {
+                    try self.writeAll("<del>");
+                } else {
+                    try self.writeAll("</del>");
+                }
             },
             .Link => |nl| {
                 if (entering) {
@@ -297,12 +302,147 @@ const HtmlFormatter = struct {
                     try self.writeAll("</a>");
                 }
             },
-            else => {
-                std.debug.print("what to do with {}?\n", .{node.data.value});
-                unreachable;
+            .Image => |nl| {
+                if (entering) {
+                    try self.writeAll("<img src=\"");
+                    if (self.options.render.unsafe or !(try dangerousUrl(nl.url))) {
+                        try self.escapeHref(nl.url);
+                    }
+                    try self.writeAll("\" alt=\"");
+                    return true;
+                } else {
+                    if (nl.title.len > 0) {
+                        try self.writeAll("\" title=\"");
+                        try self.escape(nl.title);
+                    }
+                    try self.writeAll("\" />");
+                }
+            },
+            .Table => {
+                if (entering) {
+                    try self.cr();
+                    try self.writeAll("<table>\n");
+                } else {
+                    if (node.last_child.? != node.first_child.?) {
+                        try self.cr();
+                        try self.writeAll("</tbody>\n");
+                    }
+                    try self.cr();
+                    try self.writeAll("</table>\n");
+                }
+            },
+            .TableRow => |kind| {
+                if (entering) {
+                    try self.cr();
+                    if (kind == .Header) {
+                        try self.writeAll("<thead>\n");
+                    } else if (node.prev) |prev| {
+                        switch (prev.data.value) {
+                            .TableRow => |k| {
+                                if (k == .Header)
+                                    try self.writeAll("<tbody>\n");
+                            },
+                            else => {},
+                        }
+                    }
+                    try self.writeAll("<tr>");
+                } else {
+                    try self.cr();
+                    try self.writeAll("</tr>");
+                    if (kind == .Header) {
+                        try self.cr();
+                        try self.writeAll("</thead>");
+                    }
+                }
+            },
+            .TableCell => {
+                const kind = node.parent.?.data.value.TableRow;
+                const alignments = node.parent.?.parent.?.data.value.Table;
+
+                if (entering) {
+                    try self.cr();
+                    if (kind == .Header) {
+                        try self.writeAll("<th");
+                    } else {
+                        try self.writeAll("<td");
+                    }
+
+                    var start = node.parent.?.first_child.?;
+                    var i: usize = 0;
+                    while (start != node) {
+                        i += 1;
+                        start = start.next.?;
+                    }
+
+                    switch (alignments[i]) {
+                        .Left => try self.writeAll(" align=\"left\""),
+                        .Right => try self.writeAll(" align=\"right\""),
+                        .Center => try self.writeAll(" align=\"center\""),
+                        .None => {},
+                    }
+
+                    try self.writeAll(">");
+                } else if (kind == .Header) {
+                    try self.writeAll("</th>");
+                } else {
+                    try self.writeAll("</td>");
+                }
             },
         }
         return false;
+    }
+
+    const TAGFILTER_BLACKLIST = [_][]const u8{
+        "title",
+        "textarea",
+        "style",
+        "xmp",
+        "iframe",
+        "noembed",
+        "noframes",
+        "script",
+        "plaintext",
+    };
+    fn tagfilter(literal: []const u8) bool {
+        if (literal.len < 3 or literal[0] != '<')
+            return false;
+
+        var i: usize = 1;
+        if (literal[i] == '/')
+            i += 1;
+
+        for (TAGFILTER_BLACKLIST) |t| {
+            const j = i + t.len;
+            if (literal.len > j and std.ascii.eqlIgnoreCase(t, literal[i..j])) {
+                return ctype.isspace(literal[j]) or
+                    literal[j] == '>' or
+                    (literal[j] == '/' and literal.len >= j + 2 and literal[j + 1] == '>');
+            }
+        }
+
+        return false;
+    }
+
+    fn tagfilterBlock(self: *HtmlFormatter, input: []const u8) !void {
+        const size = input.len;
+        var i: usize = 0;
+
+        while (i < size) {
+            const org = i;
+            while (i < size and input[i] != '<') : (i += 1) {}
+            if (i > org) {
+                try self.writeAll(input[org..i]);
+            }
+            if (i >= size) {
+                break;
+            }
+            if (tagfilter(input[i..])) {
+                try self.writeAll("&lt;");
+            } else {
+                try self.writeAll("<");
+            }
+            i += 1;
+        }
     }
 };
 

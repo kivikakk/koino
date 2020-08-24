@@ -8,6 +8,8 @@ const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
+const table = @import("table.zig");
+const AutolinkProcessor = @import("autolink.zig").AutolinkProcessor;
 
 const TAB_STOP = 4;
 const CODE_INDENT = 4;
@@ -49,6 +51,15 @@ pub const Parser = struct {
             .current = root,
             .options = options,
         };
+    }
+
+    pub fn deinit(self: *Parser) void {
+        for (self.refmap.items()) |entry| {
+            self.allocator.free(entry.key);
+            self.allocator.free(entry.value.url);
+            self.allocator.free(entry.value.title);
+        }
+        self.refmap.deinit();
     }
 
     pub fn feed(self: *Parser, s: []const u8) !void {
@@ -93,19 +104,9 @@ pub const Parser = struct {
         }
     }
 
-    pub fn deinit(self: *Parser) void {
-        for (self.refmap.items()) |entry| {
-            self.allocator.free(entry.value.url);
-            self.allocator.free(entry.value.title);
-        }
-        self.refmap.deinit();
-        for (self.hack_refmapKeys.items) |i|
-            self.allocator.free(i);
-        self.hack_refmapKeys.deinit();
-    }
-
     pub fn finish(self: *Parser) !*nodes.AstNode {
         try self.finalizeDocument();
+        try self.postprocessTextNodes();
         return self.root;
     }
 
@@ -240,10 +241,15 @@ pub const Parser = struct {
                         return CheckOpenBlocksResult{ .container = container };
                     }
                 },
-                .Heading => {
+                .Table => {
+                    if (!(try table.matches(self.allocator, line[self.first_nonspace..]))) {
+                        return CheckOpenBlocksResult{ .container = container };
+                    }
+                },
+                .Heading, .TableRow, .TableCell => {
                     return CheckOpenBlocksResult{ .container = container };
                 },
-                else => {},
+                .Document, .List, .ThematicBreak, .Text, .SoftBreak, .LineBreak, .Code, .HtmlInline, .Emph, .Strong, .Strikethrough, .Link, .Image => {},
             }
         }
 
@@ -278,7 +284,7 @@ pub const Parser = struct {
                     self.advanceOffset(line, 1, true);
                 }
                 container = try self.addChild(container, .BlockQuote);
-            } else if (!indented and try scanners.atxHeadingStart(line[self.first_nonspace..], &matched)) {
+            } else if (!indented and try scanners.unwrap(scanners.atxHeadingStart(line[self.first_nonspace..]), &matched)) {
                 const heading_startpos = self.first_nonspace;
                 const offset = self.offset;
                 self.advanceOffset(line, heading_startpos + matched - offset, false);
@@ -293,7 +299,7 @@ pub const Parser = struct {
                 }
 
                 container.data.value = .{ .Heading = .{ .level = level, .setext = false } };
-            } else if (!indented and try scanners.openCodeFence(line[self.first_nonspace..], &matched)) {
+            } else if (!indented and try scanners.unwrap(scanners.openCodeFence(line[self.first_nonspace..]), &matched)) {
                 const first_nonspace = self.first_nonspace;
                 const offset = self.offset;
                 const ncb = nodes.NodeCodeBlock{
@@ -336,7 +342,7 @@ pub const Parser = struct {
             } else if (!indented and !(switch (container.data.value) {
                 .Paragraph => !all_matched,
                 else => false,
-            }) and try scanners.thematicBreak(line[self.first_nonspace..], &matched)) {
+            }) and try scanners.unwrap(scanners.thematicBreak(line[self.first_nonspace..]), &matched)) {
                 container = try self.addChild(container, .ThematicBreak);
                 const adv = line.len - 1 - self.offset;
                 self.advanceOffset(line, adv, false);
@@ -392,11 +398,24 @@ pub const Parser = struct {
                         .literal = std.ArrayList(u8).init(self.allocator),
                     },
                 });
-            }
-            // ...
-            else {
-                // TODO: table stuff
-                break;
+            } else {
+                var replace: bool = undefined;
+                var new_container = if (!indented and self.options.extensions.table)
+                    try table.tryOpeningBlock(self, container, line, &replace)
+                else
+                    null;
+
+                if (new_container) |new| {
+                    if (replace) {
+                        container.insertAfter(new);
+                        container.detachDeinit();
+                        container = new;
+                    } else {
+                        container = new;
+                    }
+                } else {
+                    break;
+                }
             }
 
             if (container.data.value.acceptsLines()) {
@@ -409,7 +428,7 @@ pub const Parser = struct {
         return container;
     }
 
-    fn addChild(self: *Parser, input_parent: *nodes.AstNode, value: nodes.NodeValue) !*nodes.AstNode {
+    pub fn addChild(self: *Parser, input_parent: *nodes.AstNode, value: nodes.NodeValue) !*nodes.AstNode {
         var parent = input_parent;
         while (!parent.data.value.canContainType(value)) {
             parent = (try self.finalize(parent)).?;
@@ -607,6 +626,67 @@ pub const Parser = struct {
         return parent;
     }
 
+    fn postprocessTextNodes(self: *Parser) !void {
+        var stack = try std.ArrayList(*nodes.AstNode).initCapacity(self.allocator, 1);
+        defer stack.deinit();
+        var children = std.ArrayList(*nodes.AstNode).init(self.allocator);
+        defer children.deinit();
+
+        try stack.append(self.root);
+
+        while (stack.popOrNull()) |node| {
+            var nch = node.first_child;
+
+            while (nch) |n| {
+                var this_bracket = false;
+
+                while (true) {
+                    switch (n.data.value) {
+                        .Text => |*root| {
+                            var ns = n.next orelse {
+                                try self.postprocessTextNode(n, root);
+                                break;
+                            };
+
+                            switch (ns.data.value) {
+                                .Text => |adj| {
+                                    const old_len = root.len;
+                                    root.* = try self.allocator.realloc(root.*, old_len + adj.len);
+                                    std.mem.copy(u8, root.*[old_len..], adj);
+                                    ns.detachDeinit();
+                                },
+                                else => {
+                                    try self.postprocessTextNode(n, root);
+                                    break;
+                                },
+                            }
+                        },
+                        .Link, .Image => {
+                            this_bracket = true;
+                            break;
+                        },
+                        else => break,
+                    }
+                }
+
+                if (!this_bracket) {
+                    try children.append(n);
+                }
+
+                nch = n.next;
+            }
+
+            while (children.popOrNull()) |child|
+                try stack.append(child);
+        }
+    }
+
+    fn postprocessTextNode(self: *Parser, node: *nodes.AstNode, text: *[]u8) !void {
+        if (self.options.extensions.autolink) {
+            try AutolinkProcessor.init(self.allocator, text).process(node);
+        }
+    }
+
     fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) !bool {
         var seeked: usize = 0;
         var pos: usize = undefined;
@@ -675,14 +755,16 @@ pub const Parser = struct {
         }
 
         var normalized = try strings.normalizeLabel(self.allocator, lab);
-        try self.hack_refmapKeys.append(normalized);
         if (normalized.len > 0) {
+            // refmap takes ownership of `normalized'.
             const result = try subj.refmap.getOrPut(normalized);
             if (!result.found_existing) {
                 result.entry.*.value = Reference{
                     .url = try strings.cleanUrl(self.allocator, url),
                     .title = try strings.cleanTitle(self.allocator, title),
                 };
+            } else {
+                self.allocator.free(normalized);
             }
         }
 
@@ -722,7 +804,7 @@ pub const Parser = struct {
         while (subj.popBracket()) {}
     }
 
-    fn advanceOffset(self: *Parser, line: []const u8, in_count: usize, columns: bool) void {
+    pub fn advanceOffset(self: *Parser, line: []const u8, in_count: usize, columns: bool) void {
         var count = in_count;
         while (count > 0) {
             switch (line[self.offset]) {
@@ -1033,4 +1115,40 @@ test "links" {
 }
 test "link reference definitions" {
     try expectMarkdownHTML(.{}, "[foo]: /url \"title\"\n\n[foo]\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
+    try expectMarkdownHTML(.{}, "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n", "<p><a href=\"/url%5Cbar*baz\" title=\"foo&quot;bar\\baz\">foo</a></p>\n");
+}
+test "tables" {
+    try expectMarkdownHTML(.{ .extensions = .{ .table = true } },
+        \\| foo | bar |
+        \\| --- | --- |
+        \\| baz | bim |
+        \\
+    ,
+        \\<table>
+        \\<thead>
+        \\<tr>
+        \\<th>foo</th>
+        \\<th>bar</th>
+        \\</tr>
+        \\</thead>
+        \\<tbody>
+        \\<tr>
+        \\<td>baz</td>
+        \\<td>bim</td>
+        \\</tr>
+        \\</tbody>
+        \\</table>
+        \\
+    );
+}
+test "strikethroughs" {
+    try expectMarkdownHTML(.{ .extensions = .{ .strikethrough = true } }, "Hello ~world~ there.\n", "<p>Hello <del>world</del> there.</p>\n");
+}
+test "images" {
+    try expectMarkdownHTML(.{}, "[![moon](moon.jpg)](/uri)\n", "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n");
+}
+test "autolink" {
+    try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "www.commonmark.org\n", "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n");
+    try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "http://commonmark.org\n", "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n");
+    try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "foo@bar.baz\n", "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n");
 }

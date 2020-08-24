@@ -1,10 +1,10 @@
 const std = @import("std");
 const mem = std.mem;
 const assert = std.debug.assert;
+const zunicode = @import("zunicode");
 
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
-const unicode = @import("unicode.zig");
 const Options = @import("options.zig").Options;
 const ctype = @import("ctype.zig");
 const scanners = @import("scanners.zig");
@@ -39,6 +39,10 @@ pub const Subject = struct {
         };
         for ([_]u8{ '\n', '\r', '_', '*', '"', '`', '\'', '\\', '&', '<', '[', ']', '!' }) |c| {
             s.special_chars[c] = true;
+        }
+        if (options.extensions.strikethrough) {
+            s.special_chars['~'] = true;
+            s.skip_chars['~'] = true;
         }
         for ([_]u8{ '"', '\'', '.', '-' }) |c| {
             s.smart_chars[c] = true;
@@ -75,7 +79,7 @@ pub const Subject = struct {
                 self.pos += 1;
                 if (self.peekChar() orelse 0 == '[') {
                     self.pos += 1;
-                    var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "[") });
+                    var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "![") });
                     try self.pushBracket(.Image, inl);
                     new_inl = inl;
                 } else {
@@ -83,17 +87,21 @@ pub const Subject = struct {
                 }
             },
             else => {
-                const endpos = self.findSpecialChar();
-                var contents = self.input[self.pos..endpos];
-                self.pos = endpos;
+                if (self.options.extensions.strikethrough and c == '~') {
+                    new_inl = try self.handleDelim(c);
+                } else {
+                    const endpos = self.findSpecialChar();
+                    var contents = self.input[self.pos..endpos];
+                    self.pos = endpos;
 
-                if (self.peekChar()) |n| {
-                    if (strings.isLineEndChar(n)) {
-                        contents = strings.rtrim(contents);
+                    if (self.peekChar()) |n| {
+                        if (strings.isLineEndChar(n)) {
+                            contents = strings.rtrim(contents);
+                        }
                     }
-                }
 
-                new_inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, contents) });
+                    new_inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, contents) });
+                }
             },
         }
 
@@ -131,6 +139,8 @@ pub const Subject = struct {
             i['_'] = stack_bottom;
             i['\''] = stack_bottom;
             i['"'] = stack_bottom;
+            if (self.options.extensions.strikethrough)
+                i['~'] = stack_bottom;
         }
 
         while (closer != null and closer.?.prev != stack_bottom) {
@@ -155,7 +165,9 @@ pub const Subject = struct {
 
                 var old_closer = closer;
 
-                if (closer.?.delim_char == '*' or closer.?.delim_char == '_') {
+                if (closer.?.delim_char == '*' or closer.?.delim_char == '_' or
+                    (self.options.extensions.strikethrough and closer.?.delim_char == '~'))
+                {
                     if (opener_found) {
                         closer = try self.insertEmph(opener.?, closer.?);
                     } else {
@@ -358,22 +370,21 @@ pub const Subject = struct {
     }
 
     fn handlePointyBrace(self: *Subject) !*nodes.AstNode {
-        var match_len: usize = undefined;
         self.pos += 1;
 
-        if (try scanners.autolinkUri(self.input[self.pos..], &match_len)) {
+        if (try scanners.autolinkUri(self.input[self.pos..])) |match_len| {
             var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .URI);
             self.pos += match_len;
             return inl;
         }
 
-        if (try scanners.autolinkEmail(self.input[self.pos..], &match_len)) {
+        if (try scanners.autolinkEmail(self.input[self.pos..])) |match_len| {
             var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .Email);
             self.pos += match_len;
             return inl;
         }
 
-        if (try scanners.htmlTag(self.input[self.pos..], &match_len)) {
+        if (try scanners.htmlTag(self.input[self.pos..])) |match_len| {
             var contents = self.input[self.pos - 1 .. self.pos + match_len];
             var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
             self.pos += match_len;
@@ -492,14 +503,14 @@ pub const Subject = struct {
             }
         }
 
-        const left_flanking = num_delims > 0 and !unicode.isWhitespace(after_char) and !(unicode.isPunctuation(after_char) and !unicode.isWhitespace(before_char) and !unicode.isPunctuation(before_char));
-        const right_flanking = num_delims > 0 and !unicode.isWhitespace(before_char) and !(unicode.isPunctuation(before_char) and !unicode.isWhitespace(after_char) and !unicode.isPunctuation(after_char));
+        const left_flanking = num_delims > 0 and !zunicode.isSpace(after_char) and !(zunicode.isPunct(after_char) and !zunicode.isSpace(before_char) and !zunicode.isPunct(before_char));
+        const right_flanking = num_delims > 0 and !zunicode.isSpace(before_char) and !(zunicode.isPunct(before_char) and !zunicode.isSpace(after_char) and !zunicode.isPunct(after_char));
 
         if (c == '_') {
             return ScanResult{
                 .num_delims = num_delims,
-                .can_open = left_flanking and (!right_flanking or unicode.isPunctuation(before_char)),
-                .can_close = right_flanking and (!left_flanking or unicode.isPunctuation(after_char)),
+                .can_open = left_flanking and (!right_flanking or zunicode.isPunct(before_char)),
+                .can_close = right_flanking and (!left_flanking or zunicode.isPunct(after_char)),
             };
         } else if (c == '\'' or c == '"') {
             return ScanResult{
@@ -542,6 +553,9 @@ pub const Subject = struct {
         opener_num_chars -= use_delims;
         closer_num_chars -= use_delims;
 
+        if (self.options.extensions.strikethrough and opener_char == '~' and (opener_num_chars != closer_num_chars or opener_num_chars > 0))
+            return null;
+
         var opener_text = opener.inl.data.value.text_mut().?;
         opener_text.* = self.allocator.shrink(opener_text.*, opener_num_chars);
         var closer_text = closer.inl.data.value.text_mut().?;
@@ -554,7 +568,15 @@ pub const Subject = struct {
             delim = prev;
         }
 
-        var emph = try self.makeInline(if (use_delims == 1) .Emph else .Strong);
+        var value: nodes.NodeValue = undefined;
+        if (self.options.extensions.strikethrough and opener_char == '~') {
+            value = .Strikethrough;
+        } else if (use_delims == 1) {
+            value = .Emph;
+        } else {
+            value = .Strong;
+        }
+        var emph = try self.makeInline(value);
         var tmp = opener.inl.next.?;
         while (tmp != closer.inl) {
             var next = tmp.next;
