@@ -211,6 +211,8 @@ const HtmlFormatter = struct {
                     try self.cr();
                     if (!self.options.render.unsafe) {
                         try self.writeAll("<!-- raw HTML omitted -->");
+                    } else if (self.options.extensions.tagfilter) {
+                        try self.tagfilterBlock(nhb.literal.items);
                     } else {
                         try self.writeAll(nhb.literal.items);
                     }
@@ -264,6 +266,9 @@ const HtmlFormatter = struct {
                 if (entering) {
                     if (!self.options.render.unsafe) {
                         try self.writeAll("<!-- raw HTML omitted -->");
+                    } else if (self.options.extensions.tagfilter and tagfilter(literal)) {
+                        try self.writeAll("&lt;");
+                        try self.writeAll(literal[1..]);
                     } else {
                         try self.writeAll(literal);
                     }
@@ -385,6 +390,59 @@ const HtmlFormatter = struct {
             },
         }
         return false;
+    }
+
+    const TAGFILTER_BLACKLIST = [_][]const u8{
+        "title",
+        "textarea",
+        "style",
+        "xmp",
+        "iframe",
+        "noembed",
+        "noframes",
+        "script",
+        "plaintext",
+    };
+    fn tagfilter(literal: []const u8) bool {
+        if (literal.len < 3 or literal[0] != '<')
+            return false;
+
+        var i: usize = 1;
+        if (literal[i] == '/')
+            i += 1;
+
+        for (TAGFILTER_BLACKLIST) |t| {
+            const j = i + t.len;
+            if (literal.len > j and std.ascii.eqlIgnoreCase(t, literal[i..j])) {
+                return ctype.isspace(literal[j]) or
+                    literal[j] == '>' or
+                    (literal[j] == '/' and literal.len >= j + 2 and literal[j + 1] == '>');
+            }
+        }
+
+        return false;
+    }
+
+    fn tagfilterBlock(self: *HtmlFormatter, input: []const u8) !void {
+        const size = input.len;
+        var i: usize = 0;
+
+        while (i < size) {
+            const org = i;
+            while (i < size and input[i] != '<') : (i += 1) {}
+            if (i > org) {
+                try self.writeAll(input[org..i]);
+            }
+            if (i >= size) {
+                break;
+            }
+            if (tagfilter(input[i..])) {
+                try self.writeAll("&lt;");
+            } else {
+                try self.writeAll("<");
+            }
+            i += 1;
+        }
     }
 };
 

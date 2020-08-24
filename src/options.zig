@@ -3,6 +3,7 @@ pub const Options = struct {
         table: bool = false,
         strikethrough: bool = false,
         autolink: bool = false,
+        tagfilter: bool = false,
     };
     pub const Parse = struct {
         smart: bool = false,
