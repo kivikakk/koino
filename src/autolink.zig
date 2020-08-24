@@ -143,8 +143,72 @@ pub const AutolinkProcessor = struct {
         };
     }
 
+    const EMAIL_OK_SET = strings.createMap(".+-_");
     fn emailMatch(self: AutolinkProcessor, i: usize) !?Match {
-        unreachable;
+        const size = self.text.len;
+
+        var rewind: usize = 0;
+        var ns: usize = 0;
+        while (rewind < i) {
+            const c = self.text.*[i - rewind - 1];
+            if (ctype.isalnum(c) or EMAIL_OK_SET[c]) {
+                rewind += 1;
+                continue;
+            }
+
+            if (c == '/') {
+                ns += 1;
+            }
+
+            break;
+        }
+
+        if (rewind == 0 or ns > 0) {
+            return null;
+        }
+
+        var link_end: usize = 0;
+        var nb: usize = 0;
+        var np: usize = 0;
+
+        while (link_end < size - i) {
+            const c = self.text.*[i + link_end];
+
+            if (ctype.isalnum(c)) {
+                // empty
+            } else if (c == '@') {
+                nb += 1;
+            } else if (c == '.' and link_end < size - i - 1 and ctype.isalnum(self.text.*[i + link_end + 1])) {
+                np += 1;
+            } else if (c != '-' and c != '_') {
+                break;
+            }
+
+            link_end += 1;
+        }
+
+        if (link_end < 2 or nb != 1 or np == 0 or (!ctype.isalpha(self.text.*[i + link_end - 1]) and self.text.*[i + link_end - 1] != '.')) {
+            return null;
+        }
+
+        link_end = autolinkDelim(self.text.*[i..], link_end);
+
+        var url = try std.ArrayList(u8).initCapacity(self.allocator, 7 + link_end - rewind);
+        try url.appendSlice("mailto:");
+        try url.appendSlice(self.text.*[i - rewind .. link_end + i]);
+
+        var inl = try self.makeInline(.{
+            .Link = .{
+                .url = url.toOwnedSlice(),
+                .title = try self.allocator.alloc(u8, 0),
+            },
+        });
+        inl.append(try self.makeInline(.{ .Text = try self.allocator.dupe(u8, self.text.*[i - rewind .. link_end + i]) }));
+        return Match{
+            .post = inl,
+            .reverse = rewind,
+            .skip = rewind + link_end,
+        };
     }
 
     fn checkDomain(data: []const u8, allow_short: bool) !?usize {

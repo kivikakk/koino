@@ -1150,4 +1150,5 @@ test "images" {
 test "autolink" {
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "www.commonmark.org\n", "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n");
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "http://commonmark.org\n", "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n");
+    try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "foo@bar.baz\n", "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n");
 }
