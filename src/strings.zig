@@ -1,7 +1,8 @@
 const std = @import("std");
 const mem = std.mem;
 const testing = std.testing;
-const ctype = @import("ctype.zig");
+const ascii = std.ascii;
+
 const nodes = @import("nodes.zig");
 const htmlentities = @import("htmlentities");
 const zunicode = @import("zunicode");
@@ -41,7 +42,7 @@ test "isBlank" {
 
 pub fn ltrim(s: []const u8) []const u8 {
     var i: usize = 0;
-    while (i < s.len and ctype.isspace(s[i])) : (i += 1) {}
+    while (i < s.len and ascii.isSpace(s[i])) : (i += 1) {}
     return s[i..];
 }
 
@@ -54,7 +55,7 @@ test "ltrim" {
 
 pub fn rtrim(s: []const u8) []const u8 {
     var len = s.len;
-    while (len > 0 and ctype.isspace(s[len - 1])) : (len -= 1) {}
+    while (len > 0 and ascii.isSpace(s[len - 1])) : (len -= 1) {}
     return s[0..len];
 }
 
@@ -214,9 +215,9 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
         var i: usize = 0;
 
         const num_digits = block: {
-            if (ctype.isdigit(text[1])) {
+            if (ascii.isDigit(text[1])) {
                 i = 1;
-                while (i < text.len and ctype.isdigit(text[i])) {
+                while (i < text.len and ascii.isDigit(text[i])) {
                     codepoint = (codepoint * 10) + (@as(u32, text[i]) - '0');
                     codepoint = std.math.min(codepoint, 0x11_0000);
                     i += 1;
@@ -224,7 +225,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
                 break :block i - 1;
             } else if (text[1] == 'x' or text[1] == 'X') {
                 i = 2;
-                while (i < text.len and ctype.isxdigit(text[i])) {
+                while (i < text.len and ascii.isXDigit(text[i])) {
                     codepoint = (codepoint * 16) + (@as(u32, text[i]) | 32) % 39 - 9;
                     codepoint = std.math.min(codepoint, 0x11_0000);
                     i += 1;
@@ -338,7 +339,7 @@ pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var r: usize = 0;
 
     while (r < s.len) : (r += 1) {
-        if (s[r] == '\\' and r + 1 < s.len and ctype.ispunct(s[r + 1]))
+        if (s[r] == '\\' and r + 1 < s.len and ascii.isPunct(s[r + 1]))
             r += 1;
         try buffer.append(s[r]);
     }
