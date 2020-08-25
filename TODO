@@ -4,4 +4,3 @@
 * look for some places where we use booleans and replace with two-enums
 * fix all our orderedRemove(0) uses
 * look for XXX/TODOs
-* strings.trim -> std.mem.trim*
