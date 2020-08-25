@@ -1,8 +1,8 @@
 const std = @import("std");
+const ascii = std.ascii;
 const assert = std.debug.assert;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
-const ctype = @import("ctype.zig");
 const zunicode = @import("zunicode");
 
 pub const AutolinkProcessor = struct {
@@ -61,7 +61,7 @@ pub const AutolinkProcessor = struct {
 
     const WWW_DELIMS = strings.createMap("*_~([");
     fn wwwMatch(self: AutolinkProcessor, i: usize) !?Match {
-        if (i > 0 and !ctype.isspace(self.text.*[i - 1]) and !WWW_DELIMS[self.text.*[i - 1]]) {
+        if (i > 0 and !ascii.isSpace(self.text.*[i - 1]) and !WWW_DELIMS[self.text.*[i - 1]]) {
             return null;
         }
 
@@ -72,7 +72,7 @@ pub const AutolinkProcessor = struct {
         var link_end = (try checkDomain(self.text.*[i..], false)) orelse return null;
 
         while (i + link_end < self.text.len and
-            !ctype.isspace(self.text.*[i + link_end])) : (link_end += 1)
+            !ascii.isSpace(self.text.*[i + link_end])) : (link_end += 1)
         {}
 
         link_end = autolinkDelim(self.text.*[i..], link_end);
@@ -107,7 +107,7 @@ pub const AutolinkProcessor = struct {
 
         var rewind: usize = 0;
         while (rewind < i and
-            ctype.isalpha(self.text.*[i - rewind - 1])) : (rewind += 1)
+            ascii.isAlpha(self.text.*[i - rewind - 1])) : (rewind += 1)
         {}
 
         if (!scheme_matched: {
@@ -123,7 +123,7 @@ pub const AutolinkProcessor = struct {
 
         var link_end = (try checkDomain(self.text.*[i + 3 ..], true)) orelse return null;
 
-        while (link_end < size - i and !ctype.isspace(self.text.*[i + link_end])) : (link_end += 1) {}
+        while (link_end < size - i and !ascii.isSpace(self.text.*[i + link_end])) : (link_end += 1) {}
 
         link_end = autolinkDelim(self.text.*[i..], link_end);
 
@@ -151,7 +151,7 @@ pub const AutolinkProcessor = struct {
         var ns: usize = 0;
         while (rewind < i) {
             const c = self.text.*[i - rewind - 1];
-            if (ctype.isalnum(c) or EMAIL_OK_SET[c]) {
+            if (ascii.isAlNum(c) or EMAIL_OK_SET[c]) {
                 rewind += 1;
                 continue;
             }
@@ -174,11 +174,11 @@ pub const AutolinkProcessor = struct {
         while (link_end < size - i) {
             const c = self.text.*[i + link_end];
 
-            if (ctype.isalnum(c)) {
+            if (ascii.isAlNum(c)) {
                 // empty
             } else if (c == '@') {
                 nb += 1;
-            } else if (c == '.' and link_end < size - i - 1 and ctype.isalnum(self.text.*[i + link_end + 1])) {
+            } else if (c == '.' and link_end < size - i - 1 and ascii.isAlNum(self.text.*[i + link_end + 1])) {
                 np += 1;
             } else if (c != '-' and c != '_') {
                 break;
@@ -187,7 +187,7 @@ pub const AutolinkProcessor = struct {
             link_end += 1;
         }
 
-        if (link_end < 2 or nb != 1 or np == 0 or (!ctype.isalpha(self.text.*[i + link_end - 1]) and self.text.*[i + link_end - 1] != '.')) {
+        if (link_end < 2 or nb != 1 or np == 0 or (!ascii.isAlpha(self.text.*[i + link_end - 1]) and self.text.*[i + link_end - 1] != '.')) {
             return null;
         }
 
@@ -270,7 +270,7 @@ pub const AutolinkProcessor = struct {
                 var new_end = link_end - 2;
 
                 while (new_end > 0 and
-                    ctype.isalnum(data[new_end])) : (new_end -= 1)
+                    ascii.isAlNum(data[new_end])) : (new_end -= 1)
                 {}
 
                 if (new_end < link_end - 2 and data[new_end] == '&') {

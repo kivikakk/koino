@@ -1,5 +1,6 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const ascii = std.ascii;
 
 const main = @import("main.zig");
 const strings = @import("strings.zig");
@@ -7,7 +8,6 @@ const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
 const inlines = @import("inlines.zig");
 const Options = @import("options.zig").Options;
-const ctype = @import("ctype.zig");
 const table = @import("table.zig");
 const AutolinkProcessor = @import("autolink.zig").AutolinkProcessor;
 
@@ -918,7 +918,7 @@ pub const Parser = struct {
 
         if (c == '*' or c == '-' or c == '+') {
             pos += 1;
-            if (!ctype.isspace(line[pos])) {
+            if (!ascii.isSpace(line[pos])) {
                 return false;
             }
 
@@ -943,11 +943,11 @@ pub const Parser = struct {
             return true;
         }
 
-        if (ctype.isdigit(c)) {
+        if (ascii.isDigit(c)) {
             var start: usize = 0;
             var digits: u8 = 0;
 
-            while (digits < 9 and ctype.isdigit(line[pos])) {
+            while (digits < 9 and ascii.isDigit(line[pos])) {
                 start = (10 * start) + (line[pos] - '0');
                 pos += 1;
                 digits += 1;
@@ -964,7 +964,7 @@ pub const Parser = struct {
 
             pos += 1;
 
-            if (!ctype.isspace(line[pos])) {
+            if (!ascii.isSpace(line[pos])) {
                 return false;
             }
 

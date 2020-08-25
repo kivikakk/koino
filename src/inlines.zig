@@ -1,12 +1,12 @@
 const std = @import("std");
 const mem = std.mem;
+const ascii = std.ascii;
 const assert = std.debug.assert;
 const zunicode = @import("zunicode");
 
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const Options = @import("options.zig").Options;
-const ctype = @import("ctype.zig");
 const scanners = @import("scanners.zig");
 const Reference = @import("parser.zig").Reference;
 
@@ -338,7 +338,7 @@ pub const Subject = struct {
 
     fn handleBackslash(self: *Subject) !*nodes.AstNode {
         self.pos += 1;
-        if (ctype.ispunct(self.peekChar() orelse 0)) {
+        if (ascii.isPunct(self.peekChar() orelse 0)) {
             self.pos += 1;
             var contents = try self.allocator.dupe(u8, self.input[self.pos - 1 .. self.pos]);
             return try self.makeInline(.{ .Text = contents });
@@ -705,7 +705,7 @@ pub const Subject = struct {
             if (c == '\\') {
                 self.pos += 1;
                 length += 1;
-                if (ctype.ispunct(self.peekChar() orelse 0)) {
+                if (ascii.isPunct(self.peekChar() orelse 0)) {
                     self.pos += 1;
                     length += 1;
                 }
@@ -805,7 +805,7 @@ pub const Subject = struct {
         var nb_p: usize = 0;
 
         while (i < len) {
-            if (input[i] == '\\' and i + 1 < len and ctype.ispunct(input[i + 1])) {
+            if (input[i] == '\\' and i + 1 < len and ascii.isPunct(input[i + 1])) {
                 i += 2;
             } else if (input[i] == '(') {
                 nb_p += 1;
@@ -817,7 +817,7 @@ pub const Subject = struct {
                     break;
                 nb_p -= 1;
                 i += 1;
-            } else if (ctype.isspace(input[i])) {
+            } else if (ascii.isSpace(input[i])) {
                 if (i == 0)
                     return false;
                 break;

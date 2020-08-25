@@ -1,11 +1,10 @@
 const std = @import("std");
-const p = std.debug.print;
+const ascii = std.ascii;
 const assert = std.debug.assert;
 const mem = std.mem;
 
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
-const ctype = @import("ctype.zig");
 const strings = @import("strings.zig");
 const scanners = @import("scanners.zig");
 
@@ -195,7 +194,7 @@ const HtmlFormatter = struct {
                         try self.writeAll("<pre><code>");
                     } else {
                         var first_tag: usize = 0;
-                        while (first_tag < ncb.info.?.len and !ctype.isspace(ncb.info.?[first_tag]))
+                        while (first_tag < ncb.info.?.len and !ascii.isSpace(ncb.info.?[first_tag]))
                             first_tag += 1;
 
                         try self.writeAll("<pre><code class=\"language-");
@@ -414,7 +413,7 @@ const HtmlFormatter = struct {
         for (TAGFILTER_BLACKLIST) |t| {
             const j = i + t.len;
             if (literal.len > j and std.ascii.eqlIgnoreCase(t, literal[i..j])) {
-                return ctype.isspace(literal[j]) or
+                return ascii.isSpace(literal[j]) or
                     literal[j] == '>' or
                     (literal[j] == '/' and literal.len >= j + 2 and literal[j + 1] == '>');
             }
