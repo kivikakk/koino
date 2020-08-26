@@ -40,10 +40,10 @@ test "isBlank" {
     testing.expect(!isBlank("   \t    e "));
 }
 
+const SPACES = "\t\n\x0b\x0c\r ";
+
 pub fn ltrim(s: []const u8) []const u8 {
-    var i: usize = 0;
-    while (i < s.len and ascii.isSpace(s[i])) : (i += 1) {}
-    return s[i..];
+    return mem.trimLeft(u8, s, SPACES);
 }
 
 test "ltrim" {
@@ -54,9 +54,7 @@ test "ltrim" {
 }
 
 pub fn rtrim(s: []const u8) []const u8 {
-    var len = s.len;
-    while (len > 0 and ascii.isSpace(s[len - 1])) : (len -= 1) {}
-    return s[0..len];
+    return mem.trimRight(u8, s, SPACES);
 }
 
 test "rtrim" {
@@ -67,7 +65,7 @@ test "rtrim" {
 }
 
 pub fn trim(s: []const u8) []const u8 {
-    return rtrim(ltrim(s));
+    return mem.trim(u8, s, SPACES);
 }
 
 pub fn chopTrailingHashtags(s: []const u8) []const u8 {
