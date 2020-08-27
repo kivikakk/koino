@@ -5,25 +5,25 @@ const Regex = @import("libpcre").Regex;
 const Error = error{OutOfMemory};
 
 const MemoizedRegexes = struct {
-    @"scanners.atxHeadingStart": ?Regex = null,
-    @"scanners.thematicBreak": ?Regex = null,
-    @"scanners.setextHeadingLine": ?Regex = null,
-    @"scanners.autolinkUri": ?Regex = null,
-    @"scanners.autolinkEmail": ?Regex = null,
-    @"scanners.openCodeFence": ?Regex = null,
-    @"scanners.closeCodeFence": ?Regex = null,
-    @"scanners.htmlBlockStart1": ?Regex = null,
-    @"scanners.htmlBlockStart4": ?Regex = null,
-    @"scanners.htmlBlockStart6": ?Regex = null,
-    @"scanners.htmlBlockStart7": ?Regex = null,
-    @"scanners.htmlTag": ?Regex = null,
-    @"scanners.spacechars": ?Regex = null,
-    @"scanners.linkTitle": ?Regex = null,
-    @"scanners.dangerousUrl": ?Regex = null,
-    @"scanners.tableStart": ?Regex = null,
-    @"scanners.tableCell": ?Regex = null,
-    @"scanners.tableCellEnd": ?Regex = null,
-    @"scanners.tableRowEnd": ?Regex = null,
+    atxHeadingStart: ?Regex = null,
+    thematicBreak: ?Regex = null,
+    setextHeadingLine: ?Regex = null,
+    autolinkUri: ?Regex = null,
+    autolinkEmail: ?Regex = null,
+    openCodeFence: ?Regex = null,
+    closeCodeFence: ?Regex = null,
+    htmlBlockStart1: ?Regex = null,
+    htmlBlockStart4: ?Regex = null,
+    htmlBlockStart6: ?Regex = null,
+    htmlBlockStart7: ?Regex = null,
+    htmlTag: ?Regex = null,
+    spacechars: ?Regex = null,
+    linkTitle: ?Regex = null,
+    dangerousUrl: ?Regex = null,
+    tableStart: ?Regex = null,
+    tableCell: ?Regex = null,
+    tableCellEnd: ?Regex = null,
+    tableRowEnd: ?Regex = null,
 };
 
 var memoized = MemoizedRegexes{};
@@ -38,14 +38,19 @@ var memoized = MemoizedRegexes{};
 // }
 
 fn acquire(comptime name: []const u8, regex: [:0]const u8) Error!Regex {
-    if (@field(memoized, name)) |re| {
+    const field_name = comptime if (std.mem.lastIndexOf(u8, name, ".")) |i|
+        name[i + 1 ..]
+    else
+        name;
+
+    if (@field(memoized, field_name)) |re| {
         return re;
     }
-    @field(memoized, name) = Regex.compile(regex, .{}) catch |err| switch (err) {
+    @field(memoized, field_name) = Regex.compile(regex, .{}) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => unreachable,
     };
-    return @field(memoized, name).?;
+    return @field(memoized, field_name).?;
 }
 
 fn search(re: Regex, line: []const u8) ?usize {
@@ -215,9 +220,9 @@ pub fn htmlBlockStart(line: []const u8, sc: *usize) Error!bool {
     if (line[0] != '<')
         return false;
 
-    const re1 = try acquire("scanners.htmlBlockStart1", "<(?i:script|pre|style)[ \t\\x0b\\x0c\r\n>]");
-    const re4 = try acquire("scanners.htmlBlockStart4", "<![A-Z]");
-    const re6 = try acquire("scanners.htmlBlockStart6", "</?(?i:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|title|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t\\x0b\\x0c\r\n>]|/>)");
+    const re1 = try acquire("htmlBlockStart1", "<(?i:script|pre|style)[ \t\\x0b\\x0c\r\n>]");
+    const re4 = try acquire("htmlBlockStart4", "<![A-Z]");
+    const re6 = try acquire("htmlBlockStart6", "</?(?i:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|title|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t\\x0b\\x0c\r\n>]|/>)");
 
     if (search(re1, line) != null) {
         sc.* = 1;

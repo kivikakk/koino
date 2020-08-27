@@ -1,6 +1,6 @@
 name: CommonMark Specs
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   specs:
