@@ -27,7 +27,6 @@ pub const Subject = struct {
     scanned_for_backticks: bool = false,
     special_chars: [256]bool = [_]bool{false} ** 256,
     skip_chars: [256]bool = [_]bool{false} ** 256,
-    smart_chars: [256]bool = [_]bool{false} ** 256,
 
     pub fn init(allocator: *mem.Allocator, refmap: *std.StringHashMap(Reference), options: *Options, input: []const u8) Subject {
         var s = Subject{
@@ -44,8 +43,10 @@ pub const Subject = struct {
             s.special_chars['~'] = true;
             s.skip_chars['~'] = true;
         }
-        for ([_]u8{ '"', '\'', '.', '-' }) |c| {
-            s.smart_chars[c] = true;
+        if (options.parse.smart) {
+            for ([_]u8{ '"', '\'', '.', '-' }) |c| {
+                s.special_chars[c] = true;
+            }
         }
         return s;
     }
@@ -258,8 +259,6 @@ pub const Subject = struct {
         var n = self.pos;
         while (n < self.input.len) : (n += 1) {
             if (self.special_chars[self.input[n]])
-                return n;
-            if (self.options.parse.smart and self.smart_chars[self.input[n]])
                 return n;
         }
         return n;
