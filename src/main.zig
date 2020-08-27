@@ -19,6 +19,9 @@ pub fn main() !void {
         try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension (" ++ extensionsFriendly ++ ")"),
         try clap.parseParam("    --header-anchors             Generate anchors for headers"),
         try clap.parseParam("    --smart                      Use smart punctuation"),
+        clap.Param(clap.Help){
+            .takes_value = .One,
+        },
     };
 
     var allocator: *std.mem.Allocator = undefined;
@@ -60,11 +63,20 @@ pub fn main() !void {
     for (args.options("--extension")) |extension|
         try enableExtension(extension, &options);
 
-    var markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
-    defer allocator.free(markdown);
-
     var p = try parser.Parser.init(&arena.allocator, options);
-    try p.feed(markdown);
+
+    if (args.positionals().len > 0) {
+        for (args.positionals()) |pos| {
+            var markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
+            defer allocator.free(markdown);
+            try p.feed(markdown);
+        }
+    } else {
+        var markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
+        defer allocator.free(markdown);
+        try p.feed(markdown);
+    }
+
     var doc = try p.finish();
 
     var output = try html.print(allocator, &p.options, doc);
