@@ -18,37 +18,42 @@ pub const ParseError = error{ OutOfMemory, InvalidUtf8 };
 pub const Subject = struct {
     allocator: *mem.Allocator,
     refmap: *std.StringHashMap(Reference),
-    options: *Options,
+    options: *const Options,
     input: []const u8,
     pos: usize = 0,
     last_delimiter: ?*Delimiter = null,
     brackets: std.ArrayList(Bracket),
     backticks: [MAX_BACKTICKS + 1]usize = [_]usize{0} ** (MAX_BACKTICKS + 1),
     scanned_for_backticks: bool = false,
-    special_chars: [256]bool = [_]bool{false} ** 256,
-    skip_chars: [256]bool = [_]bool{false} ** 256,
+    special_chars: *const [256]bool,
+    skip_chars: *const [256]bool,
 
-    pub fn init(allocator: *mem.Allocator, refmap: *std.StringHashMap(Reference), options: *Options, input: []const u8) Subject {
+    pub fn init(allocator: *mem.Allocator, refmap: *std.StringHashMap(Reference), options: *const Options, special_chars: *const [256]bool, skip_chars: *const [256]bool, input: []const u8) Subject {
         var s = Subject{
             .allocator = allocator,
             .refmap = refmap,
             .options = options,
             .input = input,
             .brackets = std.ArrayList(Bracket).init(allocator),
+            .special_chars = special_chars,
+            .skip_chars = skip_chars,
         };
+        return s;
+    }
+
+    pub fn setCharsForOptions(options: *const Options, special_chars: *[256]bool, skip_chars: *[256]bool) void {
         for ([_]u8{ '\n', '\r', '_', '*', '"', '`', '\'', '\\', '&', '<', '[', ']', '!' }) |c| {
-            s.special_chars[c] = true;
+            special_chars.*[c] = true;
         }
         if (options.extensions.strikethrough) {
-            s.special_chars['~'] = true;
-            s.skip_chars['~'] = true;
+            special_chars.*['~'] = true;
+            skip_chars.*['~'] = true;
         }
         if (options.parse.smart) {
             for ([_]u8{ '"', '\'', '.', '-' }) |c| {
-                s.special_chars[c] = true;
+                special_chars.*[c] = true;
             }
         }
-        return s;
     }
 
     pub fn deinit(self: *Subject) void {
@@ -471,7 +476,7 @@ pub const Subject = struct {
             while (before_char_pos > 0 and (self.input[before_char_pos] >> 6 == 2 or self.skip_chars[self.input[before_char_pos]])) {
                 before_char_pos -= 1;
             }
-            var utf8 = (try std.unicode.Utf8View.init(self.input[before_char_pos..self.pos])).iterator();
+            var utf8 = std.unicode.Utf8View.initUnchecked(self.input[before_char_pos..self.pos]).iterator();
             if (utf8.nextCodepoint()) |codepoint| {
                 if (codepoint >= 256 or !self.skip_chars[codepoint]) {
                     before_char = codepoint;
@@ -494,7 +499,7 @@ pub const Subject = struct {
             while (after_char_pos < self.input.len - 1 and self.skip_chars[self.input[after_char_pos]]) {
                 after_char_pos += 1;
             }
-            var utf8 = (try std.unicode.Utf8View.init(self.input[after_char_pos..])).iterator();
+            var utf8 = std.unicode.Utf8View.initUnchecked(self.input[after_char_pos..]).iterator();
             if (utf8.nextCodepoint()) |codepoint| {
                 if (codepoint >= 256 or !self.skip_chars[codepoint]) {
                     after_char = codepoint;

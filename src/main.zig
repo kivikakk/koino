@@ -21,10 +21,24 @@ pub fn main() !void {
         try clap.parseParam("    --smart                      Use smart punctuation"),
     };
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    var allocator: *std.mem.Allocator = undefined;
+    var gpa: std.heap.GeneralPurposeAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
 
-    var args = try clap.parse(clap.Help, &params, &gpa.allocator);
+    if (std.builtin.mode == .Debug) {
+        allocator = &gpa.allocator;
+    } else {
+        allocator = &arena.allocator;
+    }
+
+    defer {
+        if (std.builtin.mode == .Debug) {
+            _ = gpa.deinit();
+        }
+    }
+
+    var args = try clap.parse(clap.Help, &params, allocator);
     defer args.deinit();
 
     if (args.flag("--help")) {
@@ -46,11 +60,20 @@ pub fn main() !void {
     for (args.options("--extension")) |extension|
         try enableExtension(extension, &options);
 
-    var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
-    defer gpa.allocator.free(markdown);
+    var markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
+    defer allocator.free(markdown);
 
-    var output = try markdownToHtml(&gpa.allocator, options, markdown);
-    defer gpa.allocator.free(output);
+    var p = try parser.Parser.init(&arena.allocator, options);
+    try p.feed(markdown);
+    var doc = try p.finish();
+
+    var output = try html.print(allocator, &p.options, doc);
+    defer allocator.free(output);
+
+    if (std.builtin.mode == .Debug) {
+        p.deinit();
+        doc.deinit();
+    }
 
     try std.io.getStdOut().writer().writeAll(output);
 }
@@ -96,21 +119,13 @@ fn markdownToHtmlInternal(resultAllocator: *std.mem.Allocator, internalAllocator
 
     defer doc.deinit();
 
-    var noisy = false;
-    var noisy_env = std.process.getEnvVarOwned(internalAllocator, "KOINO_NOISY");
-    if (noisy_env) |v| {
-        noisy = v.len > 0;
-        internalAllocator.free(v);
-    } else |err| {}
-    doc.validate(noisy);
-
     return try html.print(resultAllocator, p.options, doc);
 }
 
-pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
-    var arena = std.heap.ArenaAllocator.init(allocator);
+pub fn markdownToHtml(resultAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    return markdownToHtmlInternal(allocator, &arena.allocator, options, markdown);
+    return markdownToHtmlInternal(resultAllocator, &arena.allocator, options, markdown);
 }
 
 /// Uses a GeneralPurposeAllocator for scratch work instead of an ArenaAllocator

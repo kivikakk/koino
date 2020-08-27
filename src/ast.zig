@@ -119,41 +119,6 @@ pub fn Ast(comptime T: type) type {
             return .{ .next_value = self.last_child };
         }
 
-        pub fn validate(self: *Self, noisy: bool) void {
-            if (noisy) report(self, 0);
-            self.validateOne(null, 1, noisy);
-        }
-
-        pub fn validateOne(self: *Self, parent: ?*Self, indent: usize, noisy: bool) void {
-            assert(self.parent == parent);
-            var it = self.first_child;
-            var prev: ?*Self = null;
-
-            while (it) |child| {
-                if (noisy) report(child, indent);
-                assert(child.parent == self);
-                assert(child.prev == prev);
-                child.validateOne(self, indent + 1, noisy);
-                prev = child;
-                it = child.next;
-            }
-
-            assert(self.last_child == prev);
-        }
-
-        pub fn report(self: *Self, indent: usize) void {
-            var fill_string: [128]u8 = [_]u8{0} ** 128;
-            var i: usize = 0;
-            while (i < indent * 4) : (i += 1)
-                fill_string[i] = ' ';
-            std.debug.print("{}analysing: {*} ({})\n", .{ fill_string, self, @tagName(self.data.value) });
-            std.debug.print("{}    parent: {*} ({})\n", .{ fill_string, self.parent, if (self.parent) |n| @tagName(n.data.value) else "" });
-            std.debug.print("{}      prev: {*} ({})\n", .{ fill_string, self.prev, if (self.prev) |n| @tagName(n.data.value) else "" });
-            std.debug.print("{}      first_child: {*} ({})\n", .{ fill_string, self.first_child, if (self.first_child) |n| @tagName(n.data.value) else "" });
-            std.debug.print("{}      last_child: {*} ({})\n", .{ fill_string, self.last_child, if (self.last_child) |n| @tagName(n.data.value) else "" });
-            std.debug.print("{}      next: {*} ({})\n", .{ fill_string, self.next, if (self.next) |n| @tagName(n.data.value) else "" });
-        }
-
         // These don't quite belong.
 
         pub fn lastChildIsOpen(self: *Self) bool {
