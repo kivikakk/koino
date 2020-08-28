@@ -1152,3 +1152,24 @@ test "autolink" {
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "http://commonmark.org\n", "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n");
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "foo@bar.baz\n", "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n");
 }
+test "header anchors" {
+    try expectMarkdownHTML(.{ .render = .{ .header_anchors = true } },
+        \\# Hi.
+        \\## Hi 1.
+        \\### Hi.
+        \\#### Hello.
+        \\##### Hi.
+        \\###### Hello.
+        \\# Isn't it grand?
+        \\
+    ,
+        \\<h1><a href="#hi" id="hi"></a>Hi.</h1>
+        \\<h2><a href="#hi-1" id="hi-1"></a>Hi 1.</h2>
+        \\<h3><a href="#hi-2" id="hi-2"></a>Hi.</h3>
+        \\<h4><a href="#hello" id="hello"></a>Hello.</h4>
+        \\<h5><a href="#hi-3" id="hi-3"></a>Hi.</h5>
+        \\<h6><a href="#hello-1" id="hello-1"></a>Hello.</h6>
+        \\<h1><a href="#isnt-it-grand" id="isnt-it-grand"></a>Isn't it grand?</h1>
+        \\
+    );
+}

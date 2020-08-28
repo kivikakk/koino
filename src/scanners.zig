@@ -24,6 +24,8 @@ const MemoizedRegexes = struct {
     tableCell: ?Regex = null,
     tableCellEnd: ?Regex = null,
     tableRowEnd: ?Regex = null,
+
+    removeAnchorizeRejectedChars: ?Regex = null,
 };
 
 var memoized = MemoizedRegexes{};
@@ -46,7 +48,7 @@ fn acquire(comptime name: []const u8, regex: [:0]const u8) Error!Regex {
     if (@field(memoized, field_name)) |re| {
         return re;
     }
-    @field(memoized, field_name) = Regex.compile(regex, .{}) catch |err| switch (err) {
+    @field(memoized, field_name) = Regex.compile(regex, .{ .Utf8 = true }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => unreachable,
     };
@@ -406,4 +408,31 @@ test "tableRowEnd" {
     testing.expectEqual(@as(?usize, null), try tableRowEnd("  a"));
     testing.expectEqual(@as(?usize, 4), try tableRowEnd("   \na"));
     testing.expectEqual(@as(?usize, 5), try tableRowEnd("   \r\na"));
+}
+
+pub fn removeAnchorizeRejectedChars(allocator: *std.mem.Allocator, src: []const u8) Error![]u8 {
+    const re = try acquire(@src().fn_name, "[^\\p{L}\\p{M}\\p{N}\\p{Pc} -]");
+
+    var output = std.ArrayList(u8).init(allocator);
+    errdefer output.deinit();
+
+    var org: usize = 0;
+
+    while (re.matches(src[org..], .{}) catch null) |cap| {
+        try output.appendSlice(src[org .. org + cap.start]);
+        org += cap.end;
+        if (org >= src.len) break;
+    }
+
+    try output.appendSlice(src[org..]);
+
+    return output.toOwnedSlice();
+}
+
+test "removeAnchorizeRejectedChars" {
+    for ([_][]const u8{ "abc", "'abc", "''abc", "a'bc", "'a'''b'c'" }) |abc| {
+        var result = try removeAnchorizeRejectedChars(std.testing.allocator, abc);
+        testing.expectEqualStrings("abc", result);
+        std.testing.allocator.free(result);
+    }
 }
