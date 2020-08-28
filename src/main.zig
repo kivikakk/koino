@@ -40,7 +40,7 @@ pub fn main() !void {
     if (args.flag("--smart"))
         options.parse.smart = true;
 
-    for (args.allOptions("--extension")) |extension|
+    for (args.options("--extension")) |extension|
         try enableExtension(extension, &options);
 
     var markdown = try std.io.getStdIn().reader().readAllAlloc(&gpa.allocator, 1024 * 1024 * 1024);
