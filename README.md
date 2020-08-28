@@ -5,6 +5,7 @@
 
 Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-compatibility with [GitHub Flavored Markdown](https://github.github.com/gfm/).
 
+
 ## Getting started
 
 * Clone the repository with submodules, as we have quite a few dependencies.
@@ -23,3 +24,24 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
   ```
 
 * Have a look at the bottom of [`parser.zig`](https://github.com/kivikakk/koino/blob/main/src/parser.zig) to see some test usage.
+
+
+## Usage
+
+Command line:
+
+```console
+$ koino --help
+Usage: koino [-hu] [-e <EXTENSION>...] [--smart]
+
+Options:
+        -h, --help                      Display this help and exit
+        -u, --unsafe                    Render raw HTML and dangerous URLs
+        -e, --extension <EXTENSION>...  Enable an extension. (table,strikethrough,autolink,tagfilter)
+            --smart                     Use smart punctuation.
+```
+
+Library:
+
+TODO!
+
