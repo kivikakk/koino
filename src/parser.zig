@@ -591,8 +591,7 @@ pub const Parser = struct {
                     if (node.data.content.items[pos] == '\r') pos += 1;
                     if (node.data.content.items[pos] == '\n') pos += 1;
 
-                    while (pos > 0) : (pos -= 1)
-                        _ = node.data.content.orderedRemove(0);
+                    try node.data.content.replaceRange(0, pos, "");
                 }
                 std.mem.swap(std.ArrayList(u8), &ncb.literal, &node.data.content);
             },
@@ -701,8 +700,7 @@ pub const Parser = struct {
             seeked += pos;
         }
 
-        while (seeked > 0) : (seeked -= 1)
-            _ = content.orderedRemove(0);
+        content.replaceRange(0, seeked, "");
 
         return !strings.isBlank(content.items);
     }

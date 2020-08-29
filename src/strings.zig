@@ -68,6 +68,39 @@ pub fn trim(s: []const u8) []const u8 {
     return mem.trim(u8, s, SPACES);
 }
 
+test "trim" {
+    testing.expectEqualStrings("abc", trim("abc"));
+    testing.expectEqualStrings("abc", trim("  abc   "));
+    testing.expectEqualStrings("abc", trim(" abc      \n\n \t\r "));
+    testing.expectEqualStrings("abc \n zz", trim("  \nabc \n zz \n"));
+}
+
+pub fn trimIt(al: *std.ArrayList(u8)) void {
+    var trimmed = trim(al.items);
+    if (al.items.ptr == trimmed.ptr and al.items.len == trimmed.len) return;
+    std.mem.copy(u8, al.items, trimmed);
+    al.items.len = trimmed.len;
+}
+
+test "trimIt" {
+    var buf = std.ArrayList(u8).init(std.testing.allocator);
+    defer buf.deinit();
+
+    try buf.appendSlice("abc");
+    trimIt(&buf);
+    std.testing.expectEqualStrings("abc", buf.items);
+
+    buf.items.len = 0;
+    try buf.appendSlice("  \tabc");
+    trimIt(&buf);
+    std.testing.expectEqualStrings("abc", buf.items);
+
+    buf.items.len = 0;
+    try buf.appendSlice(" \r abc  \n ");
+    trimIt(&buf);
+    std.testing.expectEqualStrings("abc", buf.items);
+}
+
 pub fn chopTrailingHashtags(s: []const u8) []const u8 {
     var r = rtrim(s);
     if (r.len == 0) return r;

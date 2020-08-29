@@ -1,5 +1,3 @@
 * use errdefer, actually recover without loss
   * test failed allocations at various stages
 * look for some places where we use booleans and replace with two-enums
-* fix all our orderedRemove(0) uses
-* look for XXX/TODOs
