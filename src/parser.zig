@@ -584,10 +584,7 @@ pub const Parser = struct {
                     defer self.allocator.free(info);
                     var trimmed = strings.trim(info);
                     var unescaped = try strings.unescape(self.allocator, trimmed);
-                    if (unescaped.len == 0) {
-                        // TODO: default info string
-                        self.allocator.free(unescaped);
-                    } else {
+                    if (unescaped.len != 0) {
                         ncb.info = unescaped;
                     }
 
@@ -784,22 +781,12 @@ pub const Parser = struct {
     }
 
     fn processInlinesNode(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
-        if (node.data.value.containsInlines()) {
-            try self.parseInlines(node);
+        var it = node.descendantsIterator();
+        while (it.next()) |descendant| {
+            if (descendant.data.value.containsInlines()) {
+                try self.parseInlines(descendant);
+            }
         }
-        var child = node.first_child;
-        while (child) |ch| {
-            try self.processInlinesNode(ch);
-            child = ch.next;
-        }
-
-        // TODO:
-        // var it = node.descendantsIterator();
-        // while (it.next()) |descendant| {
-        //     if (descendant.data.value.containsInlines()) {
-        //         try self.parseInlines(descendant);
-        //     }
-        // }
     }
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {

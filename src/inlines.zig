@@ -747,7 +747,7 @@ pub const Subject = struct {
             tmpch = tmp.next;
             inl.append(tmp);
         }
-        self.brackets.items[brackets_len - 1].inl_text.detachDeinit(); // XXX ???
+        self.brackets.items[brackets_len - 1].inl_text.detachDeinit();
         const previous_delimiter = self.brackets.items[brackets_len - 1].previous_delimiter;
         try self.processEmphasis(previous_delimiter);
         _ = self.brackets.pop();
