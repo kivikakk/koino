@@ -1,3 +1,3 @@
 * use errdefer, actually recover without loss
   * test failed allocations at various stages
-* look for some places where we use booleans and replace with two-enums
+* strings: unescape and its dependents in place

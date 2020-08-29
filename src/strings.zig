@@ -347,7 +347,7 @@ test "unescapeHtml" {
 pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
     var trimmed = trim(url);
     if (trimmed.len == 0)
-        return allocator.alloc(u8, 0);
+        return &[_]u8{};
 
     var buf = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
     errdefer buf.deinit();
@@ -383,9 +383,8 @@ pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
 
 pub fn cleanUrl(allocator: *mem.Allocator, url: []const u8) ![]u8 {
     var trimmed = trim(url);
-    if (trimmed.len == 0) {
-        return allocator.alloc(u8, 0);
-    }
+    if (trimmed.len == 0)
+        return &[_]u8{};
 
     var b = try unescapeHtml(allocator, trimmed);
     defer allocator.free(b);
@@ -399,9 +398,8 @@ test "cleanUrl" {
 }
 
 pub fn cleanTitle(allocator: *mem.Allocator, title: []const u8) ![]u8 {
-    if (title.len == 0) {
-        return allocator.alloc(u8, 0);
-    }
+    if (title.len == 0)
+        return &[_]u8{};
 
     const first = title[0];
     const last = title[title.len - 1];

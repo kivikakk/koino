@@ -739,7 +739,7 @@ pub const Parser = struct {
             break :title try self.allocator.dupe(u8, t);
         } else title: {
             subj.pos = beforetitle;
-            break :title try self.allocator.alloc(u8, 0);
+            break :title &[_]u8{};
         };
         defer self.allocator.free(title);
 
