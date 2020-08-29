@@ -98,6 +98,7 @@ test "chopTrailingHashtags" {
 
 pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var code = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    errdefer code.deinit();
 
     var i: usize = 0;
     var contains_nonspace = false;
@@ -291,6 +292,7 @@ fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
 
 pub fn unescapeHtml(allocator: *mem.Allocator, html: []const u8) ![]u8 {
     var al = std.ArrayList(u8).init(allocator);
+    errdefer al.deinit();
     try unescapeHtmlInto(html, &al);
     return al.toOwnedSlice();
 }
@@ -315,6 +317,7 @@ pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.Aut
         return allocator.alloc(u8, 0);
 
     var buf = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
+    errdefer buf.deinit();
     if (kind == .Email)
         try buf.appendSlice("mailto:");
 
@@ -334,6 +337,7 @@ test "cleanAutolink" {
 
 pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    errdefer buffer.deinit();
     var r: usize = 0;
 
     while (r < s.len) : (r += 1) {
@@ -389,6 +393,7 @@ test "cleanTitle" {
 pub fn normalizeLabel(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var trimmed = trim(s);
     var buffer = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
+    errdefer buffer.deinit();
     var last_was_whitespace = false;
 
     var view = try std.unicode.Utf8View.init(trimmed);
@@ -414,6 +419,27 @@ test "normalizeLabel" {
         .{ .in = "Hello", .out = "hello" },
         .{ .in = "   Y        E  S  ", .out = "y e s" },
         .{ .in = "yÉs", .out = "yés" },
+    });
+}
+
+pub fn toLower(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+    var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    errdefer buffer.deinit();
+    var view = try std.unicode.Utf8View.init(s);
+    var it = view.iterator();
+    while (it.nextCodepoint()) |cp| {
+        var rune = @intCast(i32, cp);
+        var lower = zunicode.toLower(rune);
+        try encodeUtf8Into(@intCast(u21, lower), &buffer);
+    }
+    return buffer.toOwnedSlice();
+}
+
+test "toLower" {
+    try testCases(toLower, &[_]Case{
+        .{ .in = "Hello", .out = "hello" },
+        .{ .in = "ΑαΒβΓγΔδΕεΖζΗηΘθΙιΚκΛλΜμ", .out = "ααββγγδδεεζζηηθθιικκλλμμ" },
+        .{ .in = "АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя", .out = "ааббввггддееёёжжззииййккллммннооппррссттууффххццччшшщщъъыыььээююяя" },
     });
 }
 

@@ -1,14 +1,13 @@
 const std = @import("std");
 const ascii = std.ascii;
 const assert = std.debug.assert;
-const mem = std.mem;
 
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const scanners = @import("scanners.zig");
 
-pub fn print(allocator: *mem.Allocator, options: Options, root: *nodes.AstNode) ![]u8 {
+pub fn print(allocator: *std.mem.Allocator, options: Options, root: *nodes.AstNode) ![]u8 {
     var formatter = HtmlFormatter.init(allocator, options);
     defer formatter.deinit();
 
@@ -18,13 +17,13 @@ pub fn print(allocator: *mem.Allocator, options: Options, root: *nodes.AstNode) 
 }
 
 const HtmlFormatter = struct {
-    allocator: *mem.Allocator,
+    allocator: *std.mem.Allocator,
     options: Options,
     buffer: std.ArrayList(u8),
     last_was_lf: bool = true,
     anchor_map: std.StringHashMap(void),
 
-    pub fn init(allocator: *mem.Allocator, options: Options) HtmlFormatter {
+    pub fn init(allocator: *std.mem.Allocator, options: Options) HtmlFormatter {
         return .{
             .allocator = allocator,
             .options = options,
@@ -420,7 +419,7 @@ const HtmlFormatter = struct {
         return out.toOwnedSlice();
     }
 
-    fn collectTextInto(out: *std.ArrayList(u8), node: *nodes.AstNode) mem.Allocator.Error!void {
+    fn collectTextInto(out: *std.ArrayList(u8), node: *nodes.AstNode) std.mem.Allocator.Error!void {
         switch (node.data.value) {
             .Text, .Code => |literal| {
                 try out.appendSlice(literal);
@@ -437,8 +436,7 @@ const HtmlFormatter = struct {
     }
 
     fn anchorize(self: *HtmlFormatter, header: []const u8) ![]const u8 {
-        // TODO: unicode tolower
-        var lower = try std.ascii.allocLowerString(self.allocator, header);
+        var lower = try strings.toLower(self.allocator, header);
         defer self.allocator.free(lower);
         var removed = try scanners.removeAnchorizeRejectedChars(self.allocator, lower);
         defer self.allocator.free(removed);
@@ -528,4 +526,10 @@ test "escaping works as expected" {
     try formatter.escape("<hello & goodbye>");
     std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", formatter.buffer.items);
     formatter.buffer.deinit();
+}
+test "lowercase anchor generation" {
+    var formatter = HtmlFormatter.init(std.testing.allocator, .{});
+    defer formatter.deinit();
+
+    std.testing.expectEqualStrings("yés", try formatter.anchorize("YÉS"));
 }
