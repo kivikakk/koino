@@ -37,13 +37,16 @@ pub const Parser = struct {
     partially_consumed_tab: bool = false,
     last_line_length: usize = 0,
 
+    special_chars: [256]bool = [_]bool{false} ** 256,
+    skip_chars: [256]bool = [_]bool{false} ** 256,
+
     pub fn init(allocator: *std.mem.Allocator, options: Options) !Parser {
         var root = try nodes.AstNode.create(allocator, .{
             .value = .Document,
             .content = std.ArrayList(u8).init(allocator),
         });
 
-        return Parser{
+        var parser = Parser{
             .allocator = allocator,
             .refmap = std.StringHashMap(Reference).init(allocator),
             .hack_refmapKeys = std.ArrayList([]u8).init(allocator),
@@ -51,6 +54,10 @@ pub const Parser = struct {
             .current = root,
             .options = options,
         };
+
+        inlines.Subject.setCharsForOptions(&options, &parser.special_chars, &parser.skip_chars);
+
+        return parser;
     }
 
     pub fn deinit(self: *Parser) void {
@@ -704,7 +711,7 @@ pub const Parser = struct {
     }
 
     fn parseReferenceInline(self: *Parser, content: []const u8, pos: *usize) !bool {
-        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, content);
+        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, &self.special_chars, &self.skip_chars, content);
         defer subj.deinit();
 
         var lab = if (subj.linkLabel()) |l| lab: {
@@ -797,7 +804,7 @@ pub const Parser = struct {
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
         var content = strings.rtrim(node.data.content.items);
-        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, content);
+        var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, &self.special_chars, &self.skip_chars, content);
         defer subj.deinit();
         while (try subj.parseInline(node)) {}
         try subj.processEmphasis(null);

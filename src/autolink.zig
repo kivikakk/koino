@@ -216,7 +216,7 @@ pub const AutolinkProcessor = struct {
         var uscore1: usize = 0;
         var uscore2: usize = 0;
 
-        var view = try std.unicode.Utf8View.init(data);
+        var view = std.unicode.Utf8View.initUnchecked(data);
         var it = view.iterator();
 
         var last_i = it.i;
