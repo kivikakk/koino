@@ -11,6 +11,7 @@ pub const Options = struct {
     pub const Render = struct {
         hard_breaks: bool = false,
         unsafe: bool = false,
+        header_anchors: bool = false,
     };
 
     extensions: Extensions = .{},

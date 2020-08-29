@@ -9,15 +9,16 @@ const nodes = @import("nodes.zig");
 const html = @import("html.zig");
 
 pub fn main() !void {
-    @setEvalBranchQuota(1500);
+    @setEvalBranchQuota(2000);
 
     var stderr = std.io.getStdErr().writer();
 
     const params = comptime [_]clap.Param(clap.Help){
         try clap.parseParam("-h, --help                       Display this help and exit"),
         try clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs"),
-        try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension. (" ++ extensionsFriendly ++ ")"),
-        try clap.parseParam("    --smart                      Use smart punctuation."),
+        try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension (" ++ extensionsFriendly ++ ")"),
+        try clap.parseParam("    --header-anchors             Generate anchors for headers"),
+        try clap.parseParam("    --smart                      Use smart punctuation"),
     };
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -39,6 +40,8 @@ pub fn main() !void {
         options.render.unsafe = true;
     if (args.flag("--smart"))
         options.parse.smart = true;
+    if (args.flag("--header-anchors"))
+        options.render.header_anchors = true;
 
     for (args.options("--extension")) |extension|
         try enableExtension(extension, &options);
@@ -101,7 +104,7 @@ fn markdownToHtmlInternal(resultAllocator: *std.mem.Allocator, internalAllocator
     } else |err| {}
     doc.validate(noisy);
 
-    return try html.print(resultAllocator, &p.options, doc);
+    return try html.print(resultAllocator, p.options, doc);
 }
 
 pub fn markdownToHtml(allocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {

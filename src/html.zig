@@ -1,31 +1,43 @@
 const std = @import("std");
 const ascii = std.ascii;
 const assert = std.debug.assert;
-const mem = std.mem;
 
 const Options = @import("options.zig").Options;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const scanners = @import("scanners.zig");
 
-pub fn print(allocator: *mem.Allocator, options: *Options, root: *nodes.AstNode) ![]u8 {
-    var buffer = std.ArrayList(u8).init(allocator);
-
-    var formatter = HtmlFormatter{
-        .allocator = allocator,
-        .options = options,
-        .buffer = &buffer,
-    };
+pub fn print(allocator: *std.mem.Allocator, options: Options, root: *nodes.AstNode) ![]u8 {
+    var formatter = HtmlFormatter.init(allocator, options);
+    defer formatter.deinit();
 
     try formatter.format(root, false);
-    return buffer.toOwnedSlice();
+
+    return formatter.buffer.toOwnedSlice();
 }
 
 const HtmlFormatter = struct {
-    allocator: *mem.Allocator,
-    options: *Options,
-    buffer: *std.ArrayList(u8),
+    allocator: *std.mem.Allocator,
+    options: Options,
+    buffer: std.ArrayList(u8),
     last_was_lf: bool = true,
+    anchor_map: std.StringHashMap(void),
+
+    pub fn init(allocator: *std.mem.Allocator, options: Options) HtmlFormatter {
+        return .{
+            .allocator = allocator,
+            .options = options,
+            .buffer = std.ArrayList(u8).init(allocator),
+            .anchor_map = std.StringHashMap(void).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *HtmlFormatter) void {
+        for (self.anchor_map.items()) |entry| {
+            self.allocator.free(entry.key);
+        }
+        self.anchor_map.deinit();
+    }
 
     const NEEDS_ESCAPED = strings.createMap("\"&<>");
     const HREF_SAFE = strings.createMap("-_.+!*'(),%#@?=;:/,+&$~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
@@ -182,6 +194,16 @@ const HtmlFormatter = struct {
                 if (entering) {
                     try self.cr();
                     try std.fmt.format(Writer{ .formatter = self }, "<h{}>", .{nch.level});
+                    if (self.options.render.header_anchors) {
+                        var text_content = try self.collectText(node);
+                        defer self.allocator.free(text_content);
+                        var id = try self.anchorize(text_content);
+                        try self.writeAll("<a href=\"#");
+                        try self.writeAll(id);
+                        try self.writeAll("\" id=\"");
+                        try self.writeAll(id);
+                        try self.writeAll("\"></a>");
+                    }
                 } else {
                     try std.fmt.format(Writer{ .formatter = self }, "</h{}>\n", .{nch.level});
                 }
@@ -391,6 +413,58 @@ const HtmlFormatter = struct {
         return false;
     }
 
+    fn collectText(self: *HtmlFormatter, node: *nodes.AstNode) ![]u8 {
+        var out = std.ArrayList(u8).init(self.allocator);
+        try collectTextInto(&out, node);
+        return out.toOwnedSlice();
+    }
+
+    fn collectTextInto(out: *std.ArrayList(u8), node: *nodes.AstNode) std.mem.Allocator.Error!void {
+        switch (node.data.value) {
+            .Text, .Code => |literal| {
+                try out.appendSlice(literal);
+            },
+            .LineBreak, .SoftBreak => try out.append(' '),
+            else => {
+                var it = node.first_child;
+                while (it) |child| {
+                    try collectTextInto(out, child);
+                    it = child.next;
+                }
+            },
+        }
+    }
+
+    fn anchorize(self: *HtmlFormatter, header: []const u8) ![]const u8 {
+        var lower = try strings.toLower(self.allocator, header);
+        defer self.allocator.free(lower);
+        var removed = try scanners.removeAnchorizeRejectedChars(self.allocator, lower);
+        defer self.allocator.free(removed);
+
+        for (removed) |*c| {
+            if (c.* == ' ') c.* = '-';
+        }
+
+        var uniq: usize = 0;
+        while (true) {
+            var anchor = if (uniq == 0)
+                try self.allocator.dupe(u8, removed)
+            else
+                try std.fmt.allocPrint(self.allocator, "{}-{}", .{ removed, uniq });
+            errdefer self.allocator.free(anchor);
+
+            var getPut = try self.anchor_map.getOrPut(anchor);
+            if (!getPut.found_existing) {
+                // anchor now belongs in anchor_map.
+                return anchor;
+            }
+
+            self.allocator.free(anchor);
+
+            uniq += 1;
+        }
+    }
+
     const TAGFILTER_BLACKLIST = [_][]const u8{
         "title",
         "textarea",
@@ -445,33 +519,17 @@ const HtmlFormatter = struct {
     }
 };
 
-const TestParts = struct {
-    allocator: std.heap.GeneralPurposeAllocator(.{}) = undefined,
-    options: Options = .{},
-    buffer: std.ArrayList(u8) = undefined,
-    formatter: HtmlFormatter = undefined,
-
-    fn init(self: *TestParts) void {
-        self.allocator = std.heap.GeneralPurposeAllocator(.{}){};
-        self.buffer = std.ArrayList(u8).init(&self.allocator.allocator);
-        self.formatter = HtmlFormatter{
-            .allocator = &self.allocator.allocator,
-            .options = &self.options,
-            .buffer = &self.buffer,
-        };
-    }
-
-    fn deinit(self: *TestParts) void {
-        self.buffer.deinit();
-        _ = self.allocator.deinit();
-    }
-};
-
 test "escaping works as expected" {
-    var testParts = TestParts{};
-    testParts.init();
-    defer testParts.deinit();
+    var formatter = HtmlFormatter.init(std.testing.allocator, .{});
+    defer formatter.deinit();
 
-    try testParts.formatter.escape("<hello & goodbye>");
-    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", testParts.buffer.items);
+    try formatter.escape("<hello & goodbye>");
+    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", formatter.buffer.items);
+    formatter.buffer.deinit();
+}
+test "lowercase anchor generation" {
+    var formatter = HtmlFormatter.init(std.testing.allocator, .{});
+    defer formatter.deinit();
+
+    std.testing.expectEqualStrings("yés", try formatter.anchorize("YÉS"));
 }
