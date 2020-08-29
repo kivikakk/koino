@@ -700,7 +700,7 @@ pub const Parser = struct {
             seeked += pos;
         }
 
-        content.replaceRange(0, seeked, "");
+        try content.replaceRange(0, seeked, "");
 
         return !strings.isBlank(content.items);
     }
