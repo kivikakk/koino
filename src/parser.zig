@@ -580,12 +580,9 @@ pub const Parser = struct {
                     }
                     assert(pos < node.data.content.items.len);
 
-                    var info = try strings.unescapeHtml(self.allocator, node.data.content.items[0..pos]);
-                    defer self.allocator.free(info);
-                    var trimmed = strings.trim(info);
-                    var unescaped = try strings.unescape(self.allocator, trimmed);
-                    if (unescaped.len != 0) {
-                        ncb.info = unescaped;
+                    var info = try strings.cleanUrl(self.allocator, node.data.content.items[0..pos]);
+                    if (info.len != 0) {
+                        ncb.info = info;
                     }
 
                     if (node.data.content.items[pos] == '\r') pos += 1;

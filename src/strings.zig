@@ -368,7 +368,7 @@ test "cleanAutolink" {
     testing.expectEqualStrings("www.com", uri);
 }
 
-pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer buffer.deinit();
     var r: usize = 0;
