@@ -33,7 +33,8 @@ const HtmlFormatter = struct {
     }
 
     pub fn deinit(self: *HtmlFormatter) void {
-        for (self.anchor_map.items()) |entry| {
+        var it = self.anchor_map.iterator();
+        while (it.next()) |entry| {
             self.allocator.free(entry.key);
         }
         self.anchor_map.deinit();
