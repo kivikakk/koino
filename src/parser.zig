@@ -61,7 +61,8 @@ pub const Parser = struct {
     }
 
     pub fn deinit(self: *Parser) void {
-        for (self.refmap.items()) |entry| {
+        var it = self.refmap.iterator();
+        while (it.next()) |entry| {
             self.allocator.free(entry.key);
             self.allocator.free(entry.value.url);
             self.allocator.free(entry.value.title);
@@ -683,8 +684,7 @@ pub const Parser = struct {
                 nch = n.next;
             }
 
-            while (children.popOrNull()) |child|
-                try stack.append(child);
+            while (children.popOrNull()) |child| try stack.append(child);
         }
     }
 
