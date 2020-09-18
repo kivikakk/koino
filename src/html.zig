@@ -48,14 +48,16 @@ const HtmlFormatter = struct {
     }
 
     // Hack so that there's a Writer.Error.
-    const Writer = struct {
-        formatter: *HtmlFormatter,
-        pub const Error = error{OutOfMemory};
+    const Writer = std.io.Writer(
+        *HtmlFormatter,
+        error{OutOfMemory},
+        writeForWriter,
+    );
 
-        pub fn writeAll(self: @This(), bytes: []const u8) Error!void {
-            try self.formatter.writeAll(bytes);
-        }
-    };
+    fn writeForWriter(self: *@This(), bytes: []const u8) !usize {
+        try self.writeAll(bytes);
+        return bytes.len;
+    }
 
     fn cr(self: *HtmlFormatter) !void {
         if (!self.last_was_lf) {
@@ -101,7 +103,7 @@ const HtmlFormatter = struct {
             switch (s[i]) {
                 '&' => try self.writeAll("&amp;"),
                 '\'' => try self.writeAll("&#x27;"),
-                else => try std.fmt.format(Writer{ .formatter = self }, "%{X:0>2}", .{s[i]}),
+                else => try std.fmt.format(Writer{ .context = self }, "%{X:0>2}", .{s[i]}),
             }
         }
     }
@@ -175,7 +177,7 @@ const HtmlFormatter = struct {
                     } else if (nl.start == 1) {
                         try self.writeAll("<ol>\n");
                     } else {
-                        try std.fmt.format(Writer{ .formatter = self }, "<ol start=\"{}\">", .{nl.start});
+                        try std.fmt.format(Writer{ .context = self }, "<ol start=\"{}\">", .{nl.start});
                     }
                 } else if (nl.list_type == .Bullet) {
                     try self.writeAll("</ul>\n");
@@ -194,7 +196,7 @@ const HtmlFormatter = struct {
             .Heading => |nch| {
                 if (entering) {
                     try self.cr();
-                    try std.fmt.format(Writer{ .formatter = self }, "<h{}>", .{nch.level});
+                    try std.fmt.format(Writer{ .context = self }, "<h{}>", .{nch.level});
                     if (self.options.render.header_anchors) {
                         var text_content = try self.collectText(node);
                         defer self.allocator.free(text_content);
@@ -206,7 +208,7 @@ const HtmlFormatter = struct {
                         try self.writeAll("\"></a>");
                     }
                 } else {
-                    try std.fmt.format(Writer{ .formatter = self }, "</h{}>\n", .{nch.level});
+                    try std.fmt.format(Writer{ .context = self }, "</h{}>\n", .{nch.level});
                 }
             },
             .CodeBlock => |ncb| {
