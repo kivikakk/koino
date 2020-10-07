@@ -580,22 +580,15 @@ pub const Parser = struct {
                     }
                     assert(pos < node.data.content.items.len);
 
-                    var info = try strings.unescapeHtml(self.allocator, node.data.content.items[0..pos]);
-                    defer self.allocator.free(info);
-                    var trimmed = strings.trim(info);
-                    var unescaped = try strings.unescape(self.allocator, trimmed);
-                    if (unescaped.len == 0) {
-                        // TODO: default info string
-                        self.allocator.free(unescaped);
-                    } else {
-                        ncb.info = unescaped;
+                    var info = try strings.cleanUrl(self.allocator, node.data.content.items[0..pos]);
+                    if (info.len != 0) {
+                        ncb.info = info;
                     }
 
                     if (node.data.content.items[pos] == '\r') pos += 1;
                     if (node.data.content.items[pos] == '\n') pos += 1;
 
-                    while (pos > 0) : (pos -= 1)
-                        _ = node.data.content.orderedRemove(0);
+                    try node.data.content.replaceRange(0, pos, "");
                 }
                 std.mem.swap(std.ArrayList(u8), &ncb.literal, &node.data.content);
             },
@@ -704,8 +697,7 @@ pub const Parser = struct {
             seeked += pos;
         }
 
-        while (seeked > 0) : (seeked -= 1)
-            _ = content.orderedRemove(0);
+        try content.replaceRange(0, seeked, "");
 
         return !strings.isBlank(content.items);
     }
@@ -744,7 +736,7 @@ pub const Parser = struct {
             break :title try self.allocator.dupe(u8, t);
         } else title: {
             subj.pos = beforetitle;
-            break :title try self.allocator.alloc(u8, 0);
+            break :title &[_]u8{};
         };
         defer self.allocator.free(title);
 
@@ -784,22 +776,12 @@ pub const Parser = struct {
     }
 
     fn processInlinesNode(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
-        if (node.data.value.containsInlines()) {
-            try self.parseInlines(node);
+        var it = node.descendantsIterator();
+        while (it.next()) |descendant| {
+            if (descendant.data.value.containsInlines()) {
+                try self.parseInlines(descendant);
+            }
         }
-        var child = node.first_child;
-        while (child) |ch| {
-            try self.processInlinesNode(ch);
-            child = ch.next;
-        }
-
-        // TODO:
-        // var it = node.descendantsIterator();
-        // while (it.next()) |descendant| {
-        //     if (descendant.data.value.containsInlines()) {
-        //         try self.parseInlines(descendant);
-        //     }
-        // }
     }
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {

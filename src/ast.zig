@@ -119,6 +119,58 @@ pub fn Ast(comptime T: type) type {
             return .{ .next_value = self.last_child };
         }
 
+        pub const TraverseIterator = struct {
+            root: *Self,
+            upcoming: ?NodeEdge,
+
+            const NodeEdge = union(enum) {
+                Start: *Self,
+                End: *Self,
+            };
+
+            pub fn next(self: *@This()) ?NodeEdge {
+                const item = self.upcoming orelse return null;
+                self.upcoming = switch (item) {
+                    .Start => |node| if (node.first_child) |child|
+                        NodeEdge{ .Start = child }
+                    else
+                        NodeEdge{ .End = node },
+                    .End => |node| if (node == self.root)
+                        null
+                    else if (node.next) |sibling|
+                        NodeEdge{ .Start = sibling }
+                    else if (node.parent) |parent|
+                        NodeEdge{ .End = parent }
+                    else
+                        unreachable,
+                };
+                return item;
+            }
+        };
+
+        pub fn traverseIterator(self: *Self) TraverseIterator {
+            return .{ .root = self, .upcoming = .{ .Start = self } };
+        }
+
+        pub const DescendantsIterator = struct {
+            traverse: TraverseIterator,
+
+            pub fn next(self: *@This()) ?*Self {
+                while (true) {
+                    if (self.traverse.next()) |edge| switch (edge) {
+                        .Start => |node| return node,
+                        .End => {},
+                    } else {
+                        return null;
+                    }
+                }
+            }
+        };
+
+        pub fn descendantsIterator(self: *Self) DescendantsIterator {
+            return .{ .traverse = traverseIterator(self) };
+        }
+
         // These don't quite belong.
 
         pub fn lastChildIsOpen(self: *Self) bool {

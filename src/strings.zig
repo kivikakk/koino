@@ -68,6 +68,39 @@ pub fn trim(s: []const u8) []const u8 {
     return mem.trim(u8, s, SPACES);
 }
 
+test "trim" {
+    testing.expectEqualStrings("abc", trim("abc"));
+    testing.expectEqualStrings("abc", trim("  abc   "));
+    testing.expectEqualStrings("abc", trim(" abc      \n\n \t\r "));
+    testing.expectEqualStrings("abc \n zz", trim("  \nabc \n zz \n"));
+}
+
+pub fn trimIt(al: *std.ArrayList(u8)) void {
+    var trimmed = trim(al.items);
+    if (al.items.ptr == trimmed.ptr and al.items.len == trimmed.len) return;
+    std.mem.copy(u8, al.items, trimmed);
+    al.items.len = trimmed.len;
+}
+
+test "trimIt" {
+    var buf = std.ArrayList(u8).init(std.testing.allocator);
+    defer buf.deinit();
+
+    try buf.appendSlice("abc");
+    trimIt(&buf);
+    std.testing.expectEqualStrings("abc", buf.items);
+
+    buf.items.len = 0;
+    try buf.appendSlice("  \tabc");
+    trimIt(&buf);
+    std.testing.expectEqualStrings("abc", buf.items);
+
+    buf.items.len = 0;
+    try buf.appendSlice(" \r abc  \n ");
+    trimIt(&buf);
+    std.testing.expectEqualStrings("abc", buf.items);
+}
+
 pub fn chopTrailingHashtags(s: []const u8) []const u8 {
     var r = rtrim(s);
     if (r.len == 0) return r;
@@ -314,7 +347,7 @@ test "unescapeHtml" {
 pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
     var trimmed = trim(url);
     if (trimmed.len == 0)
-        return allocator.alloc(u8, 0);
+        return &[_]u8{};
 
     var buf = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
     errdefer buf.deinit();
@@ -335,7 +368,7 @@ test "cleanAutolink" {
     testing.expectEqualStrings("www.com", uri);
 }
 
-pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer buffer.deinit();
     var r: usize = 0;
@@ -350,9 +383,8 @@ pub fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
 
 pub fn cleanUrl(allocator: *mem.Allocator, url: []const u8) ![]u8 {
     var trimmed = trim(url);
-    if (trimmed.len == 0) {
-        return allocator.alloc(u8, 0);
-    }
+    if (trimmed.len == 0)
+        return &[_]u8{};
 
     var b = try unescapeHtml(allocator, trimmed);
     defer allocator.free(b);
@@ -366,9 +398,8 @@ test "cleanUrl" {
 }
 
 pub fn cleanTitle(allocator: *mem.Allocator, title: []const u8) ![]u8 {
-    if (title.len == 0) {
-        return allocator.alloc(u8, 0);
-    }
+    if (title.len == 0)
+        return &[_]u8{};
 
     const first = title[0];
     const last = title[title.len - 1];

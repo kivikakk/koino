@@ -39,6 +39,7 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
+      - run: c:; cd \vcpkg; git pull; .\bootstrap-vcpkg.bat
       - run: vcpkg integrate install
       - run: vcpkg install pcre --triplet x64-windows-static
       - run: zig build

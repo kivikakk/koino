@@ -32,9 +32,8 @@ fn row(allocator: *std.mem.Allocator, line: []const u8) !?[][]u8 {
 
         if (cell_matched > 0 or pipe_matched > 0) {
             var cell = try unescapePipes(allocator, line[offset .. offset + cell_matched]);
-            defer allocator.free(cell);
-            // TODO DO BETTER
-            try v.append(try allocator.dupe(u8, strings.trim(cell)));
+            strings.trimIt(&cell);
+            try v.append(cell.toOwnedSlice());
         }
 
         offset += cell_matched + pipe_matched;
@@ -146,7 +145,7 @@ fn tryOpeningRow(parser: *Parser, container: *nodes.AstNode, aligns: []nodes.Tab
     return new_row;
 }
 
-fn unescapePipes(allocator: *std.mem.Allocator, string: []const u8) ![]u8 {
+fn unescapePipes(allocator: *std.mem.Allocator, string: []const u8) !std.ArrayList(u8) {
     var v = try std.ArrayList(u8).initCapacity(allocator, string.len);
 
     for (string) |c, i| {
@@ -157,5 +156,5 @@ fn unescapePipes(allocator: *std.mem.Allocator, string: []const u8) ![]u8 {
         }
     }
 
-    return v.toOwnedSlice();
+    return v;
 }

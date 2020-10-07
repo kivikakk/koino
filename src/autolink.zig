@@ -84,7 +84,7 @@ pub const AutolinkProcessor = struct {
         var inl = try self.makeInline(.{
             .Link = .{
                 .url = url.toOwnedSlice(),
-                .title = try self.allocator.alloc(u8, 0),
+                .title = &[_]u8{},
             },
         });
         inl.append(try self.makeInline(.{
@@ -132,7 +132,7 @@ pub const AutolinkProcessor = struct {
         var inl = try self.makeInline(.{
             .Link = .{
                 .url = try self.allocator.dupe(u8, url),
-                .title = try self.allocator.alloc(u8, 0),
+                .title = &[_]u8{},
             },
         });
         inl.append(try self.makeInline(.{ .Text = try self.allocator.dupe(u8, url) }));
@@ -200,7 +200,7 @@ pub const AutolinkProcessor = struct {
         var inl = try self.makeInline(.{
             .Link = .{
                 .url = url.toOwnedSlice(),
-                .title = try self.allocator.alloc(u8, 0),
+                .title = &[_]u8{},
             },
         });
         inl.append(try self.makeInline(.{ .Text = try self.allocator.dupe(u8, self.text.*[i - rewind .. link_end + i]) }));
