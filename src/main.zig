@@ -170,5 +170,5 @@ pub fn testMarkdownToHtml(options: Options, markdown: []const u8) ![]u8 {
 }
 
 test "" {
-    std.meta.refAllDecls(@This());
+    std.testing.refAllDecls(@This());
 }
