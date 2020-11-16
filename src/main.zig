@@ -81,7 +81,7 @@ const Args = clap.Args(clap.Help, &params);
 fn parseArgs(allocator: *std.mem.Allocator, options: *Options) !Args {
     var stderr = std.io.getStdErr().writer();
 
-    var args = try clap.parse(clap.Help, &params, allocator);
+    var args = try clap.parse(clap.Help, &params, allocator, null);
 
     if (args.flag("--help")) {
         try stderr.writeAll("Usage: koino ");
