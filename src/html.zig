@@ -453,7 +453,7 @@ const HtmlFormatter = struct {
             var anchor = if (uniq == 0)
                 try self.allocator.dupe(u8, removed)
             else
-                try std.fmt.allocPrint(self.allocator, "{}-{}", .{ removed, uniq });
+                try std.fmt.allocPrint(self.allocator, "{s}-{}", .{ removed, uniq });
             errdefer self.allocator.free(anchor);
 
             var getPut = try self.anchor_map.getOrPut(anchor);
