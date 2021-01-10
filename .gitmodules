@@ -9,7 +9,7 @@
 	url = https://github.com/kivikakk/libpcre.zig
 [submodule "vendor/zig-clap"]
 	path = vendor/zig-clap
-	url = https://github.com/Hejsil/zig-clap
+	url = https://github.com/kivikakk/zig-clap
 [submodule "vendor/zunicode"]
 	path = vendor/zunicode
 	url = https://github.com/kivikakk/zunicode
