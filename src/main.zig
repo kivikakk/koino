@@ -134,7 +134,7 @@ fn enableExtension(extension: []const u8, options: *Options) !void {
             return;
         }
     }
-    try std.fmt.format(std.io.getStdErr().writer(), "unknown extension: {}\n", .{extension});
+    try std.fmt.format(std.io.getStdErr().writer(), "unknown extension: {s}\n", .{extension});
     std.os.exit(1);
 }
 
