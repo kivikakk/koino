@@ -14,11 +14,11 @@ pub fn print(writer: anytype, allocator: *std.mem.Allocator, options: Options, r
     try formatter.format(root, false);
 }
 
-fn makeHtmlFormatter(writer: anytype, allocator: *std.mem.Allocator, options: Options) HtmlFormatter(@TypeOf(writer)) {
+pub fn makeHtmlFormatter(writer: anytype, allocator: *std.mem.Allocator, options: Options) HtmlFormatter(@TypeOf(writer)) {
     return HtmlFormatter(@TypeOf(writer)).init(writer, allocator, options);
 }
 
-fn HtmlFormatter(comptime Writer: type) type {
+pub fn HtmlFormatter(comptime Writer: type) type {
     return struct {
         writer: Writer,
         allocator: *std.mem.Allocator,
