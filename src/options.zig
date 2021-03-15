@@ -12,6 +12,8 @@ pub const Options = struct {
         hard_breaks: bool = false,
         unsafe: bool = false,
         header_anchors: bool = false,
+        /// when anchors are enabled, render this icon in front of each heading so people can click it
+        anchor_icon: []const u8 = "",
     };
 
     extensions: Extensions = .{},
