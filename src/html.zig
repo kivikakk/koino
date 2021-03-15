@@ -198,7 +198,9 @@ fn HtmlFormatter(comptime Writer: type) type {
                             try self.writeAll(id);
                             try self.writeAll("\" id=\"");
                             try self.writeAll(id);
-                            try self.writeAll("\"></a>");
+                            try self.writeAll("\">");
+                            try self.writeAll(self.options.render.anchor_icon);
+                            try self.writeAll("</a>");
                         }
                     } else {
                         try self.writer.print("</h{}>\n", .{nch.level});
