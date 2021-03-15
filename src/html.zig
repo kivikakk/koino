@@ -25,6 +25,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
         options: Options,
         last_was_lf: bool = true,
         anchor_map: std.StringHashMap(void),
+        anchor_node_map: std.AutoHashMap(*nodes.AstNode, []const u8),
 
         const Self = @This();
 
@@ -34,6 +35,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                 .allocator = allocator,
                 .options = options,
                 .anchor_map = std.StringHashMap(void).init(allocator),
+                .anchor_node_map = std.AutoHashMap(*nodes.AstNode, []const u8).init(allocator),
             };
         }
 
@@ -43,6 +45,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                 self.allocator.free(entry.key);
             }
             self.anchor_map.deinit();
+            self.anchor_node_map.deinit();
         }
 
         const NEEDS_ESCAPED = strings.createMap("\"&<>");
@@ -109,7 +112,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
             self.last_was_lf = s[s.len - 1] == '\n';
         }
 
-        fn format(self: *Self, input_node: *nodes.AstNode, plain: bool) !void {
+        pub fn format(self: *Self, input_node: *nodes.AstNode, plain: bool) !void {
             const Phase = enum { Pre, Post };
             const StackEntry = struct {
                 node: *nodes.AstNode,
@@ -191,9 +194,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                         try self.cr();
                         try self.writer.print("<h{}>", .{nch.level});
                         if (self.options.render.header_anchors) {
-                            var text_content = try self.collectText(node);
-                            defer self.allocator.free(text_content);
-                            var id = try self.anchorize(text_content);
+                            const id = try self.getNodeAnchor(node);
                             try self.writeAll("<a href=\"#");
                             try self.writeAll(id);
                             try self.writeAll("\" id=\"");
@@ -432,6 +433,22 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                     }
                 },
             }
+        }
+
+        /// Return the anchor for a given Heading node. If it does not exist yet, it will be generated.
+        pub fn getNodeAnchor(self: *Self, node: *nodes.AstNode) ![]const u8 {
+            std.debug.assert(node.data.value == .Heading);
+
+            const gop = try self.anchor_node_map.getOrPut(node);
+            if (!gop.found_existing) {
+                errdefer _ = self.anchor_node_map.remove(node);
+
+                var text_content = try self.collectText(node);
+                defer self.allocator.free(text_content);
+                gop.entry.value = try self.anchorize(text_content);
+            }
+
+            return gop.entry.value;
         }
 
         fn anchorize(self: *Self, header: []const u8) ![]const u8 {
