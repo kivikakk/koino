@@ -28,8 +28,8 @@ jobs:
         with:
           version: master
       - run: brew install pkg-config pcre
-      - run: zig build
-      - run: zig build test
+      - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build
+      - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build test
   test-windows:
     runs-on: windows-latest
     steps:
