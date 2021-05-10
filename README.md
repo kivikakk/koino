@@ -43,5 +43,5 @@ Options:
 
 Library:
 
-TODO!
+Documentation is TODO — see [LoLa](https://github.com/MasterQ32/LoLa/blob/d02b0e6774fedbe07276d8af51e1a305cc58fb34/src/tools/render-md-page.zig#L157) for an example of use. Note also the [`build.zig`](https://github.com/MasterQ32/LoLa/blob/d02b0e6774fedbe07276d8af51e1a305cc58fb34/build.zig#L41-L50) declaration.
 
