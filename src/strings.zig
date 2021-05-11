@@ -33,11 +33,11 @@ pub fn isBlank(s: []const u8) bool {
 }
 
 test "isBlank" {
-    testing.expect(isBlank(""));
-    testing.expect(isBlank("\nx"));
-    testing.expect(isBlank("    \t\t  \r"));
-    testing.expect(!isBlank("e"));
-    testing.expect(!isBlank("   \t    e "));
+    try testing.expect(isBlank(""));
+    try testing.expect(isBlank("\nx"));
+    try testing.expect(isBlank("    \t\t  \r"));
+    try testing.expect(!isBlank("e"));
+    try testing.expect(!isBlank("   \t    e "));
 }
 
 const SPACES = "\t\n\x0b\x0c\r ";
@@ -47,10 +47,10 @@ pub fn ltrim(s: []const u8) []const u8 {
 }
 
 test "ltrim" {
-    testing.expectEqualStrings("abc", ltrim("abc"));
-    testing.expectEqualStrings("abc", ltrim("   abc"));
-    testing.expectEqualStrings("abc", ltrim("      \n\n \t\r abc"));
-    testing.expectEqualStrings("abc \n zz \n   ", ltrim("\nabc \n zz \n   "));
+    try testing.expectEqualStrings("abc", ltrim("abc"));
+    try testing.expectEqualStrings("abc", ltrim("   abc"));
+    try testing.expectEqualStrings("abc", ltrim("      \n\n \t\r abc"));
+    try testing.expectEqualStrings("abc \n zz \n   ", ltrim("\nabc \n zz \n   "));
 }
 
 pub fn rtrim(s: []const u8) []const u8 {
@@ -58,10 +58,10 @@ pub fn rtrim(s: []const u8) []const u8 {
 }
 
 test "rtrim" {
-    testing.expectEqualStrings("abc", rtrim("abc"));
-    testing.expectEqualStrings("abc", rtrim("abc   "));
-    testing.expectEqualStrings("abc", rtrim("abc      \n\n \t\r "));
-    testing.expectEqualStrings("  \nabc \n zz", rtrim("  \nabc \n zz \n"));
+    try testing.expectEqualStrings("abc", rtrim("abc"));
+    try testing.expectEqualStrings("abc", rtrim("abc   "));
+    try testing.expectEqualStrings("abc", rtrim("abc      \n\n \t\r "));
+    try testing.expectEqualStrings("  \nabc \n zz", rtrim("  \nabc \n zz \n"));
 }
 
 pub fn trim(s: []const u8) []const u8 {
@@ -69,10 +69,10 @@ pub fn trim(s: []const u8) []const u8 {
 }
 
 test "trim" {
-    testing.expectEqualStrings("abc", trim("abc"));
-    testing.expectEqualStrings("abc", trim("  abc   "));
-    testing.expectEqualStrings("abc", trim(" abc      \n\n \t\r "));
-    testing.expectEqualStrings("abc \n zz", trim("  \nabc \n zz \n"));
+    try testing.expectEqualStrings("abc", trim("abc"));
+    try testing.expectEqualStrings("abc", trim("  abc   "));
+    try testing.expectEqualStrings("abc", trim(" abc      \n\n \t\r "));
+    try testing.expectEqualStrings("abc \n zz", trim("  \nabc \n zz \n"));
 }
 
 pub fn trimIt(al: *std.ArrayList(u8)) void {
@@ -88,17 +88,17 @@ test "trimIt" {
 
     try buf.appendSlice("abc");
     trimIt(&buf);
-    std.testing.expectEqualStrings("abc", buf.items);
+    try std.testing.expectEqualStrings("abc", buf.items);
 
     buf.items.len = 0;
     try buf.appendSlice("  \tabc");
     trimIt(&buf);
-    std.testing.expectEqualStrings("abc", buf.items);
+    try std.testing.expectEqualStrings("abc", buf.items);
 
     buf.items.len = 0;
     try buf.appendSlice(" \r abc  \n ");
     trimIt(&buf);
-    std.testing.expectEqualStrings("abc", buf.items);
+    try std.testing.expectEqualStrings("abc", buf.items);
 }
 
 pub fn chopTrailingHashtags(s: []const u8) []const u8 {
@@ -119,14 +119,14 @@ pub fn chopTrailingHashtags(s: []const u8) []const u8 {
 }
 
 test "chopTrailingHashtags" {
-    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz"));
-    testing.expectEqualStrings("xyz#", chopTrailingHashtags("xyz#"));
-    testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###"));
-    testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  "));
-    testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  #"));
-    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  "));
-    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
-    testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
+    try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz"));
+    try testing.expectEqualStrings("xyz#", chopTrailingHashtags("xyz#"));
+    try testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###"));
+    try testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  "));
+    try testing.expectEqualStrings("xyz###", chopTrailingHashtags("xyz###  #"));
+    try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  "));
+    try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
+    try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
 }
 
 pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
@@ -171,7 +171,7 @@ fn testCases(function: fn (*mem.Allocator, []const u8) anyerror![]u8, cases: []c
     for (cases) |case| {
         const result = try function(std.testing.allocator, case.in);
         defer std.testing.allocator.free(result);
-        testing.expectEqualStrings(case.out, result);
+        try testing.expectEqualStrings(case.out, result);
     }
 }
 
@@ -219,7 +219,7 @@ test "removeTrailingBlankLines" {
         line.items.len = 0;
         try line.appendSlice(case.in);
         removeTrailingBlankLines(&line);
-        testing.expectEqualStrings(case.out, line.items);
+        try testing.expectEqualStrings(case.out, line.items);
     }
 }
 
@@ -361,11 +361,11 @@ pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.Aut
 test "cleanAutolink" {
     var email = try cleanAutolink(std.testing.allocator, "  hello&#x40;world.example ", .Email);
     defer std.testing.allocator.free(email);
-    testing.expectEqualStrings("mailto:hello@world.example", email);
+    try testing.expectEqualStrings("mailto:hello@world.example", email);
 
     var uri = try cleanAutolink(std.testing.allocator, "  www&#46;com ", .URI);
     defer std.testing.allocator.free(uri);
-    testing.expectEqualStrings("www.com", uri);
+    try testing.expectEqualStrings("www.com", uri);
 }
 
 fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
@@ -394,7 +394,7 @@ pub fn cleanUrl(allocator: *mem.Allocator, url: []const u8) ![]u8 {
 test "cleanUrl" {
     var url = try cleanUrl(std.testing.allocator, "  \\(hello\\)&#x40;world  ");
     defer std.testing.allocator.free(url);
-    testing.expectEqualStrings("(hello)@world", url);
+    try testing.expectEqualStrings("(hello)@world", url);
 }
 
 pub fn cleanTitle(allocator: *mem.Allocator, title: []const u8) ![]u8 {
@@ -485,13 +485,13 @@ pub fn createMap(chars: []const u8) [256]bool {
 test "createMap" {
     comptime {
         const m = createMap("abcxyz");
-        testing.expect(m['a']);
-        testing.expect(m['b']);
-        testing.expect(m['c']);
-        testing.expect(!m['d']);
-        testing.expect(!m['e']);
-        testing.expect(!m['f']);
-        testing.expect(m['x']);
-        testing.expect(!m[0]);
+        try testing.expect(m['a']);
+        try testing.expect(m['b']);
+        try testing.expect(m['c']);
+        try testing.expect(!m['d']);
+        try testing.expect(!m['e']);
+        try testing.expect(!m['f']);
+        try testing.expect(m['x']);
+        try testing.expect(!m[0]);
     }
 }

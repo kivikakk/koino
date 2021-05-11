@@ -544,12 +544,12 @@ test "escaping works as expected" {
     defer formatter.deinit();
 
     try formatter.escape("<hello & goodbye>");
-    std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", buffer.items);
+    try std.testing.expectEqualStrings("&lt;hello &amp; goodbye&gt;", buffer.items);
 }
 
 test "lowercase anchor generation" {
     var formatter = makeHtmlFormatter(std.io.null_writer, std.testing.allocator, .{});
     defer formatter.deinit();
 
-    std.testing.expectEqualStrings("yés", try formatter.anchorize("YÉS"));
+    try std.testing.expectEqualStrings("yés", try formatter.anchorize("YÉS"));
 }

@@ -113,10 +113,10 @@ pub fn thematicBreak(line: []const u8) Error!?usize {
 
 test "thematicBreak" {
     var matched: usize = undefined;
-    testing.expectEqual(@as(?usize, null), try thematicBreak("hello"));
-    testing.expectEqual(@as(?usize, 4), try thematicBreak("***\n"));
-    testing.expectEqual(@as(?usize, 21), try thematicBreak("-          -   -    \r"));
-    testing.expectEqual(@as(?usize, 21), try thematicBreak("-          -   -    \r\nxyz"));
+    try testing.expectEqual(@as(?usize, null), try thematicBreak("hello"));
+    try testing.expectEqual(@as(?usize, 4), try thematicBreak("***\n"));
+    try testing.expectEqual(@as(?usize, 21), try thematicBreak("-          -   -    \r"));
+    try testing.expectEqual(@as(?usize, 21), try thematicBreak("-          -   -    \r\nxyz"));
 }
 
 pub const SetextChar = enum {
@@ -141,10 +141,10 @@ pub fn autolinkUri(line: []const u8) Error!?usize {
 }
 
 test "autolinkUri" {
-    testing.expectEqual(@as(?usize, null), try autolinkUri("www.google.com>"));
-    testing.expectEqual(@as(?usize, 23), try autolinkUri("https://www.google.com>"));
-    testing.expectEqual(@as(?usize, 7), try autolinkUri("a+b-c:>"));
-    testing.expectEqual(@as(?usize, null), try autolinkUri("a+b-c:"));
+    try testing.expectEqual(@as(?usize, null), try autolinkUri("www.google.com>"));
+    try testing.expectEqual(@as(?usize, 23), try autolinkUri("https://www.google.com>"));
+    try testing.expectEqual(@as(?usize, 7), try autolinkUri("a+b-c:>"));
+    try testing.expectEqual(@as(?usize, null), try autolinkUri("a+b-c:"));
 }
 
 pub fn autolinkEmail(line: []const u8) Error!?usize {
@@ -155,11 +155,11 @@ pub fn autolinkEmail(line: []const u8) Error!?usize {
 }
 
 test "autolinkEmail" {
-    testing.expectEqual(@as(?usize, null), try autolinkEmail("abc>"));
-    testing.expectEqual(@as(?usize, null), try autolinkEmail("abc.def>"));
-    testing.expectEqual(@as(?usize, null), try autolinkEmail("abc@def"));
-    testing.expectEqual(@as(?usize, 8), try autolinkEmail("abc@def>"));
-    testing.expectEqual(@as(?usize, 16), try autolinkEmail("abc+123!?@96--1>"));
+    try testing.expectEqual(@as(?usize, null), try autolinkEmail("abc>"));
+    try testing.expectEqual(@as(?usize, null), try autolinkEmail("abc.def>"));
+    try testing.expectEqual(@as(?usize, null), try autolinkEmail("abc@def"));
+    try testing.expectEqual(@as(?usize, 8), try autolinkEmail("abc@def>"));
+    try testing.expectEqual(@as(?usize, 16), try autolinkEmail("abc+123!?@96--1>"));
 }
 
 pub fn openCodeFence(line: []const u8) Error!?usize {
@@ -171,9 +171,9 @@ pub fn openCodeFence(line: []const u8) Error!?usize {
 }
 
 test "openCodeFence" {
-    testing.expectEqual(@as(?usize, null), try openCodeFence("```m"));
-    testing.expectEqual(@as(?usize, 3), try openCodeFence("```m\n"));
-    testing.expectEqual(@as(?usize, 6), try openCodeFence("~~~~~~m\n"));
+    try testing.expectEqual(@as(?usize, null), try openCodeFence("```m"));
+    try testing.expectEqual(@as(?usize, 3), try openCodeFence("```m\n"));
+    try testing.expectEqual(@as(?usize, 6), try openCodeFence("~~~~~~m\n"));
 }
 
 pub fn closeCodeFence(line: []const u8) Error!?usize {
@@ -185,9 +185,9 @@ pub fn closeCodeFence(line: []const u8) Error!?usize {
 }
 
 test "closeCodeFence" {
-    testing.expectEqual(@as(?usize, null), try closeCodeFence("```m"));
-    testing.expectEqual(@as(?usize, 3), try closeCodeFence("```\n"));
-    testing.expectEqual(@as(?usize, 6), try closeCodeFence("~~~~~~\r\n"));
+    try testing.expectEqual(@as(?usize, null), try closeCodeFence("```m"));
+    try testing.expectEqual(@as(?usize, 3), try closeCodeFence("```\n"));
+    try testing.expectEqual(@as(?usize, 6), try closeCodeFence("~~~~~~\r\n"));
 }
 
 pub fn htmlBlockEnd1(line: []const u8) bool {
@@ -197,9 +197,9 @@ pub fn htmlBlockEnd1(line: []const u8) bool {
 }
 
 test "htmlBlockEnd1" {
-    testing.expect(htmlBlockEnd1(" xyz </script> "));
-    testing.expect(htmlBlockEnd1(" xyz </SCRIPT> "));
-    testing.expect(!htmlBlockEnd1(" xyz </ script> "));
+    try testing.expect(htmlBlockEnd1(" xyz </script> "));
+    try testing.expect(htmlBlockEnd1(" xyz </SCRIPT> "));
+    try testing.expect(!htmlBlockEnd1(" xyz </ script> "));
 }
 
 pub fn htmlBlockEnd2(line: []const u8) bool {
@@ -247,24 +247,24 @@ pub fn htmlBlockStart(line: []const u8, sc: *usize) Error!bool {
 test "htmlBlockStart" {
     var sc: usize = undefined;
 
-    testing.expect(!try htmlBlockStart("<xyz", &sc));
-    testing.expect(try htmlBlockStart("<Script\r", &sc));
-    testing.expectEqual(@as(usize, 1), sc);
-    testing.expect(try htmlBlockStart("<pre>", &sc));
-    testing.expectEqual(@as(usize, 1), sc);
-    testing.expect(try htmlBlockStart("<!-- h", &sc));
-    testing.expectEqual(@as(usize, 2), sc);
-    testing.expect(try htmlBlockStart("<?m", &sc));
-    testing.expectEqual(@as(usize, 3), sc);
-    testing.expect(try htmlBlockStart("<!Q", &sc));
-    testing.expectEqual(@as(usize, 4), sc);
-    testing.expect(try htmlBlockStart("<![CDATA[\n", &sc));
-    testing.expectEqual(@as(usize, 5), sc);
-    testing.expect(try htmlBlockStart("</ul>", &sc));
-    testing.expectEqual(@as(usize, 6), sc);
-    testing.expect(try htmlBlockStart("<figcaption/>", &sc));
-    testing.expectEqual(@as(usize, 6), sc);
-    testing.expect(!try htmlBlockStart("<xhtml>", &sc));
+    try testing.expect(!try htmlBlockStart("<xyz", &sc));
+    try testing.expect(try htmlBlockStart("<Script\r", &sc));
+    try testing.expectEqual(@as(usize, 1), sc);
+    try testing.expect(try htmlBlockStart("<pre>", &sc));
+    try testing.expectEqual(@as(usize, 1), sc);
+    try testing.expect(try htmlBlockStart("<!-- h", &sc));
+    try testing.expectEqual(@as(usize, 2), sc);
+    try testing.expect(try htmlBlockStart("<?m", &sc));
+    try testing.expectEqual(@as(usize, 3), sc);
+    try testing.expect(try htmlBlockStart("<!Q", &sc));
+    try testing.expectEqual(@as(usize, 4), sc);
+    try testing.expect(try htmlBlockStart("<![CDATA[\n", &sc));
+    try testing.expectEqual(@as(usize, 5), sc);
+    try testing.expect(try htmlBlockStart("</ul>", &sc));
+    try testing.expectEqual(@as(usize, 6), sc);
+    try testing.expect(try htmlBlockStart("<figcaption/>", &sc));
+    try testing.expectEqual(@as(usize, 6), sc);
+    try testing.expect(!try htmlBlockStart("<xhtml>", &sc));
 }
 
 const space_char = "[ \t\\x0b\\x0c\r\n]";
@@ -287,13 +287,13 @@ pub fn htmlBlockStart7(line: []const u8, sc: *usize) Error!bool {
 
 test "htmlBlockStart7" {
     var sc: usize = 1;
-    testing.expect(!try htmlBlockStart7("<a", &sc));
-    testing.expect(try htmlBlockStart7("<a>  \n", &sc));
-    testing.expectEqual(@as(usize, 7), sc);
-    testing.expect(try htmlBlockStart7("<b2/>\r", &sc));
-    testing.expect(try htmlBlockStart7("<b2\ndata=\"foo\" >\t\x0c\n", &sc));
-    testing.expect(try htmlBlockStart7("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n", &sc));
-    testing.expect(!try htmlBlockStart7("<a h*#ref=\"hi\">\n", &sc));
+    try testing.expect(!try htmlBlockStart7("<a", &sc));
+    try testing.expect(try htmlBlockStart7("<a>  \n", &sc));
+    try testing.expectEqual(@as(usize, 7), sc);
+    try testing.expect(try htmlBlockStart7("<b2/>\r", &sc));
+    try testing.expect(try htmlBlockStart7("<b2\ndata=\"foo\" >\t\x0c\n", &sc));
+    try testing.expect(try htmlBlockStart7("<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n", &sc));
+    try testing.expect(!try htmlBlockStart7("<a h*#ref=\"hi\">\n", &sc));
 }
 
 const html_comment = "(?:!---->|(?:!---?[^\\x00>-](?:-?[^\\x00-])*-->))";
@@ -307,14 +307,14 @@ pub fn htmlTag(line: []const u8) Error!?usize {
 }
 
 test "htmlTag" {
-    testing.expectEqual(@as(?usize, 6), try htmlTag("!---->"));
-    testing.expectEqual(@as(?usize, 9), try htmlTag("!--x-y-->"));
-    testing.expectEqual(@as(?usize, 5), try htmlTag("?zy?>"));
-    testing.expectEqual(@as(?usize, 6), try htmlTag("?z?y?>"));
-    testing.expectEqual(@as(?usize, 14), try htmlTag("!ABCD aoea@#&>"));
-    testing.expectEqual(@as(?usize, 11), try htmlTag("![CDATA[]]>"));
-    testing.expectEqual(@as(?usize, 20), try htmlTag("![CDATA[a b\n c d ]]>"));
-    testing.expectEqual(@as(?usize, 23), try htmlTag("![CDATA[\r]abc]].>\n]>]]>"));
+    try testing.expectEqual(@as(?usize, 6), try htmlTag("!---->"));
+    try testing.expectEqual(@as(?usize, 9), try htmlTag("!--x-y-->"));
+    try testing.expectEqual(@as(?usize, 5), try htmlTag("?zy?>"));
+    try testing.expectEqual(@as(?usize, 6), try htmlTag("?z?y?>"));
+    try testing.expectEqual(@as(?usize, 14), try htmlTag("!ABCD aoea@#&>"));
+    try testing.expectEqual(@as(?usize, 11), try htmlTag("![CDATA[]]>"));
+    try testing.expectEqual(@as(?usize, 20), try htmlTag("![CDATA[a b\n c d ]]>"));
+    try testing.expectEqual(@as(?usize, 23), try htmlTag("![CDATA[\r]abc]].>\n]>]]>"));
 }
 
 pub fn spacechars(line: []const u8) Error!?usize {
@@ -330,13 +330,13 @@ pub fn linkTitle(line: []const u8) Error!?usize {
 }
 
 test "linkTitle" {
-    testing.expectEqual(@as(?usize, null), try linkTitle("\"xyz"));
-    testing.expectEqual(@as(?usize, 5), try linkTitle("\"xyz\""));
-    testing.expectEqual(@as(?usize, 7), try linkTitle("\"x\\\"yz\""));
-    testing.expectEqual(@as(?usize, null), try linkTitle("'xyz"));
-    testing.expectEqual(@as(?usize, 5), try linkTitle("'xyz'"));
-    testing.expectEqual(@as(?usize, null), try linkTitle("(xyz"));
-    testing.expectEqual(@as(?usize, 5), try linkTitle("(xyz)"));
+    try testing.expectEqual(@as(?usize, null), try linkTitle("\"xyz"));
+    try testing.expectEqual(@as(?usize, 5), try linkTitle("\"xyz\""));
+    try testing.expectEqual(@as(?usize, 7), try linkTitle("\"x\\\"yz\""));
+    try testing.expectEqual(@as(?usize, null), try linkTitle("'xyz"));
+    try testing.expectEqual(@as(?usize, 5), try linkTitle("'xyz'"));
+    try testing.expectEqual(@as(?usize, null), try linkTitle("(xyz"));
+    try testing.expectEqual(@as(?usize, 5), try linkTitle("(xyz)"));
 }
 
 const dangerous_url = "(?:data:(?!png|gif|jpeg|webp)|javascript:|vbscript:|file:)";
@@ -347,12 +347,12 @@ pub fn dangerousUrl(line: []const u8) Error!?usize {
 }
 
 test "dangerousUrl" {
-    testing.expectEqual(@as(?usize, null), try dangerousUrl("http://thing"));
-    testing.expectEqual(@as(?usize, 5), try dangerousUrl("data:xyz"));
-    testing.expectEqual(@as(?usize, null), try dangerousUrl("data:png"));
-    testing.expectEqual(@as(?usize, null), try dangerousUrl("data:webp"));
-    testing.expectEqual(@as(?usize, 5), try dangerousUrl("data:a"));
-    testing.expectEqual(@as(?usize, 11), try dangerousUrl("javascript:"));
+    try testing.expectEqual(@as(?usize, null), try dangerousUrl("http://thing"));
+    try testing.expectEqual(@as(?usize, 5), try dangerousUrl("data:xyz"));
+    try testing.expectEqual(@as(?usize, null), try dangerousUrl("data:png"));
+    try testing.expectEqual(@as(?usize, null), try dangerousUrl("data:webp"));
+    try testing.expectEqual(@as(?usize, 5), try dangerousUrl("data:a"));
+    try testing.expectEqual(@as(?usize, 11), try dangerousUrl("javascript:"));
 }
 
 const table_spacechar = "[ \t\\x0b\\x0c]";
@@ -366,10 +366,10 @@ pub fn tableStart(line: []const u8) Error!?usize {
 }
 
 test "tableStart" {
-    testing.expectEqual(@as(?usize, null), try tableStart("  \r\n"));
-    testing.expectEqual(@as(?usize, 7), try tableStart(" -- |\r\n"));
-    testing.expectEqual(@as(?usize, 14), try tableStart("| :-- | -- |\r\n"));
-    testing.expectEqual(@as(?usize, null), try tableStart("| -:- | -- |\r\n"));
+    try testing.expectEqual(@as(?usize, null), try tableStart("  \r\n"));
+    try testing.expectEqual(@as(?usize, 7), try tableStart(" -- |\r\n"));
+    try testing.expectEqual(@as(?usize, 14), try tableStart("| :-- | -- |\r\n"));
+    try testing.expectEqual(@as(?usize, null), try tableStart("| -:- | -- |\r\n"));
 }
 
 pub fn tableCell(line: []const u8) Error!?usize {
@@ -378,9 +378,9 @@ pub fn tableCell(line: []const u8) Error!?usize {
 }
 
 test "tableCell" {
-    testing.expectEqual(@as(?usize, 3), try tableCell("abc|def"));
-    testing.expectEqual(@as(?usize, 8), try tableCell("abc\\|def"));
-    testing.expectEqual(@as(?usize, 5), try tableCell("abc\\\\|def"));
+    try testing.expectEqual(@as(?usize, 3), try tableCell("abc|def"));
+    try testing.expectEqual(@as(?usize, 8), try tableCell("abc\\|def"));
+    try testing.expectEqual(@as(?usize, 5), try tableCell("abc\\\\|def"));
 }
 
 pub fn tableCellEnd(line: []const u8) Error!?usize {
@@ -389,12 +389,12 @@ pub fn tableCellEnd(line: []const u8) Error!?usize {
 }
 
 test "tableCellEnd" {
-    testing.expectEqual(@as(?usize, 1), try tableCellEnd("|"));
-    testing.expectEqual(@as(?usize, null), try tableCellEnd(" |"));
-    testing.expectEqual(@as(?usize, 1), try tableCellEnd("|a"));
-    testing.expectEqual(@as(?usize, 3), try tableCellEnd("|  \r"));
-    testing.expectEqual(@as(?usize, 4), try tableCellEnd("|  \n"));
-    testing.expectEqual(@as(?usize, 5), try tableCellEnd("|  \r\n"));
+    try testing.expectEqual(@as(?usize, 1), try tableCellEnd("|"));
+    try testing.expectEqual(@as(?usize, null), try tableCellEnd(" |"));
+    try testing.expectEqual(@as(?usize, 1), try tableCellEnd("|a"));
+    try testing.expectEqual(@as(?usize, 3), try tableCellEnd("|  \r"));
+    try testing.expectEqual(@as(?usize, 4), try tableCellEnd("|  \n"));
+    try testing.expectEqual(@as(?usize, 5), try tableCellEnd("|  \r\n"));
 }
 
 pub fn tableRowEnd(line: []const u8) Error!?usize {
@@ -403,11 +403,11 @@ pub fn tableRowEnd(line: []const u8) Error!?usize {
 }
 
 test "tableRowEnd" {
-    testing.expectEqual(@as(?usize, null), try tableRowEnd("a"));
-    testing.expectEqual(@as(?usize, 1), try tableRowEnd("\na"));
-    testing.expectEqual(@as(?usize, null), try tableRowEnd("  a"));
-    testing.expectEqual(@as(?usize, 4), try tableRowEnd("   \na"));
-    testing.expectEqual(@as(?usize, 5), try tableRowEnd("   \r\na"));
+    try testing.expectEqual(@as(?usize, null), try tableRowEnd("a"));
+    try testing.expectEqual(@as(?usize, 1), try tableRowEnd("\na"));
+    try testing.expectEqual(@as(?usize, null), try tableRowEnd("  a"));
+    try testing.expectEqual(@as(?usize, 4), try tableRowEnd("   \na"));
+    try testing.expectEqual(@as(?usize, 5), try tableRowEnd("   \r\na"));
 }
 
 pub fn removeAnchorizeRejectedChars(allocator: *std.mem.Allocator, src: []const u8) Error![]u8 {
@@ -432,7 +432,7 @@ pub fn removeAnchorizeRejectedChars(allocator: *std.mem.Allocator, src: []const 
 test "removeAnchorizeRejectedChars" {
     for ([_][]const u8{ "abc", "'abc", "''abc", "a'bc", "'a'''b'c'" }) |abc| {
         var result = try removeAnchorizeRejectedChars(std.testing.allocator, abc);
-        testing.expectEqualStrings("abc", result);
+        try testing.expectEqualStrings("abc", result);
         std.testing.allocator.free(result);
     }
 }

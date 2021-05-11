@@ -992,7 +992,7 @@ pub const Parser = struct {
 fn expectMarkdownHTML(options: Options, markdown: []const u8, html: []const u8) !void {
     var output = try main.testMarkdownToHtml(options, markdown);
     defer std.testing.allocator.free(output);
-    std.testing.expectEqualStrings(html, output);
+    try std.testing.expectEqualStrings(html, output);
 }
 
 test "convert simple emphases" {
