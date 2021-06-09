@@ -42,7 +42,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
         pub fn deinit(self: *Self) void {
             var it = self.anchor_map.iterator();
             while (it.next()) |entry| {
-                self.allocator.free(entry.key);
+                self.allocator.free(entry.key_ptr.*);
             }
             self.anchor_map.deinit();
             self.anchor_node_map.deinit();
@@ -445,10 +445,10 @@ pub fn HtmlFormatter(comptime Writer: type) type {
 
                 var text_content = try self.collectText(node);
                 defer self.allocator.free(text_content);
-                gop.entry.value = try self.anchorize(text_content);
+                gop.value_ptr.* = try self.anchorize(text_content);
             }
 
-            return gop.entry.value;
+            return gop.value_ptr.*;
         }
 
         fn anchorize(self: *Self, header: []const u8) ![]const u8 {

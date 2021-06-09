@@ -63,9 +63,9 @@ pub const Parser = struct {
     pub fn deinit(self: *Parser) void {
         var it = self.refmap.iterator();
         while (it.next()) |entry| {
-            self.allocator.free(entry.key);
-            self.allocator.free(entry.value.url);
-            self.allocator.free(entry.value.title);
+            self.allocator.free(entry.key_ptr.*);
+            self.allocator.free(entry.value_ptr.url);
+            self.allocator.free(entry.value_ptr.title);
         }
         self.refmap.deinit();
     }
@@ -758,7 +758,7 @@ pub const Parser = struct {
             // refmap takes ownership of `normalized'.
             const result = try subj.refmap.getOrPut(normalized);
             if (!result.found_existing) {
-                result.entry.*.value = Reference{
+                result.value_ptr.* = Reference{
                     .url = try strings.cleanUrl(self.allocator, url),
                     .title = try strings.cleanTitle(self.allocator, title),
                 };
