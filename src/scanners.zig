@@ -112,7 +112,6 @@ pub fn thematicBreak(line: []const u8) Error!?usize {
 }
 
 test "thematicBreak" {
-    var matched: usize = undefined;
     try testing.expectEqual(@as(?usize, null), try thematicBreak("hello"));
     try testing.expectEqual(@as(?usize, 4), try thematicBreak("***\n"));
     try testing.expectEqual(@as(?usize, 21), try thematicBreak("-          -   -    \r"));

@@ -34,7 +34,7 @@ pub fn main() !void {
     }
 
     var options: Options = undefined;
-    var args = try parseArgs(allocator, &options);
+    var args = try parseArgs(&options);
     var parser = try Parser.init(allocator, options);
 
     if (args.positionals().len > 0) {
@@ -67,26 +67,26 @@ pub fn main() !void {
     try std.io.getStdOut().writer().writeAll(output);
 }
 
-const params = comptime params: {
+const params = params: {
     @setEvalBranchQuota(2000);
     break :params [_]clap.Param(clap.Help){
-        try clap.parseParam("-h, --help                       Display this help and exit"),
-        try clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs"),
-        try clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension (" ++ extensionsFriendly ++ ")"),
-        try clap.parseParam("    --header-anchors             Generate anchors for headers"),
-        try clap.parseParam("    --smart                      Use smart punctuation"),
+        clap.parseParam("-h, --help                       Display this help and exit") catch unreachable,
+        clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs") catch unreachable,
+        clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension (" ++ extensionsFriendly ++ ")") catch unreachable,
+        clap.parseParam("    --header-anchors             Generate anchors for headers") catch unreachable,
+        clap.parseParam("    --smart                      Use smart punctuation") catch unreachable,
         clap.Param(clap.Help){
-            .takes_value = .One,
+            .takes_value = .one,
         },
     };
 };
 
 const Args = clap.Args(clap.Help, &params);
 
-fn parseArgs(allocator: *std.mem.Allocator, options: *Options) !Args {
+fn parseArgs(options: *Options) !Args {
     var stderr = std.io.getStdErr().writer();
 
-    var args = try clap.parse(clap.Help, &params, allocator, null);
+    var args = try clap.parse(clap.Help, &params, .{});
 
     if (args.flag("--help")) {
         try stderr.writeAll("Usage: koino ");

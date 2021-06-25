@@ -173,7 +173,6 @@ pub const Parser = struct {
 
         self.line_number += 1;
 
-        var all_matched = true;
         const result = try self.checkOpenBlocks(line);
         if (result.container) |last_matched_container| {
             const current = self.current;
