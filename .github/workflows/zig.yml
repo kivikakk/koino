@@ -42,8 +42,8 @@ jobs:
       - run: c:; cd \vcpkg; git pull; .\bootstrap-vcpkg.bat
       - run: vcpkg integrate install
       - run: vcpkg install pcre --triplet x64-windows-static
-      - run: zig build
-      - run: zig build test
+      - run: zig build -Dtarget=x86_64-windows-msvc
+      - run: zig build -Dtarget=x86_64-windows-msvc test
   lint:
     runs-on: ubuntu-latest
     steps:
