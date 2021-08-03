@@ -6,9 +6,7 @@ pub fn build(b: *std.build.Builder) !void {
     const mode = b.standardReleaseOptions();
 
     const exe = b.addExecutable("koino", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
-    try addCommonRequirements(exe);
+    try addCommonRequirements(exe, target, mode);
     exe.install();
 
     const run_cmd = exe.run();
@@ -17,12 +15,14 @@ pub fn build(b: *std.build.Builder) !void {
     run_step.dependOn(&run_cmd.step);
 
     const test_exe = b.addTest("src/main.zig");
-    try addCommonRequirements(test_exe);
+    try addCommonRequirements(test_exe, target, mode);
     const test_step = b.step("test", "Run all the tests");
     test_step.dependOn(&test_exe.step);
 }
 
-fn addCommonRequirements(exe: *std.build.LibExeObjStep) !void {
+fn addCommonRequirements(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget, mode: std.builtin.Mode) !void {
+    exe.setTarget(target);
+    exe.setBuildMode(mode);
     exe.addPackagePath("libpcre", "vendor/libpcre.zig/src/main.zig");
     exe.addPackagePath("htmlentities", "vendor/htmlentities.zig/src/main.zig");
     exe.addPackagePath("clap", "vendor/zig-clap/clap.zig");
