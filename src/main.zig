@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const assert = std.debug.assert;
 
 const clap = @import("clap");
@@ -17,7 +18,7 @@ pub fn main() !void {
 
     var allocator: *std.mem.Allocator = undefined;
 
-    if (std.builtin.mode == .Debug) {
+    if (builtin.mode == .Debug) {
         gpa = std.heap.GeneralPurposeAllocator(.{}){};
         allocator = &gpa.allocator;
     } else {
@@ -26,7 +27,7 @@ pub fn main() !void {
     }
 
     defer {
-        if (std.builtin.mode == .Debug) {
+        if (builtin.mode == .Debug) {
             _ = gpa.deinit();
         } else {
             arena.deinit();
@@ -58,7 +59,7 @@ pub fn main() !void {
     };
     defer allocator.free(output);
 
-    if (std.builtin.mode == .Debug) {
+    if (builtin.mode == .Debug) {
         args.deinit();
         parser.deinit();
         doc.deinit();
