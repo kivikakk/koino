@@ -16,14 +16,14 @@ pub fn main() !void {
     var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
     var arena: std.heap.ArenaAllocator = undefined;
 
-    var allocator: *std.mem.Allocator = undefined;
+    var allocator: std.mem.Allocator = undefined;
 
     if (builtin.mode == .Debug) {
         gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        allocator = &gpa.allocator;
+        allocator = gpa.allocator();
     } else {
         arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        allocator = &arena.allocator;
+        allocator = arena.allocator();
     }
 
     defer {
@@ -145,7 +145,7 @@ fn enableExtension(extension: []const u8, options: *Options) !void {
 }
 
 /// Performs work using internalAllocator, and writes the result to a Writer.
-fn markdownToHtmlInternal(writer: anytype, internalAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) !void {
+fn markdownToHtmlInternal(writer: anytype, internalAllocator: std.mem.Allocator, options: Options, markdown: []const u8) !void {
     var doc = try parse(internalAllocator, options, markdown);
     defer doc.deinit();
 
@@ -153,7 +153,7 @@ fn markdownToHtmlInternal(writer: anytype, internalAllocator: *std.mem.Allocator
 }
 
 /// Parses Markdown into an AST.  Use `deinit()' on the returned document to free memory.
-pub fn parse(internalAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) !*nodes.AstNode {
+pub fn parse(internalAllocator: std.mem.Allocator, options: Options, markdown: []const u8) !*nodes.AstNode {
     var p = try Parser.init(internalAllocator, options);
     defer p.deinit();
     try p.feed(markdown);
@@ -161,7 +161,7 @@ pub fn parse(internalAllocator: *std.mem.Allocator, options: Options, markdown: 
 }
 
 /// Performs work with an ArenaAllocator backed by the page allocator, and allocates the result HTML with resultAllocator.
-pub fn markdownToHtml(resultAllocator: *std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
+pub fn markdownToHtml(resultAllocator: std.mem.Allocator, options: Options, markdown: []const u8) ![]u8 {
     var result = std.ArrayList(u8).init(resultAllocator);
     errdefer result.deinit();
     try markdownToHtmlWriter(result.writer(), options, markdown);
@@ -172,7 +172,7 @@ pub fn markdownToHtml(resultAllocator: *std.mem.Allocator, options: Options, mar
 pub fn markdownToHtmlWriter(writer: anytype, options: Options, markdown: []const u8) !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    try markdownToHtmlInternal(writer, &arena.allocator, options, markdown);
+    try markdownToHtmlInternal(writer, arena.allocator(), options, markdown);
 }
 
 /// Uses a GeneralPurposeAllocator for scratch work instead of an ArenaAllocator to aid in locating memory leaks.
@@ -181,12 +181,12 @@ pub fn testMarkdownToHtml(options: Options, markdown: []const u8) ![]u8 {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var doc = try parse(&gpa.allocator, options, markdown);
+    var doc = try parse(gpa.allocator(), options, markdown);
     defer doc.deinit();
 
     var result = std.ArrayList(u8).init(std.testing.allocator);
     errdefer result.deinit();
-    try html.print(result.writer(), &gpa.allocator, options, doc);
+    try html.print(result.writer(), gpa.allocator(), options, doc);
     return result.toOwnedSlice();
 }
 

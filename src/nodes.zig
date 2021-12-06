@@ -10,7 +10,7 @@ pub const Node = struct {
     open: bool = true,
     last_line_blank: bool = false,
 
-    pub fn deinit(self: *Node, allocator: *mem.Allocator) void {
+    pub fn deinit(self: *Node, allocator: mem.Allocator) void {
         self.content.deinit();
         self.value.deinit(allocator);
     }
@@ -49,7 +49,7 @@ pub const NodeValue = union(enum) {
     Image: NodeLink,
     // FootnoteReference
 
-    pub fn deinit(self: *NodeValue, allocator: *mem.Allocator) void {
+    pub fn deinit(self: *NodeValue, allocator: mem.Allocator) void {
         switch (self.*) {
             .Text, .HtmlInline, .Code => |content| {
                 allocator.free(content);

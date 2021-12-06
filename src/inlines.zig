@@ -16,7 +16,7 @@ const MAX_LINK_LABEL_LENGTH = 1000;
 pub const ParseError = error{ OutOfMemory, InvalidUtf8 };
 
 pub const Subject = struct {
-    allocator: *mem.Allocator,
+    allocator: mem.Allocator,
     refmap: *std.StringHashMap(Reference),
     options: *const Options,
     input: []const u8,
@@ -28,7 +28,7 @@ pub const Subject = struct {
     special_chars: *const [256]bool,
     skip_chars: *const [256]bool,
 
-    pub fn init(allocator: *mem.Allocator, refmap: *std.StringHashMap(Reference), options: *const Options, special_chars: *const [256]bool, skip_chars: *const [256]bool, input: []const u8) Subject {
+    pub fn init(allocator: mem.Allocator, refmap: *std.StringHashMap(Reference), options: *const Options, special_chars: *const [256]bool, skip_chars: *const [256]bool, input: []const u8) Subject {
         var s = Subject{
             .allocator = allocator,
             .refmap = refmap,

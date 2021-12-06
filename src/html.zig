@@ -7,21 +7,21 @@ const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const scanners = @import("scanners.zig");
 
-pub fn print(writer: anytype, allocator: *std.mem.Allocator, options: Options, root: *nodes.AstNode) !void {
+pub fn print(writer: anytype, allocator: std.mem.Allocator, options: Options, root: *nodes.AstNode) !void {
     var formatter = makeHtmlFormatter(writer, allocator, options);
     defer formatter.deinit();
 
     try formatter.format(root, false);
 }
 
-pub fn makeHtmlFormatter(writer: anytype, allocator: *std.mem.Allocator, options: Options) HtmlFormatter(@TypeOf(writer)) {
+pub fn makeHtmlFormatter(writer: anytype, allocator: std.mem.Allocator, options: Options) HtmlFormatter(@TypeOf(writer)) {
     return HtmlFormatter(@TypeOf(writer)).init(writer, allocator, options);
 }
 
 pub fn HtmlFormatter(comptime Writer: type) type {
     return struct {
         writer: Writer,
-        allocator: *std.mem.Allocator,
+        allocator: std.mem.Allocator,
         options: Options,
         last_was_lf: bool = true,
         anchor_map: std.StringHashMap(void),
@@ -29,7 +29,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
 
         const Self = @This();
 
-        pub fn init(writer: Writer, allocator: *std.mem.Allocator, options: Options) Self {
+        pub fn init(writer: Writer, allocator: std.mem.Allocator, options: Options) Self {
             return .{
                 .writer = writer,
                 .allocator = allocator,
