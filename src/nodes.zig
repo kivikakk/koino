@@ -55,6 +55,9 @@ pub const NodeValue = union(enum) {
                 allocator.free(content);
             },
             .CodeBlock => |ncb| {
+                if (ncb.info) |info| {
+                    allocator.free(info);
+                }
                 ncb.literal.deinit();
             },
             .HtmlBlock => |nhb| {
