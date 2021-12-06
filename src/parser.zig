@@ -20,7 +20,7 @@ pub const Reference = struct {
 };
 
 pub const Parser = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     refmap: std.StringHashMap(Reference),
     hack_refmapKeys: std.ArrayList([]u8),
     root: *nodes.AstNode,
@@ -40,7 +40,7 @@ pub const Parser = struct {
     special_chars: [256]bool = [_]bool{false} ** 256,
     skip_chars: [256]bool = [_]bool{false} ** 256,
 
-    pub fn init(allocator: *std.mem.Allocator, options: Options) !Parser {
+    pub fn init(allocator: std.mem.Allocator, options: Options) !Parser {
         var root = try nodes.AstNode.create(allocator, .{
             .value = .Document,
             .content = std.ArrayList(u8).init(allocator),

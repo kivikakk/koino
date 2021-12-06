@@ -4,20 +4,20 @@ const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
 const strings = @import("strings.zig");
 
-pub fn matches(allocator: *std.mem.Allocator, line: []const u8) !bool {
+pub fn matches(allocator: std.mem.Allocator, line: []const u8) !bool {
     var r = try row(allocator, line);
     var result = r != null;
     if (r) |v| freeNested(allocator, v);
     return result;
 }
 
-pub fn freeNested(allocator: *std.mem.Allocator, v: [][]u8) void {
+pub fn freeNested(allocator: std.mem.Allocator, v: [][]u8) void {
     for (v) |e|
         allocator.free(e);
     allocator.free(v);
 }
 
-fn row(allocator: *std.mem.Allocator, line: []const u8) !?[][]u8 {
+fn row(allocator: std.mem.Allocator, line: []const u8) !?[][]u8 {
     const len = line.len;
     var v = std.ArrayList([]u8).init(allocator);
     errdefer freeNested(allocator, v.toOwnedSlice());
@@ -145,7 +145,7 @@ fn tryOpeningRow(parser: *Parser, container: *nodes.AstNode, aligns: []nodes.Tab
     return new_row;
 }
 
-fn unescapePipes(allocator: *std.mem.Allocator, string: []const u8) !std.ArrayList(u8) {
+fn unescapePipes(allocator: std.mem.Allocator, string: []const u8) !std.ArrayList(u8) {
     var v = try std.ArrayList(u8).initCapacity(allocator, string.len);
 
     for (string) |c, i| {

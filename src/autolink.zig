@@ -6,10 +6,10 @@ const strings = @import("strings.zig");
 const zunicode = @import("zunicode");
 
 pub const AutolinkProcessor = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     text: *[]u8,
 
-    pub fn init(allocator: *std.mem.Allocator, text: *[]u8) AutolinkProcessor {
+    pub fn init(allocator: std.mem.Allocator, text: *[]u8) AutolinkProcessor {
         return .{
             .allocator = allocator,
             .text = text,

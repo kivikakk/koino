@@ -129,7 +129,7 @@ test "chopTrailingHashtags" {
     try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
 }
 
-pub fn normalizeCode(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+pub fn normalizeCode(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var code = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer code.deinit();
 
@@ -167,7 +167,7 @@ const Case = struct {
     out: []const u8,
 };
 
-fn testCases(function: fn (*mem.Allocator, []const u8) anyerror![]u8, cases: []const Case) !void {
+fn testCases(function: fn (mem.Allocator, []const u8) anyerror![]u8, cases: []const Case) !void {
     for (cases) |case| {
         const result = try function(std.testing.allocator, case.in);
         defer std.testing.allocator.free(result);
@@ -323,7 +323,7 @@ fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
     }
 }
 
-pub fn unescapeHtml(allocator: *mem.Allocator, html: []const u8) ![]u8 {
+pub fn unescapeHtml(allocator: mem.Allocator, html: []const u8) ![]u8 {
     var al = std.ArrayList(u8).init(allocator);
     errdefer al.deinit();
     try unescapeHtmlInto(html, &al);
@@ -344,7 +344,7 @@ test "unescapeHtml" {
     });
 }
 
-pub fn cleanAutolink(allocator: *mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
+pub fn cleanAutolink(allocator: mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
     var trimmed = trim(url);
     if (trimmed.len == 0)
         return &[_]u8{};
@@ -368,7 +368,7 @@ test "cleanAutolink" {
     try testing.expectEqualStrings("www.com", uri);
 }
 
-fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+fn unescape(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer buffer.deinit();
     var r: usize = 0;
@@ -381,7 +381,7 @@ fn unescape(allocator: *mem.Allocator, s: []const u8) ![]u8 {
     return buffer.toOwnedSlice();
 }
 
-pub fn cleanUrl(allocator: *mem.Allocator, url: []const u8) ![]u8 {
+pub fn cleanUrl(allocator: mem.Allocator, url: []const u8) ![]u8 {
     var trimmed = trim(url);
     if (trimmed.len == 0)
         return &[_]u8{};
@@ -397,7 +397,7 @@ test "cleanUrl" {
     try testing.expectEqualStrings("(hello)@world", url);
 }
 
-pub fn cleanTitle(allocator: *mem.Allocator, title: []const u8) ![]u8 {
+pub fn cleanTitle(allocator: mem.Allocator, title: []const u8) ![]u8 {
     if (title.len == 0)
         return &[_]u8{};
 
@@ -421,7 +421,7 @@ test "cleanTitle" {
     });
 }
 
-pub fn normalizeLabel(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var trimmed = trim(s);
     var buffer = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
     errdefer buffer.deinit();
@@ -453,7 +453,7 @@ test "normalizeLabel" {
     });
 }
 
-pub fn toLower(allocator: *mem.Allocator, s: []const u8) ![]u8 {
+pub fn toLower(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer buffer.deinit();
     var view = try std.unicode.Utf8View.init(s);

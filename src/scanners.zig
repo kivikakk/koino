@@ -79,7 +79,7 @@ var searchFirstCaptureBufferAllocator = std.heap.FixedBufferAllocator.init(&sear
 
 fn searchFirstCapture(re: Regex, line: []const u8) Error!?usize {
     searchFirstCaptureBufferAllocator.reset();
-    var result = re.captures(&searchFirstCaptureBufferAllocator.allocator, line, .{ .Anchored = true }) catch |err| switch (err) {
+    var result = re.captures(searchFirstCaptureBufferAllocator.allocator(), line, .{ .Anchored = true }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => null,
     };
@@ -409,7 +409,7 @@ test "tableRowEnd" {
     try testing.expectEqual(@as(?usize, 5), try tableRowEnd("   \r\na"));
 }
 
-pub fn removeAnchorizeRejectedChars(allocator: *std.mem.Allocator, src: []const u8) Error![]u8 {
+pub fn removeAnchorizeRejectedChars(allocator: std.mem.Allocator, src: []const u8) Error![]u8 {
     const re = try acquire(@src().fn_name, "[^\\p{L}\\p{M}\\p{N}\\p{Pc} -]");
 
     var output = std.ArrayList(u8).init(allocator);
