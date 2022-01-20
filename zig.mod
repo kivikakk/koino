@@ -9,4 +9,4 @@ dependencies:
   - src: git https://github.com/kivikakk/zunicode
 
 root_dependencies:
-  - src: git https://github.com/Hejsil/zig-clap branch-zig-master
+  - src: git https://github.com/Hejsil/zig-clap
