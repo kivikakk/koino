@@ -18,6 +18,7 @@ jobs:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
       - run: zigmod ci
+      - run: cat deps.zig
       - run: zig build
       - run: zig build test
   test-macos:
@@ -31,6 +32,7 @@ jobs:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
       - run: zigmod ci
+      - run: cat deps.zig
       - run: brew install pkg-config pcre
       - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build
       - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build test
@@ -45,6 +47,7 @@ jobs:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
       - run: zigmod ci
+      - run: cat deps.zig
       - run: c:; cd \vcpkg; git pull; .\bootstrap-vcpkg.bat
       - run: vcpkg integrate install
       - run: vcpkg install pcre --triplet x64-windows-static
