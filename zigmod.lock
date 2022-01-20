@@ -1,0 +1,5 @@
+2
+git https://github.com/kivikakk/htmlentities.zig commit-311c844c1d1d1cb968eedfeb76ce911038b1043a
+git https://github.com/kivikakk/libpcre.zig commit-28b876a73d2f7ad2f63aa8219156aca926ef2400
+git https://github.com/kivikakk/zunicode commit-5bf4a3a5f0c6e3d96f6def56957ab7f201851c50
+git https://github.com/Hejsil/zig-clap commit-0b08e8e330597ee2a6b6e6828e2a33dab6ae54f6

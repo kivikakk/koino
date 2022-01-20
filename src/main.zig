@@ -3,11 +3,12 @@ const builtin = @import("builtin");
 const assert = std.debug.assert;
 
 const clap = @import("clap");
+const koino = @import("koino");
 
-const Parser = @import("parser.zig").Parser;
-const Options = @import("options.zig").Options;
-const nodes = @import("nodes.zig");
-const html = @import("html.zig");
+const Parser = koino.parser.Parser;
+const Options = koino.Options;
+const nodes = koino.nodes;
+const html = koino.html;
 
 pub fn main() !void {
     // In debug, use the GeneralPurposeAllocator as the Parser internal allocator

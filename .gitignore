@@ -1,3 +1,4 @@
-/zig-cache
-/zig-out
+zig-*
 koino.code-workspace
+.zigmod
+deps.zig

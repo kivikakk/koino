@@ -1,5 +1,5 @@
 const std = @import("std");
-const linkPcre = @import("vendor/libpcre.zig/build.zig").linkPcre;
+const deps = @import("./deps.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
@@ -23,9 +23,5 @@ pub fn build(b: *std.build.Builder) !void {
 fn addCommonRequirements(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget, mode: std.builtin.Mode) !void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    exe.addPackagePath("libpcre", "vendor/libpcre.zig/src/main.zig");
-    exe.addPackagePath("htmlentities", "vendor/htmlentities.zig/src/main.zig");
-    exe.addPackagePath("clap", "vendor/zig-clap/clap.zig");
-    exe.addPackagePath("zunicode", "vendor/zunicode/src/zunicode.zig");
-    try linkPcre(exe);
+    deps.addAllTo(exe);
 }
