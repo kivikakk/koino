@@ -17,6 +17,8 @@ jobs:
         with:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: zigmod ci
       - run: cat deps.zig
       - run: zig build
@@ -31,6 +33,8 @@ jobs:
         with:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: zigmod ci
       - run: cat deps.zig
       - run: brew install pkg-config pcre
@@ -46,6 +50,8 @@ jobs:
         with:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: zigmod ci
       - run: cat deps.zig
       - run: c:; cd \vcpkg; git pull; .\bootstrap-vcpkg.bat

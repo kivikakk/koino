@@ -14,6 +14,8 @@ jobs:
         with:
           version: master
       - uses: nektro/actions-setup-zigmod@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: zigmod ci
       - run: make spec
         id: spec-runner
