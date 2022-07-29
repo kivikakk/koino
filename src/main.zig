@@ -37,10 +37,11 @@ pub fn main() !void {
 
     var options: Options = undefined;
     var args = try parseArgs(&options);
+    defer args.deinit();
     var parser = try Parser.init(allocator, options);
 
-    if (args.positionals().len > 0) {
-        for (args.positionals()) |pos| {
+    if (args.positionals.len > 0) {
+        for (args.positionals) |pos| {
             var markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
             defer allocator.free(markdown);
             try parser.feed(markdown);
@@ -72,44 +73,42 @@ pub fn main() !void {
 const params = params: {
     @setEvalBranchQuota(2000);
     break :params [_]clap.Param(clap.Help){
-        clap.parseParam("-h, --help                       Display this help and exit") catch unreachable,
-        clap.parseParam("-u, --unsafe                     Render raw HTML and dangerous URLs") catch unreachable,
-        clap.parseParam("-e, --extension <EXTENSION>...   Enable an extension (" ++ extensionsFriendly ++ ")") catch unreachable,
-        clap.parseParam("    --header-anchors             Generate anchors for headers") catch unreachable,
-        clap.parseParam("    --smart                      Use smart punctuation") catch unreachable,
-        clap.Param(clap.Help){
-            .takes_value = .one,
-        },
+        clap.parseParam("-h, --help                 Display this help and exit") catch unreachable,
+        clap.parseParam("-u, --unsafe               Render raw HTML and dangerous URLs") catch unreachable,
+        clap.parseParam("-e, --extension <str>...   Enable an extension (" ++ extensionsFriendly ++ ")") catch unreachable,
+        clap.parseParam("    --header-anchors       Generate anchors for headers") catch unreachable,
+        clap.parseParam("    --smart                Use smart punctuation") catch unreachable,
+        clap.parseParam("<str>") catch unreachable,
     };
 };
 
-const Args = clap.Args(clap.Help, &params);
+const ClapResult = clap.Result(clap.Help, &params, clap.parsers.default);
 
-fn parseArgs(options: *Options) !Args {
+fn parseArgs(options: *Options) !ClapResult {
     var stderr = std.io.getStdErr().writer();
 
-    var args = try clap.parse(clap.Help, &params, .{});
+    var res = try clap.parse(clap.Help, &params, clap.parsers.default, .{});
 
-    if (args.flag("--help")) {
+    if (res.args.help) {
         try stderr.writeAll("Usage: koino ");
-        try clap.usage(stderr, &params);
+        try clap.usage(stderr, clap.Help, &params);
         try stderr.writeAll("\n\nOptions:\n");
-        try clap.help(stderr, &params);
+        try clap.help(stderr, clap.Help, &params, .{});
         std.os.exit(0);
     }
 
     options.* = .{};
-    if (args.flag("--unsafe"))
+    if (res.args.unsafe)
         options.render.unsafe = true;
-    if (args.flag("--smart"))
+    if (res.args.smart)
         options.parse.smart = true;
-    if (args.flag("--header-anchors"))
+    if (res.args.@"header-anchors")
         options.render.header_anchors = true;
 
-    for (args.options("--extension")) |extension|
+    for (res.args.extension) |extension|
         try enableExtension(extension, options);
 
-    return args;
+    return res;
 }
 
 const extensions = blk: {
@@ -191,6 +190,6 @@ pub fn testMarkdownToHtml(options: Options, markdown: []const u8) ![]u8 {
     return result.toOwnedSlice();
 }
 
-test "" {
+test {
     std.testing.refAllDecls(@This());
 }

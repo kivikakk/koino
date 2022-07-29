@@ -1,6 +1,6 @@
 2
 git https://github.com/kivikakk/htmlentities.zig commit-311c844c1d1d1cb968eedfeb76ce911038b1043a
 git https://github.com/kivikakk/libpcre.zig commit-5e3b58e151530b59e7761e28fc448f88e5843ee7
-git https://github.com/nektro/pcre-8.45 commit-faaca71dc3d6f8053e5e642b4cbceb038a476fb9
+git https://github.com/nektro/pcre-8.45 commit-10bc0a2fd91f3a40be9825738661f8748eb60e14
 git https://github.com/kivikakk/zunicode commit-5bf4a3a5f0c6e3d96f6def56957ab7f201851c50
-git https://github.com/Hejsil/zig-clap commit-2d9da16aa3657d44cbc9b364c9e843d1c31408a8
+git https://github.com/Hejsil/zig-clap commit-1c09e0dc31918dd716b1032ad3e1d1c080cbbff1
