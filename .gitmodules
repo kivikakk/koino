@@ -1,3 +1,15 @@
 [submodule "vendor/cmark-gfm"]
 	path = vendor/cmark-gfm
 	url = https://github.com/kivikakk/cmark-gfm.git
+[submodule "vendor/htmlentities"]
+	path = vendor/htmlentities
+	url = https://github.com/kivikakk/htmlentities.zig
+[submodule "vendor/libpcre"]
+	path = vendor/libpcre
+	url = https://github.com/kivikakk/libpcre.zig
+[submodule "vendor/zunicode"]
+	path = vendor/zunicode
+	url = https://github.com/kivikakk/zunicode
+[submodule "vendor/zig-clap"]
+	path = vendor/zig-clap
+	url = https://github.com/Hejsil/zig-clap

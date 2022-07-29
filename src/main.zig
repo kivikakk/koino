@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const assert = std.debug.assert;
 
 const clap = @import("clap");
-const koino = @import("koino");
+const koino = @import("./koino.zig");
 
 const Parser = koino.parser.Parser;
 const Options = koino.Options;

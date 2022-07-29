@@ -16,11 +16,6 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
-      - uses: nektro/actions-setup-zigmod@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: zigmod ci
-      - run: cat deps.zig
       - run: zig build
       - run: zig build test
   test-macos:
@@ -32,11 +27,6 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
-      - uses: nektro/actions-setup-zigmod@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: zigmod ci
-      - run: cat deps.zig
       - run: brew install pkg-config pcre
       - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build
       - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build test
@@ -49,11 +39,6 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
-      - uses: nektro/actions-setup-zigmod@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: zigmod ci
-      - run: cat deps.zig
       - run: c:; cd \vcpkg; git pull; .\bootstrap-vcpkg.bat
       - run: vcpkg integrate install
       - run: vcpkg install pcre --triplet x64-windows-static

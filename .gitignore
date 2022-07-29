@@ -1,4 +1,2 @@
-zig-*
+/zig-*
 koino.code-workspace
-.zigmod
-deps.zig
