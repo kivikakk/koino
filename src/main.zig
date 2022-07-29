@@ -37,7 +37,6 @@ pub fn main() !void {
 
     var options: Options = undefined;
     var args = try parseArgs(&options);
-    defer args.deinit();
     var parser = try Parser.init(allocator, options);
 
     if (args.positionals.len > 0) {
