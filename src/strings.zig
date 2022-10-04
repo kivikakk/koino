@@ -167,7 +167,7 @@ const Case = struct {
     out: []const u8,
 };
 
-fn testCases(function: fn (mem.Allocator, []const u8) anyerror![]u8, cases: []const Case) !void {
+fn testCases(comptime function: fn (mem.Allocator, []const u8) anyerror![]u8, cases: []const Case) !void {
     for (cases) |case| {
         const result = try function(std.testing.allocator, case.in);
         defer std.testing.allocator.free(result);
