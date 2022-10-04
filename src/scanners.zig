@@ -81,7 +81,7 @@ fn searchFirstCapture(re: Regex, line: []const u8) Error!?usize {
     searchFirstCaptureBufferAllocator.reset();
     var result = re.captures(searchFirstCaptureBufferAllocator.allocator(), line, .{ .Anchored = true }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
-        else => null,
+        else => return null,
     };
     if (result) |caps| {
         var i: usize = 1;
