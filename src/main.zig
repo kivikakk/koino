@@ -56,7 +56,7 @@ pub fn main() !void {
         var arr = std.ArrayList(u8).init(allocator);
         errdefer arr.deinit();
         try html.print(arr.writer(), allocator, options, doc);
-        break :blk arr.toOwnedSlice();
+        break :blk try arr.toOwnedSlice();
     };
     defer allocator.free(output);
 

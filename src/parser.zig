@@ -906,7 +906,7 @@ pub const Parser = struct {
 
         if (c == '*' or c == '-' or c == '+') {
             pos += 1;
-            if (!ascii.isSpace(line[pos])) {
+            if (!ascii.isWhitespace(line[pos])) {
                 return false;
             }
 
@@ -952,7 +952,7 @@ pub const Parser = struct {
 
             pos += 1;
 
-            if (!ascii.isSpace(line[pos])) {
+            if (!ascii.isWhitespace(line[pos])) {
                 return false;
             }
 
