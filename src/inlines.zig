@@ -342,7 +342,7 @@ pub const Subject = struct {
 
     fn handleBackslash(self: *Subject) !*nodes.AstNode {
         self.pos += 1;
-        if (ascii.isPunct(self.peekChar() orelse 0)) {
+        if (strings.isPunct(self.peekChar() orelse 0)) {
             self.pos += 1;
             var contents = try self.allocator.dupe(u8, self.input[self.pos - 1 .. self.pos]);
             return try self.makeInline(.{ .Text = contents });
@@ -366,11 +366,11 @@ pub const Subject = struct {
         var out = std.ArrayList(u8).init(self.allocator);
         if (try strings.unescapeInto(self.input[self.pos..], &out)) |len| {
             self.pos += len;
-            return try self.makeInline(.{ .Text = out.toOwnedSlice() });
+            return try self.makeInline(.{ .Text = try out.toOwnedSlice() });
         }
 
         try out.append('&');
-        return try self.makeInline(.{ .Text = out.toOwnedSlice() });
+        return try self.makeInline(.{ .Text = try out.toOwnedSlice() });
     }
 
     fn handlePointyBrace(self: *Subject) !*nodes.AstNode {
@@ -447,7 +447,7 @@ pub const Subject = struct {
         while (ens_ems[0] > 0) : (ens_ems[0] -= 1)
             try text.appendSlice("–");
 
-        return try self.makeInline(.{ .Text = text.toOwnedSlice() });
+        return try self.makeInline(.{ .Text = try text.toOwnedSlice() });
     }
 
     fn handlePeriod(self: *Subject) !*nodes.AstNode {
@@ -561,9 +561,9 @@ pub const Subject = struct {
             return null;
 
         var opener_text = opener.inl.data.value.text_mut().?;
-        opener_text.* = self.allocator.shrink(opener_text.*, opener_num_chars);
+        opener_text.* = try self.allocator.realloc(opener_text.*, opener_num_chars);
         var closer_text = closer.inl.data.value.text_mut().?;
-        closer_text.* = self.allocator.shrink(closer_text.*, closer_num_chars);
+        closer_text.* = try self.allocator.realloc(closer_text.*, closer_num_chars);
 
         var delim = closer.prev;
         while (delim != null and delim != opener) {
@@ -709,7 +709,7 @@ pub const Subject = struct {
             if (c == '\\') {
                 self.pos += 1;
                 length += 1;
-                if (ascii.isPunct(self.peekChar() orelse 0)) {
+                if (strings.isPunct(self.peekChar() orelse 0)) {
                     self.pos += 1;
                     length += 1;
                 }
@@ -809,7 +809,7 @@ pub const Subject = struct {
         var nb_p: usize = 0;
 
         while (i < len) {
-            if (input[i] == '\\' and i + 1 < len and ascii.isPunct(input[i + 1])) {
+            if (input[i] == '\\' and i + 1 < len and strings.isPunct(input[i + 1])) {
                 i += 2;
             } else if (input[i] == '(') {
                 nb_p += 1;
@@ -821,7 +821,7 @@ pub const Subject = struct {
                     break;
                 nb_p -= 1;
                 i += 1;
-            } else if (ascii.isSpace(input[i])) {
+            } else if (ascii.isWhitespace(input[i])) {
                 if (i == 0)
                     return false;
                 break;

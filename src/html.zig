@@ -216,7 +216,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                             try self.writeAll("<pre><code>");
                         } else {
                             var first_tag: usize = 0;
-                            while (first_tag < ncb.info.?.len and !ascii.isSpace(ncb.info.?[first_tag]))
+                            while (first_tag < ncb.info.?.len and !ascii.isWhitespace(ncb.info.?[first_tag]))
                                 first_tag += 1;
 
                             try self.writeAll("<pre><code class=\"language-");
@@ -503,7 +503,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
             for (TAGFILTER_BLACKLIST) |t| {
                 const j = i + t.len;
                 if (literal.len > j and std.ascii.eqlIgnoreCase(t, literal[i..j])) {
-                    return ascii.isSpace(literal[j]) or
+                    return ascii.isWhitespace(literal[j]) or
                         literal[j] == '>' or
                         (literal[j] == '/' and literal.len >= j + 2 and literal[j + 1] == '>');
                 }

@@ -223,6 +223,13 @@ test "removeTrailingBlankLines" {
     }
 }
 
+pub fn isPunct(char: u8) bool {
+    return switch (char) {
+        '!', '\"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~' => true,
+        else => false,
+    };
+}
+
 fn encodeUtf8Into(in_cp: u21, al: *std.ArrayList(u8)) !void {
     // utf8Encode throws:
     // - Utf8CannotEncodeSurrogateHalf, which we guard against that by
@@ -257,7 +264,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
                 break :block i - 1;
             } else if (text[1] == 'x' or text[1] == 'X') {
                 i = 2;
-                while (i < text.len and ascii.isXDigit(text[i])) {
+                while (i < text.len and ascii.isHex(text[i])) {
                     codepoint = (codepoint * 16) + (@as(u32, text[i]) | 32) % 39 - 9;
                     codepoint = std.math.min(codepoint, 0x11_0000);
                     i += 1;
@@ -374,7 +381,7 @@ fn unescape(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var r: usize = 0;
 
     while (r < s.len) : (r += 1) {
-        if (s[r] == '\\' and r + 1 < s.len and ascii.isPunct(s[r + 1]))
+        if (s[r] == '\\' and r + 1 < s.len and isPunct(s[r + 1]))
             r += 1;
         try buffer.append(s[r]);
     }

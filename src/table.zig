@@ -20,7 +20,7 @@ pub fn freeNested(allocator: std.mem.Allocator, v: [][]u8) void {
 fn row(allocator: std.mem.Allocator, line: []const u8) !?[][]u8 {
     const len = line.len;
     var v = std.ArrayList([]u8).init(allocator);
-    errdefer freeNested(allocator, v.toOwnedSlice());
+    errdefer freeNested(allocator, v.toOwnedSlice() catch unreachable);
     var offset: usize = 0;
 
     if (len > 0 and line[0] == '|')
@@ -33,7 +33,7 @@ fn row(allocator: std.mem.Allocator, line: []const u8) !?[][]u8 {
         if (cell_matched > 0 or pipe_matched > 0) {
             var cell = try unescapePipes(allocator, line[offset .. offset + cell_matched]);
             strings.trimIt(&cell);
-            try v.append(cell.toOwnedSlice());
+            try v.append(try cell.toOwnedSlice());
         }
 
         offset += cell_matched + pipe_matched;
@@ -49,10 +49,10 @@ fn row(allocator: std.mem.Allocator, line: []const u8) !?[][]u8 {
     }
 
     if (offset != len or v.items.len == 0) {
-        freeNested(allocator, v.toOwnedSlice());
+        freeNested(allocator, try v.toOwnedSlice());
         return null;
     } else {
-        return v.toOwnedSlice();
+        return try v.toOwnedSlice();
     }
 }
 
