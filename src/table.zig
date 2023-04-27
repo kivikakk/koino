@@ -87,7 +87,7 @@ fn tryOpeningHeader(parser: *Parser, container: *nodes.AstNode, line: []const u8
     var alignments = try parser.allocator.alloc(nodes.TableAlignment, marker_row.len);
     errdefer parser.allocator.free(alignments);
 
-    for (marker_row) |cell, i| {
+    for (marker_row, 0..) |cell, i| {
         const left = cell.len > 0 and cell[0] == ':';
         const right = cell.len > 0 and cell[cell.len - 1] == ':';
         alignments[i] = if (left and right)
@@ -148,7 +148,7 @@ fn tryOpeningRow(parser: *Parser, container: *nodes.AstNode, aligns: []nodes.Tab
 fn unescapePipes(allocator: std.mem.Allocator, string: []const u8) !std.ArrayList(u8) {
     var v = try std.ArrayList(u8).initCapacity(allocator, string.len);
 
-    for (string) |c, i| {
+    for (string, 0..) |c, i| {
         if (c == '\\' and i + 1 < string.len and string[i + 1] == '|') {
             continue;
         } else {

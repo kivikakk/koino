@@ -69,17 +69,12 @@ pub fn main() !void {
     try std.io.getStdOut().writer().writeAll(output);
 }
 
-const params = params: {
-    @setEvalBranchQuota(2000);
-    break :params [_]clap.Param(clap.Help){
-        clap.parseParam("-h, --help                 Display this help and exit") catch unreachable,
-        clap.parseParam("-u, --unsafe               Render raw HTML and dangerous URLs") catch unreachable,
-        clap.parseParam("-e, --extension <str>...   Enable an extension (" ++ extensionsFriendly ++ ")") catch unreachable,
-        clap.parseParam("    --header-anchors       Generate anchors for headers") catch unreachable,
-        clap.parseParam("    --smart                Use smart punctuation") catch unreachable,
-        clap.parseParam("<str>") catch unreachable,
-    };
-};
+const params = clap.parseParamsComptime("-h, --help                 Display this help and exit\n" ++
+    "-u, --unsafe               Render raw HTML and dangerous URLs\n" ++
+    "-e, --extension <str>...   Enable an extension (" ++ extensionsFriendly ++ ")\n" ++
+    "    --header-anchors       Generate anchors for headers\n" ++
+    "    --smart                Use smart punctuation\n" ++
+    "<str>");
 
 const ClapResult = clap.Result(clap.Help, &params, clap.parsers.default);
 
@@ -88,7 +83,7 @@ fn parseArgs(options: *Options) !ClapResult {
 
     var res = try clap.parse(clap.Help, &params, clap.parsers.default, .{});
 
-    if (res.args.help) {
+    if (res.args.help != 0) {
         try stderr.writeAll("Usage: koino ");
         try clap.usage(stderr, clap.Help, &params);
         try stderr.writeAll("\n\nOptions:\n");
@@ -97,11 +92,11 @@ fn parseArgs(options: *Options) !ClapResult {
     }
 
     options.* = .{};
-    if (res.args.unsafe)
+    if (res.args.unsafe != 0)
         options.render.unsafe = true;
-    if (res.args.smart)
+    if (res.args.smart != 0)
         options.parse.smart = true;
-    if (res.args.@"header-anchors")
+    if (res.args.@"header-anchors" != 0)
         options.render.header_anchors = true;
 
     for (res.args.extension) |extension|

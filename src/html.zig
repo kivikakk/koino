@@ -63,7 +63,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
 
         fn escape(self: *Self, s: []const u8) !void {
             var offset: usize = 0;
-            for (s) |c, i| {
+            for (s, 0..) |c, i| {
                 if (NEEDS_ESCAPED[c]) {
                     try self.writeAll(s[offset..i]);
                     try self.writeAll(switch (c) {

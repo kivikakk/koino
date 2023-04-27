@@ -140,7 +140,7 @@ pub const Subject = struct {
         var closer = self.last_delimiter;
 
         var openers_bottom: [3][128]?*Delimiter = [_][128]?*Delimiter{[_]?*Delimiter{null} ** 128} ** 3;
-        for (openers_bottom) |*i| {
+        for (&openers_bottom) |*i| {
             i['*'] = stack_bottom;
             i['_'] = stack_bottom;
             i['\''] = stack_bottom;

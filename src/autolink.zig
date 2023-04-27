@@ -253,7 +253,7 @@ pub const AutolinkProcessor = struct {
     fn autolinkDelim(data: []const u8, in_link_end: usize) usize {
         var link_end = in_link_end;
 
-        for (data[0..link_end]) |c, i| {
+        for (data[0..link_end], 0..) |c, i| {
             if (c == '<') {
                 link_end = i;
                 break;
