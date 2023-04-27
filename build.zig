@@ -29,7 +29,12 @@ pub fn build(b: *std.Build) !void {
         run_cmd.addArgs(args);
     }
 
-    const test_exe = b.addTest(.{ .name = "test", .root_source_file = .{ .path = "src/main.zig" } });
+    const test_exe = b.addTest(.{
+        .name = "test",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
     try addCommonRequirements(test_exe, &deps);
     const test_step = b.step("test", "Run all the tests");
     test_step.dependOn(&test_exe.step);
