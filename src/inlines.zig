@@ -327,7 +327,7 @@ pub const Subject = struct {
         } else {
             self.pos = startpos;
             var contents = try self.allocator.alloc(u8, openticks);
-            std.mem.set(u8, contents, '`');
+            @memset(contents, '`');
             return try self.makeInline(.{ .Text = contents });
         }
     }
