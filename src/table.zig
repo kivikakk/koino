@@ -129,7 +129,7 @@ fn tryOpeningRow(parser: *Parser, container: *nodes.AstNode, aligns: []nodes.Tab
     const new_row = try parser.addChild(container, .{ .TableRow = .Body });
 
     var i: usize = 0;
-    while (i < std.math.min(aligns.len, this_row.len)) : (i += 1) {
+    while (i < @min(aligns.len, this_row.len)) : (i += 1) {
         var cell = try parser.addChild(new_row, .TableCell);
         try cell.data.content.appendSlice(this_row[i]);
     }

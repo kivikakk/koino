@@ -754,13 +754,14 @@ pub const Subject = struct {
         brackets_len -= 1;
 
         if (kind == .Link) {
-            var i = @intCast(i32, brackets_len) - 1;
+            var i: i32 = @intCast(brackets_len);
+            i -= 1;
             while (i >= 0) : (i -= 1) {
-                if (self.brackets.items[@intCast(usize, i)].kind == .Link) {
-                    if (!self.brackets.items[@intCast(usize, i)].active) {
+                if (self.brackets.items[@intCast(i)].kind == .Link) {
+                    if (!self.brackets.items[@intCast(i)].active) {
                         break;
                     } else {
-                        self.brackets.items[@intCast(usize, i)].active = false;
+                        self.brackets.items[@intCast(i)].active = false;
                     }
                 }
             }
