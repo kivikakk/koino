@@ -129,7 +129,7 @@ test "chopTrailingHashtags" {
     try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
 }
 
-pub fn normalizeCode(allocator: mem.Allocator, s: []const u8) ![]u8 {
+pub fn normalizeCode(allocator: mem.Allocator, s: []const u8) mem.Allocator.Error![]u8 {
     var code = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer code.deinit();
 
