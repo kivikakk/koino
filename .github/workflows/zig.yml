@@ -8,7 +8,7 @@ jobs:
   test-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
@@ -19,7 +19,7 @@ jobs:
   test-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
@@ -31,7 +31,7 @@ jobs:
   test-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
@@ -45,7 +45,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1

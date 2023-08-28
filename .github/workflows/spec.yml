@@ -7,15 +7,15 @@ jobs:
     name: Run CommonMark specs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
         with:
-          version: master
+          version: 0.11.0
       - run: make spec
         id: spec-runner
-      - uses: LouisBrunner/checks-action@v0.1.0
+      - uses: LouisBrunner/checks-action@v1.6.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Specs ${{ steps.spec-runner.outputs.specs-succeeded }}/${{ steps.spec-runner.outputs.spec-count }}
