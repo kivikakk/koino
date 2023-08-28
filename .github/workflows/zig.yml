@@ -13,7 +13,7 @@ jobs:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
         with:
-          version: master
+          version: 0.11.0
       - run: zig build
       - run: zig build test
   test-macos:
@@ -24,10 +24,10 @@ jobs:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
         with:
-          version: master
-      - run: brew install pkg-config pcre
-      - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build
-      - run: env ZIG_SYSTEM_LINKER_HACK=1 zig build test
+          version: 0.11.0
+      - run: brew install pcre
+      - run: zig build
+      - run: zig build test
   test-windows:
     runs-on: windows-latest
     steps:
@@ -36,7 +36,7 @@ jobs:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
         with:
-          version: master
+          version: 0.11.0
       - run: c:; cd \vcpkg; git pull; .\bootstrap-vcpkg.bat
       - run: vcpkg integrate install
       - run: vcpkg install pcre --triplet x64-windows-static
@@ -50,5 +50,5 @@ jobs:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v1
         with:
-          version: master
+          version: 0.11.0
       - run: zig fmt --check src/*.zig
