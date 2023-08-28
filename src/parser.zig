@@ -324,7 +324,7 @@ pub const Parser = struct {
                 else => try scanners.htmlBlockStart7(line[self.first_nonspace..], &matched),
             })) {
                 const nhb = nodes.NodeHtmlBlock{
-                    .block_type = @truncate(u8, matched),
+                    .block_type = @truncate(matched),
                     .literal = std.ArrayList(u8).init(self.allocator),
                 };
                 container = try self.addChild(container, .{ .HtmlBlock = nhb });
@@ -800,7 +800,7 @@ pub const Parser = struct {
                     const chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
                     if (columns) {
                         self.partially_consumed_tab = chars_to_tab > count;
-                        const chars_to_advance = std.math.min(count, chars_to_tab);
+                        const chars_to_advance = @min(count, chars_to_tab);
                         self.column += chars_to_advance;
                         self.offset += @as(u8, if (self.partially_consumed_tab) 0 else 1);
                         count -= chars_to_advance;

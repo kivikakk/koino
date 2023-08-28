@@ -129,7 +129,7 @@ test "chopTrailingHashtags" {
     try testing.expectEqualStrings("xyz", chopTrailingHashtags("xyz  ##"));
 }
 
-pub fn normalizeCode(allocator: mem.Allocator, s: []const u8) ![]u8 {
+pub fn normalizeCode(allocator: mem.Allocator, s: []const u8) mem.Allocator.Error![]u8 {
     var code = try std.ArrayList(u8).initCapacity(allocator, s.len);
     errdefer code.deinit();
 
@@ -258,7 +258,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
                 i = 1;
                 while (i < text.len and ascii.isDigit(text[i])) {
                     codepoint = (codepoint * 10) + (@as(u32, text[i]) - '0');
-                    codepoint = std.math.min(codepoint, 0x11_0000);
+                    codepoint = @min(codepoint, 0x11_0000);
                     i += 1;
                 }
                 break :block i - 1;
@@ -266,7 +266,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
                 i = 2;
                 while (i < text.len and ascii.isHex(text[i])) {
                     codepoint = (codepoint * 16) + (@as(u32, text[i]) | 32) % 39 - 9;
-                    codepoint = std.math.min(codepoint, 0x11_0000);
+                    codepoint = @min(codepoint, 0x11_0000);
                     i += 1;
                 }
                 break :block i - 2;
@@ -275,12 +275,12 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
         };
 
         if (num_digits >= 1 and num_digits <= 8 and i < text.len and text[i] == ';') {
-            try encodeUtf8Into(@truncate(u21, codepoint), out);
+            try encodeUtf8Into(@truncate(codepoint), out);
             return i + 1;
         }
     }
 
-    const size = std.math.min(text.len, ENTITY_MAX_LENGTH);
+    const size = @min(text.len, ENTITY_MAX_LENGTH);
     var i = ENTITY_MIN_LENGTH;
     while (i < size) : (i += 1) {
         if (text[i] == ' ')
@@ -437,7 +437,7 @@ pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var view = std.unicode.Utf8View.initUnchecked(trimmed);
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| {
-        var rune = @intCast(i32, cp);
+        var rune: i32 = @intCast(cp);
         if (zunicode.isSpace(rune)) {
             if (!last_was_whitespace) {
                 last_was_whitespace = true;
@@ -446,7 +446,7 @@ pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
         } else {
             last_was_whitespace = false;
             var lower = zunicode.toLower(rune);
-            try encodeUtf8Into(@intCast(u21, lower), &buffer);
+            try encodeUtf8Into(@intCast(lower), &buffer);
         }
     }
     return buffer.toOwnedSlice();
@@ -466,9 +466,9 @@ pub fn toLower(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var view = try std.unicode.Utf8View.init(s);
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| {
-        var rune = @intCast(i32, cp);
+        var rune: i32 = @intCast(cp);
         var lower = zunicode.toLower(rune);
-        try encodeUtf8Into(@intCast(u21, lower), &buffer);
+        try encodeUtf8Into(@intCast(lower), &buffer);
     }
     return buffer.toOwnedSlice();
 }

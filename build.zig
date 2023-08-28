@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(exe, &deps);
+    try addCommonRequirements(b, exe, &deps);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -35,15 +35,15 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(test_exe, &deps);
+    try addCommonRequirements(b, test_exe, &deps);
     const test_step = b.step("test", "Run all the tests");
     test_step.dependOn(&test_exe.step);
 }
 
-fn addCommonRequirements(cs: *std.build.CompileStep, deps: *const std.StringHashMap(*std.build.Module)) !void {
+fn addCommonRequirements(b: *std.Build, cs: *std.build.CompileStep, deps: *const std.StringHashMap(*std.build.Module)) !void {
     var it = deps.iterator();
     while (it.next()) |entry| {
         cs.addModule(entry.key_ptr.*, entry.value_ptr.*);
     }
-    try linkPcre(cs);
+    try linkPcre(b, cs);
 }
