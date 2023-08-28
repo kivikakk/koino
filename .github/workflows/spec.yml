@@ -14,9 +14,3 @@ jobs:
         with:
           version: 0.11.0
       - run: make spec
-        id: spec-runner
-      - uses: LouisBrunner/checks-action@v1.6.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: Specs ${{ steps.spec-runner.outputs.specs-succeeded }}/${{ steps.spec-runner.outputs.spec-count }}
-          conclusion: ${{ steps.spec-runner.outputs.conclusion }}
