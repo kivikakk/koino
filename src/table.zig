@@ -5,8 +5,8 @@ const scanners = @import("scanners.zig");
 const strings = @import("strings.zig");
 
 pub fn matches(allocator: std.mem.Allocator, line: []const u8) !bool {
-    var r = try row(allocator, line);
-    var result = r != null;
+    const r = try row(allocator, line);
+    const result = r != null;
     if (r) |v| freeNested(allocator, v);
     return result;
 }
@@ -100,14 +100,14 @@ fn tryOpeningHeader(parser: *Parser, container: *nodes.AstNode, line: []const u8
             nodes.TableAlignment.None;
     }
 
-    var table = try nodes.AstNode.create(parser.allocator, .{
+    const table = try nodes.AstNode.create(parser.allocator, .{
         .value = .{ .Table = alignments },
         .start_line = parser.line_number,
         .content = std.ArrayList(u8).init(parser.allocator),
     });
     container.append(table);
 
-    var header = try parser.addChild(table, .{ .TableRow = .Header });
+    const header = try parser.addChild(table, .{ .TableRow = .Header });
     for (header_row) |header_str| {
         var header_cell = try parser.addChild(header, .TableCell);
         try header_cell.data.content.appendSlice(header_str);

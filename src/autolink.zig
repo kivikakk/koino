@@ -27,7 +27,7 @@ pub const AutolinkProcessor = struct {
         var i: usize = 0;
 
         while (i < len) {
-            var post_org: ?Match = blk: {
+            const post_org: ?Match = blk: {
                 while (i < len) : (i += 1) {
                     switch (self.text.*[i]) {
                         'w' => if (try self.wwwMatch(i)) |match| {

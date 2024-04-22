@@ -5,11 +5,16 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    var deps = std.StringHashMap(*std.build.Module).init(b.allocator);
-    try deps.put("libpcre", b.addModule("libpcre", .{ .source_file = .{ .path = "vendor/libpcre/src/main.zig" } }));
-    try deps.put("htmlentities", b.addModule("htmlentities", .{ .source_file = .{ .path = "vendor/htmlentities/src/main.zig" } }));
-    try deps.put("clap", b.addModule("clap", .{ .source_file = .{ .path = "vendor/zig-clap/clap.zig" } }));
-    try deps.put("zunicode", b.addModule("zunicode", .{ .source_file = .{ .path = "vendor/zunicode/src/zunicode.zig" } }));
+    var deps = std.StringHashMap(*std.Build.Module).init(b.allocator);
+    const libpcre = b.addModule("libpcre", .{
+        .root_source_file = .{ .path = "vendor/libpcre/src/main.zig" },
+        .target = target,
+    });
+    try linkPcre(b, libpcre);
+    try deps.put("libpcre", libpcre);
+    try deps.put("htmlentities", b.addModule("htmlentities", .{ .root_source_file = .{ .path = "vendor/htmlentities/src/main.zig" } }));
+    try deps.put("clap", b.addModule("clap", .{ .root_source_file = .{ .path = "vendor/zig-clap/clap.zig" } }));
+    try deps.put("zunicode", b.addModule("zunicode", .{ .root_source_file = .{ .path = "vendor/zunicode/src/zunicode.zig" } }));
 
     const exe = b.addExecutable(.{
         .name = "koino",
@@ -17,7 +22,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(b, exe, &deps);
+    try addCommonRequirements(exe, &deps);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -35,15 +40,14 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(b, test_exe, &deps);
+    try addCommonRequirements(test_exe, &deps);
     const test_step = b.step("test", "Run all the tests");
     test_step.dependOn(&test_exe.step);
 }
 
-fn addCommonRequirements(b: *std.Build, cs: *std.build.CompileStep, deps: *const std.StringHashMap(*std.build.Module)) !void {
+fn addCommonRequirements(cs: *std.Build.Step.Compile, deps: *const std.StringHashMap(*std.Build.Module)) !void {
     var it = deps.iterator();
     while (it.next()) |entry| {
-        cs.addModule(entry.key_ptr.*, entry.value_ptr.*);
+        cs.root_module.addImport(entry.key_ptr.*, entry.value_ptr.*);
     }
-    try linkPcre(b, cs);
 }

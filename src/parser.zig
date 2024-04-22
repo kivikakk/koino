@@ -41,7 +41,7 @@ pub const Parser = struct {
     skip_chars: [256]bool = [_]bool{false} ** 256,
 
     pub fn init(allocator: std.mem.Allocator, options: Options) !Parser {
-        var root = try nodes.AstNode.create(allocator, .{
+        const root = try nodes.AstNode.create(allocator, .{
             .value = .Document,
             .content = std.ArrayList(u8).init(allocator),
         });
@@ -72,7 +72,7 @@ pub const Parser = struct {
 
     pub fn feed(self: *Parser, s: []const u8) !void {
         var i: usize = 0;
-        var sz = s.len;
+        const sz = s.len;
         var linebuf = std.ArrayList(u8).init(self.allocator);
         defer linebuf.deinit();
 
@@ -155,7 +155,7 @@ pub const Parser = struct {
         var new_line: ?[]u8 = null;
         if (input.len == 0 or !strings.isLineEndChar(input[input.len - 1])) {
             new_line = try self.allocator.alloc(u8, input.len + 1);
-            std.mem.copy(u8, new_line.?, input);
+            @memcpy(new_line.?, input);
             new_line.?[input.len] = '\n';
             line = new_line.?;
         } else {
@@ -407,7 +407,7 @@ pub const Parser = struct {
                 });
             } else {
                 var replace: bool = undefined;
-                var new_container = if (!indented and self.options.extensions.table)
+                const new_container = if (!indented and self.options.extensions.table)
                     try table.tryOpeningBlock(self, container, line, &replace)
                 else
                     null;
@@ -441,7 +441,7 @@ pub const Parser = struct {
             parent = (try self.finalize(parent)).?;
         }
 
-        var node = try nodes.AstNode.create(self.allocator, .{
+        const node = try nodes.AstNode.create(self.allocator, .{
             .value = value,
             .start_line = self.line_number,
             .content = std.ArrayList(u8).init(self.allocator),
@@ -579,7 +579,7 @@ pub const Parser = struct {
                     }
                     assert(pos < node.data.content.items.len);
 
-                    var info = try strings.cleanUrl(self.allocator, node.data.content.items[0..pos]);
+                    const info = try strings.cleanUrl(self.allocator, node.data.content.items[0..pos]);
                     if (info.len != 0) {
                         ncb.info = info;
                     }
@@ -652,7 +652,7 @@ pub const Parser = struct {
                                 .Text => |adj| {
                                     const old_len = root.len;
                                     root.* = try self.allocator.realloc(root.*, old_len + adj.len);
-                                    std.mem.copy(u8, root.*[old_len..], adj);
+                                    @memcpy(root.*[old_len..], adj);
                                     ns.detachDeinit();
                                 },
                                 else => {
@@ -705,7 +705,7 @@ pub const Parser = struct {
         var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, &self.special_chars, &self.skip_chars, content);
         defer subj.deinit();
 
-        var lab = if (subj.linkLabel()) |l| lab: {
+        const lab = if (subj.linkLabel()) |l| lab: {
             if (l.len == 0)
                 return false;
             break :lab l;
@@ -752,7 +752,7 @@ pub const Parser = struct {
             }
         }
 
-        var normalized = try strings.normalizeLabel(self.allocator, lab);
+        const normalized = try strings.normalizeLabel(self.allocator, lab);
         if (normalized.len > 0) {
             // refmap takes ownership of `normalized'.
             const result = try subj.refmap.getOrPut(normalized);
@@ -784,7 +784,7 @@ pub const Parser = struct {
     }
 
     fn parseInlines(self: *Parser, node: *nodes.AstNode) inlines.ParseError!void {
-        var content = strings.rtrim(node.data.content.items);
+        const content = strings.rtrim(node.data.content.items);
         var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, &self.special_chars, &self.skip_chars, content);
         defer subj.deinit();
         while (try subj.parseInline(node)) {}
@@ -822,7 +822,7 @@ pub const Parser = struct {
     }
 
     fn parseBlockQuotePrefix(self: *Parser, line: []const u8) bool {
-        var indent = self.indent;
+        const indent = self.indent;
         if (indent <= 3 and line[self.first_nonspace] == '>') {
             self.advanceOffset(line, indent + 1, true);
 
@@ -989,7 +989,7 @@ pub const Parser = struct {
 };
 
 fn expectMarkdownHTML(options: Options, markdown: []const u8, html: []const u8) !void {
-    var output = try main.testMarkdownToHtml(options, markdown);
+    const output = try main.testMarkdownToHtml(options, markdown);
     defer std.testing.allocator.free(output);
     try std.testing.expectEqualStrings(html, output);
 }

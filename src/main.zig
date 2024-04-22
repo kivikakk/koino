@@ -36,23 +36,23 @@ pub fn main() !void {
     }
 
     var options: Options = undefined;
-    var args = try parseArgs(&options);
+    var args = try parseArgs(&options, allocator);
     var parser = try Parser.init(allocator, options);
 
     if (args.positionals.len > 0) {
         for (args.positionals) |pos| {
-            var markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
+            const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
             defer allocator.free(markdown);
             try parser.feed(markdown);
         }
     } else {
-        var markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
+        const markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
         defer allocator.free(markdown);
         try parser.feed(markdown);
     }
 
     var doc = try parser.finish();
-    var output = blk: {
+    const output = blk: {
         var arr = std.ArrayList(u8).init(allocator);
         errdefer arr.deinit();
         try html.print(arr.writer(), allocator, options, doc);
@@ -78,17 +78,17 @@ const params = clap.parseParamsComptime("-h, --help                 Display this
 
 const ClapResult = clap.Result(clap.Help, &params, clap.parsers.default);
 
-fn parseArgs(options: *Options) !ClapResult {
+fn parseArgs(options: *Options, allocator: std.mem.Allocator) !ClapResult {
     var stderr = std.io.getStdErr().writer();
 
-    var res = try clap.parse(clap.Help, &params, clap.parsers.default, .{});
+    const res = try clap.parse(clap.Help, &params, clap.parsers.default, .{ .allocator = allocator });
 
     if (res.args.help != 0) {
         try stderr.writeAll("Usage: koino ");
         try clap.usage(stderr, clap.Help, &params);
         try stderr.writeAll("\n\nOptions:\n");
         try clap.help(stderr, clap.Help, &params, .{});
-        std.os.exit(0);
+        std.process.exit(0);
     }
 
     options.* = .{};
@@ -135,7 +135,7 @@ fn enableExtension(extension: []const u8, options: *Options) !void {
         }
     }
     try std.fmt.format(std.io.getStdErr().writer(), "unknown extension: {s}\n", .{extension});
-    std.os.exit(1);
+    std.process.exit(1);
 }
 
 /// Performs work using internalAllocator, and writes the result to a Writer.

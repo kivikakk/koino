@@ -247,7 +247,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                     }
                 },
                 .Paragraph => {
-                    var tight = node.parent != null and node.parent.?.parent != null and switch (node.parent.?.parent.?.data.value) {
+                    const tight = node.parent != null and node.parent.?.parent != null and switch (node.parent.?.parent.?.data.value) {
                         .List => |nl| nl.tight,
                         else => false,
                     };
@@ -443,7 +443,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
             if (!gop.found_existing) {
                 errdefer _ = self.anchor_node_map.remove(node);
 
-                var text_content = try self.collectText(node);
+                const text_content = try self.collectText(node);
                 defer self.allocator.free(text_content);
                 gop.value_ptr.* = try self.anchorize(text_content);
             }
@@ -452,9 +452,9 @@ pub fn HtmlFormatter(comptime Writer: type) type {
         }
 
         fn anchorize(self: *Self, header: []const u8) ![]const u8 {
-            var lower = try strings.toLower(self.allocator, header);
+            const lower = try strings.toLower(self.allocator, header);
             defer self.allocator.free(lower);
-            var removed = try scanners.removeAnchorizeRejectedChars(self.allocator, lower);
+            const removed = try scanners.removeAnchorizeRejectedChars(self.allocator, lower);
             defer self.allocator.free(removed);
 
             for (removed) |*c| {
@@ -463,13 +463,13 @@ pub fn HtmlFormatter(comptime Writer: type) type {
 
             var uniq: usize = 0;
             while (true) {
-                var anchor = if (uniq == 0)
+                const anchor = if (uniq == 0)
                     try self.allocator.dupe(u8, removed)
                 else
                     try std.fmt.allocPrint(self.allocator, "{s}-{}", .{ removed, uniq });
                 errdefer self.allocator.free(anchor);
 
-                var getPut = try self.anchor_map.getOrPut(anchor);
+                const getPut = try self.anchor_map.getOrPut(anchor);
                 if (!getPut.found_existing) {
                     // anchor now belongs in anchor_map.
                     return anchor;

@@ -76,9 +76,9 @@ test "trim" {
 }
 
 pub fn trimIt(al: *std.ArrayList(u8)) void {
-    var trimmed = trim(al.items);
+    const trimmed = trim(al.items);
     if (al.items.ptr == trimmed.ptr and al.items.len == trimmed.len) return;
-    std.mem.copy(u8, al.items, trimmed);
+    @memcpy(al.items, trimmed);
     al.items.len = trimmed.len;
 }
 
@@ -287,7 +287,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
             return null;
         if (text[i] == ';') {
             var key = [_]u8{'&'} ++ [_]u8{';'} ** (ENTITY_MAX_LENGTH + 1);
-            mem.copy(u8, key[1..], text[0..i]);
+            @memcpy(key[1..], text[0..i]);
 
             if (htmlentities.lookup(key[0 .. i + 2])) |item| {
                 try out.appendSlice(item.characters);
@@ -300,7 +300,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
 }
 
 fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
-    var size = html.len;
+    const size = html.len;
     var i: usize = 0;
 
     while (i < size) {
@@ -352,7 +352,7 @@ test "unescapeHtml" {
 }
 
 pub fn cleanAutolink(allocator: mem.Allocator, url: []const u8, kind: nodes.AutolinkType) ![]u8 {
-    var trimmed = trim(url);
+    const trimmed = trim(url);
     if (trimmed.len == 0)
         return &[_]u8{};
 
@@ -366,11 +366,11 @@ pub fn cleanAutolink(allocator: mem.Allocator, url: []const u8, kind: nodes.Auto
 }
 
 test "cleanAutolink" {
-    var email = try cleanAutolink(std.testing.allocator, "  hello&#x40;world.example ", .Email);
+    const email = try cleanAutolink(std.testing.allocator, "  hello&#x40;world.example ", .Email);
     defer std.testing.allocator.free(email);
     try testing.expectEqualStrings("mailto:hello@world.example", email);
 
-    var uri = try cleanAutolink(std.testing.allocator, "  www&#46;com ", .URI);
+    const uri = try cleanAutolink(std.testing.allocator, "  www&#46;com ", .URI);
     defer std.testing.allocator.free(uri);
     try testing.expectEqualStrings("www.com", uri);
 }
@@ -389,17 +389,17 @@ fn unescape(allocator: mem.Allocator, s: []const u8) ![]u8 {
 }
 
 pub fn cleanUrl(allocator: mem.Allocator, url: []const u8) ![]u8 {
-    var trimmed = trim(url);
+    const trimmed = trim(url);
     if (trimmed.len == 0)
         return &[_]u8{};
 
-    var b = try unescapeHtml(allocator, trimmed);
+    const b = try unescapeHtml(allocator, trimmed);
     defer allocator.free(b);
     return unescape(allocator, b);
 }
 
 test "cleanUrl" {
-    var url = try cleanUrl(std.testing.allocator, "  \\(hello\\)&#x40;world  ");
+    const url = try cleanUrl(std.testing.allocator, "  \\(hello\\)&#x40;world  ");
     defer std.testing.allocator.free(url);
     try testing.expectEqualStrings("(hello)@world", url);
 }
@@ -410,7 +410,7 @@ pub fn cleanTitle(allocator: mem.Allocator, title: []const u8) ![]u8 {
 
     const first = title[0];
     const last = title[title.len - 1];
-    var b = if ((first == '\'' and last == '\'') or (first == '(' and last == ')') or (first == '"' and last == '"'))
+    const b = if ((first == '\'' and last == '\'') or (first == '(' and last == ')') or (first == '"' and last == '"'))
         try unescapeHtml(allocator, title[1 .. title.len - 1])
     else
         try unescapeHtml(allocator, title);
@@ -429,7 +429,7 @@ test "cleanTitle" {
 }
 
 pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
-    var trimmed = trim(s);
+    const trimmed = trim(s);
     var buffer = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
     errdefer buffer.deinit();
     var last_was_whitespace = false;
@@ -437,7 +437,7 @@ pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var view = std.unicode.Utf8View.initUnchecked(trimmed);
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| {
-        var rune: i32 = @intCast(cp);
+        const rune: i32 = @intCast(cp);
         if (zunicode.isSpace(rune)) {
             if (!last_was_whitespace) {
                 last_was_whitespace = true;
@@ -445,7 +445,7 @@ pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
             }
         } else {
             last_was_whitespace = false;
-            var lower = zunicode.toLower(rune);
+            const lower = zunicode.toLower(rune);
             try encodeUtf8Into(@intCast(lower), &buffer);
         }
     }
@@ -466,8 +466,8 @@ pub fn toLower(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var view = try std.unicode.Utf8View.init(s);
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| {
-        var rune: i32 = @intCast(cp);
-        var lower = zunicode.toLower(rune);
+        const rune: i32 = @intCast(cp);
+        const lower = zunicode.toLower(rune);
         try encodeUtf8Into(@intCast(lower), &buffer);
     }
     return buffer.toOwnedSlice();

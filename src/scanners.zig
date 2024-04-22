@@ -79,7 +79,7 @@ var searchFirstCaptureBufferAllocator = std.heap.FixedBufferAllocator.init(&sear
 
 fn searchFirstCapture(re: Regex, line: []const u8) Error!?usize {
     searchFirstCaptureBufferAllocator.reset();
-    var result = re.captures(searchFirstCaptureBufferAllocator.allocator(), line, .{ .Anchored = true }) catch |err| switch (err) {
+    const result = re.captures(searchFirstCaptureBufferAllocator.allocator(), line, .{ .Anchored = true }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return null,
     };
@@ -430,7 +430,7 @@ pub fn removeAnchorizeRejectedChars(allocator: std.mem.Allocator, src: []const u
 
 test "removeAnchorizeRejectedChars" {
     for ([_][]const u8{ "abc", "'abc", "''abc", "a'bc", "'a'''b'c'" }) |abc| {
-        var result = try removeAnchorizeRejectedChars(std.testing.allocator, abc);
+        const result = try removeAnchorizeRejectedChars(std.testing.allocator, abc);
         try testing.expectEqualStrings("abc", result);
         std.testing.allocator.free(result);
     }

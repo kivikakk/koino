@@ -29,7 +29,7 @@ pub const Subject = struct {
     skip_chars: *const [256]bool,
 
     pub fn init(allocator: mem.Allocator, refmap: *std.StringHashMap(Reference), options: *const Options, special_chars: *const [256]bool, skip_chars: *const [256]bool, input: []const u8) Subject {
-        var s = Subject{
+        const s = Subject{
             .allocator = allocator,
             .refmap = refmap,
             .options = options,
@@ -76,7 +76,7 @@ pub const Subject = struct {
             '.' => new_inl = try self.handlePeriod(),
             '[' => {
                 self.pos += 1;
-                var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "[") });
+                const inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "[") });
                 try self.pushBracket(.Link, inl);
                 new_inl = inl;
             },
@@ -85,7 +85,7 @@ pub const Subject = struct {
                 self.pos += 1;
                 if (self.peekChar() orelse 0 == '[') {
                     self.pos += 1;
-                    var inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "![") });
+                    const inl = try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "![") });
                     try self.pushBracket(.Image, inl);
                     new_inl = inl;
                 } else {
@@ -169,7 +169,7 @@ pub const Subject = struct {
                     opener = opener.?.prev;
                 }
 
-                var old_closer = closer;
+                const old_closer = closer;
 
                 if (closer.?.delim_char == '*' or closer.?.delim_char == '_' or
                     (self.options.extensions.strikethrough and closer.?.delim_char == '~'))
@@ -322,11 +322,11 @@ pub const Subject = struct {
 
         if (endpos) |end| {
             const buf = self.input[startpos .. end - openticks];
-            var code = try strings.normalizeCode(self.allocator, buf);
+            const code = try strings.normalizeCode(self.allocator, buf);
             return try self.makeInline(.{ .Code = code });
         } else {
             self.pos = startpos;
-            var contents = try self.allocator.alloc(u8, openticks);
+            const contents = try self.allocator.alloc(u8, openticks);
             @memset(contents, '`');
             return try self.makeInline(.{ .Text = contents });
         }
@@ -344,7 +344,7 @@ pub const Subject = struct {
         self.pos += 1;
         if (strings.isPunct(self.peekChar() orelse 0)) {
             self.pos += 1;
-            var contents = try self.allocator.dupe(u8, self.input[self.pos - 1 .. self.pos]);
+            const contents = try self.allocator.dupe(u8, self.input[self.pos - 1 .. self.pos]);
             return try self.makeInline(.{ .Text = contents });
         } else if (!self.eof() and self.skipLineEnd()) {
             return try self.makeInline(.LineBreak);
@@ -377,20 +377,20 @@ pub const Subject = struct {
         self.pos += 1;
 
         if (try scanners.autolinkUri(self.input[self.pos..])) |match_len| {
-            var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .URI);
+            const inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .URI);
             self.pos += match_len;
             return inl;
         }
 
         if (try scanners.autolinkEmail(self.input[self.pos..])) |match_len| {
-            var inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .Email);
+            const inl = try self.makeAutolink(self.input[self.pos .. self.pos + match_len - 1], .Email);
             self.pos += match_len;
             return inl;
         }
 
         if (try scanners.htmlTag(self.input[self.pos..])) |match_len| {
-            var contents = self.input[self.pos - 1 .. self.pos + match_len];
-            var inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
+            const contents = self.input[self.pos - 1 .. self.pos + match_len];
+            const inl = try self.makeInline(.{ .HtmlInline = try self.allocator.dupe(u8, contents) });
             self.pos += match_len;
             return inl;
         }
@@ -532,7 +532,7 @@ pub const Subject = struct {
     }
 
     fn pushDelimiter(self: *Subject, c: u8, can_open: bool, can_close: bool, inl: *nodes.AstNode) !void {
-        var delimiter = try self.allocator.create(Delimiter);
+        const delimiter = try self.allocator.create(Delimiter);
         delimiter.* = .{
             .inl = inl,
             .length = inl.data.value.text().?.len,
@@ -560,14 +560,14 @@ pub const Subject = struct {
         if (self.options.extensions.strikethrough and opener_char == '~' and (opener_num_chars != closer_num_chars or opener_num_chars > 0))
             return null;
 
-        var opener_text = opener.inl.data.value.text_mut().?;
+        const opener_text = opener.inl.data.value.text_mut().?;
         opener_text.* = try self.allocator.realloc(opener_text.*, opener_num_chars);
-        var closer_text = closer.inl.data.value.text_mut().?;
+        const closer_text = closer.inl.data.value.text_mut().?;
         closer_text.* = try self.allocator.realloc(closer_text.*, closer_num_chars);
 
         var delim = closer.prev;
         while (delim != null and delim != opener) {
-            var prev = delim.?.prev;
+            const prev = delim.?.prev;
             self.removeDelimiter(delim.?);
             delim = prev;
         }
@@ -583,7 +583,7 @@ pub const Subject = struct {
         var emph = try self.makeInline(value);
         var tmp = opener.inl.next.?;
         while (tmp != closer.inl) {
-            var next = tmp.next;
+            const next = tmp.next;
             emph.append(tmp);
             if (next) |n| {
                 tmp = n;
@@ -600,7 +600,7 @@ pub const Subject = struct {
 
         if (closer_num_chars == 0) {
             closer.inl.detachDeinit();
-            var next = closer.next;
+            const next = closer.next;
             self.removeDelimiter(closer);
             return next;
         } else {
@@ -654,8 +654,8 @@ pub const Subject = struct {
 
             if (endall < self.input.len and self.input[endall] == ')') {
                 self.pos = endall + 1;
-                var cleanUrl = try strings.cleanUrl(self.allocator, url);
-                var cleanTitle = try strings.cleanTitle(self.allocator, self.input[starttitle..endtitle]);
+                const cleanUrl = try strings.cleanUrl(self.allocator, url);
+                const cleanTitle = try strings.cleanTitle(self.allocator, self.input[starttitle..endtitle]);
                 try self.closeBracketMatch(kind, cleanUrl, cleanTitle);
                 return null;
             } else {
@@ -676,9 +676,9 @@ pub const Subject = struct {
             label = self.input[self.brackets.items[brackets_len - 1].position .. initial_pos - 1];
         }
 
-        var normalized = try strings.normalizeLabel(self.allocator, label orelse "");
+        const normalized = try strings.normalizeLabel(self.allocator, label orelse "");
         defer self.allocator.free(normalized);
-        var maybe_ref = if (label != null) self.refmap.get(normalized) else null;
+        const maybe_ref = if (label != null) self.refmap.get(normalized) else null;
 
         if (maybe_ref) |ref| {
             try self.closeBracketMatch(kind, try self.allocator.dupe(u8, ref.url), try self.allocator.dupe(u8, ref.title));

@@ -16,7 +16,7 @@ pub fn Ast(comptime T: type) type {
         last_child: ?*Self = null,
 
         pub fn create(allocator: mem.Allocator, data: T) !*Self {
-            var obj = try allocator.create(Self);
+            const obj = try allocator.create(Self);
             obj.* = .{
                 .allocator = allocator,
                 .data = data,
@@ -28,7 +28,7 @@ pub fn Ast(comptime T: type) type {
             self.data.deinit(self.allocator);
             var it = self.first_child;
             while (it) |child| {
-                var next = child.next;
+                const next = child.next;
                 child.deinit();
                 it = next;
             }
@@ -107,7 +107,7 @@ pub fn Ast(comptime T: type) type {
             next_value: ?*Self,
 
             pub fn next(self: *@This()) ?*Self {
-                var to_return = self.next_value;
+                const to_return = self.next_value;
                 if (to_return) |n| {
                     self.next_value = n.prev;
                 }
