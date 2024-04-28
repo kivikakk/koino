@@ -50,4 +50,5 @@ fn addCommonRequirements(cs: *std.Build.Step.Compile, deps: *const std.StringHas
     while (it.next()) |entry| {
         cs.root_module.addImport(entry.key_ptr.*, entry.value_ptr.*);
     }
+    cs.linkLibC();
 }
