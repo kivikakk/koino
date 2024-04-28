@@ -78,7 +78,9 @@ test "trim" {
 pub fn trimIt(al: *std.ArrayList(u8)) void {
     const trimmed = trim(al.items);
     if (al.items.ptr == trimmed.ptr and al.items.len == trimmed.len) return;
-    @memcpy(al.items, trimmed);
+    if (&al.items != &trimmed) {
+        mem.copyForwards(u8, al.items, trimmed);
+    }
     al.items.len = trimmed.len;
 }
 
@@ -287,7 +289,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
             return null;
         if (text[i] == ';') {
             var key = [_]u8{'&'} ++ [_]u8{';'} ** (ENTITY_MAX_LENGTH + 1);
-            @memcpy(key[1..], text[0..i]);
+            @memcpy(key[1 .. i + 1], text[0..i]);
 
             if (htmlentities.lookup(key[0 .. i + 2])) |item| {
                 try out.appendSlice(item.characters);
