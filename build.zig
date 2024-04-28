@@ -1,5 +1,5 @@
 const std = @import("std");
-const linkPcre = @import("vendor/libpcre/build.zig").linkPcre;
+const linkPcre = @import("vendor/libpcre.zig/build.zig").linkPcre;
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -7,12 +7,12 @@ pub fn build(b: *std.Build) !void {
 
     var deps = std.StringHashMap(*std.Build.Module).init(b.allocator);
     const libpcre = b.addModule("libpcre", .{
-        .root_source_file = .{ .path = "vendor/libpcre/src/main.zig" },
+        .root_source_file = .{ .path = "vendor/libpcre.zig/src/main.zig" },
         .target = target,
     });
     try linkPcre(b, libpcre);
     try deps.put("libpcre", libpcre);
-    try deps.put("htmlentities", b.addModule("htmlentities", .{ .root_source_file = .{ .path = "vendor/htmlentities/src/main.zig" } }));
+    try deps.put("htmlentities", b.addModule("htmlentities", .{ .root_source_file = .{ .path = "vendor/htmlentities.zig/src/main.zig" } }));
     try deps.put("clap", b.addModule("clap", .{ .root_source_file = .{ .path = "vendor/zig-clap/clap.zig" } }));
     try deps.put("zunicode", b.addModule("zunicode", .{ .root_source_file = .{ .path = "vendor/zunicode/src/zunicode.zig" } }));
 
