@@ -7,18 +7,18 @@ pub fn build(b: *std.Build) !void {
 
     var deps = std.StringHashMap(*std.Build.Module).init(b.allocator);
     const libpcre = b.addModule("libpcre", .{
-        .root_source_file = .{ .path = "vendor/libpcre.zig/src/main.zig" },
+        .root_source_file = b.path("vendor/libpcre.zig/src/main.zig"),
         .target = target,
     });
     try linkPcre(b, libpcre);
     try deps.put("libpcre", libpcre);
-    try deps.put("htmlentities", b.addModule("htmlentities", .{ .root_source_file = .{ .path = "vendor/htmlentities.zig/src/main.zig" } }));
-    try deps.put("clap", b.addModule("clap", .{ .root_source_file = .{ .path = "vendor/zig-clap/clap.zig" } }));
-    try deps.put("zunicode", b.addModule("zunicode", .{ .root_source_file = .{ .path = "vendor/zunicode/src/zunicode.zig" } }));
+    try deps.put("htmlentities", b.addModule("htmlentities", .{ .root_source_file = b.path("vendor/htmlentities.zig/src/main.zig") }));
+    try deps.put("clap", b.addModule("clap", .{ .root_source_file = b.path("vendor/zig-clap/clap.zig") }));
+    try deps.put("zunicode", b.addModule("zunicode", .{ .root_source_file = b.path("vendor/zunicode/src/zunicode.zig") }));
 
     const exe = b.addExecutable(.{
         .name = "koino",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) !void {
 
     const test_exe = b.addTest(.{
         .name = "test",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
