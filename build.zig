@@ -16,13 +16,16 @@ pub fn build(b: *std.Build) !void {
     try deps.put("zunicode", zunicode_pkg.module("zunicode"));
     try deps.put("htmlentities", htmlentities_pkg.module("htmlentities"));
 
+    const mod = b.addModule("koino", .{ .root_source_file = b.path("src/koino.zig") });
+    try addCommonRequirements(mod, &deps);
+
     const exe = b.addExecutable(.{
         .name = "koino",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(exe, &deps);
+    try addCommonRequirements(exe.root_module, &deps);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -40,15 +43,15 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(test_exe, &deps);
+    try addCommonRequirements(test_exe.root_module, &deps);
     const test_step = b.step("test", "Run all the tests");
     test_step.dependOn(&test_exe.step);
 }
 
-fn addCommonRequirements(cs: *std.Build.Step.Compile, deps: *const std.StringHashMap(*std.Build.Module)) !void {
+fn addCommonRequirements(mod: *std.Build.Module, deps: *const std.StringHashMap(*std.Build.Module)) !void {
     var it = deps.iterator();
     while (it.next()) |entry| {
-        cs.root_module.addImport(entry.key_ptr.*, entry.value_ptr.*);
+        mod.addImport(entry.key_ptr.*, entry.value_ptr.*);
     }
-    cs.linkLibC();
+    mod.linkSystemLibrary("c", .{});
 }
