@@ -1,20 +1,20 @@
 const std = @import("std");
-const linkPcre = @import("vendor/libpcre.zig/build.zig").linkPcre;
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     var deps = std.StringHashMap(*std.Build.Module).init(b.allocator);
-    const libpcre = b.addModule("libpcre", .{
-        .root_source_file = b.path("vendor/libpcre.zig/src/main.zig"),
-        .target = target,
-    });
-    try linkPcre(b, libpcre);
-    try deps.put("libpcre", libpcre);
-    try deps.put("htmlentities", b.addModule("htmlentities", .{ .root_source_file = b.path("vendor/htmlentities.zig/src/main.zig") }));
-    try deps.put("clap", b.addModule("clap", .{ .root_source_file = b.path("vendor/zig-clap/clap.zig") }));
-    try deps.put("zunicode", b.addModule("zunicode", .{ .root_source_file = b.path("vendor/zunicode/src/zunicode.zig") }));
+
+    const pcre_pkg = b.dependency("libpcre.zig", .{ .optimize = optimize, .target = target });
+    const htmlentities_pkg = b.dependency("htmlentities.zig", .{ .optimize = optimize, .target = target });
+    const zunicode_pkg = b.dependency("zunicode", .{ .optimize = optimize, .target = target });
+    const clap_pkg = b.dependency("clap", .{ .optimize = optimize, .target = target });
+
+    try deps.put("clap", clap_pkg.module("clap"));
+    try deps.put("libpcre", pcre_pkg.module("libpcre"));
+    try deps.put("zunicode", zunicode_pkg.module("zunicode"));
+    try deps.put("htmlentities", htmlentities_pkg.module("htmlentities"));
 
     const exe = b.addExecutable(.{
         .name = "koino",
