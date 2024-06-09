@@ -21,7 +21,7 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
 * Add the following to your `build.zig`'s `build` function:
   ```zig
   const koino_pkg = b.dependency("koino", .{ .optimize = optimize, .target = target });
-  exe.root_module.addImport("koino", koino_pkg.module("koino"))
+  exe.root_module.addImport("koino", koino_pkg.module("koino"));
   ```
 
 * Have a look at the bottom of [`parser.zig`](https://github.com/kivikakk/koino/blob/main/src/parser.zig) to see some test usage.
