@@ -8,13 +8,43 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
 
 ## Getting started
 
-* Clone the repository with submodules, as we have quite a few dependencies.
+## Using koino as a library
 
+* Get zig 0.12+ https://ziglang.org/
+* Start a new project with `zig init-exe` / `zig init-lib`
+* Add koino via the zig package manager:
+  ```console
+  $ zig fetch --save https://github.com/kivikakk/koino/archive/<commit hash>.tar.gz
+  ```
+ 
+* [Follow the `libpcre.zig` dependency install instructions](https://github.com/kivikakk/libpcre.zig/blob/main/README.md) for your operating system.
+* Add the following to your `build.zig`'s `build` function:
+  ```zig
+  const koino_pkg = b.dependency("koino", .{ .optimize = optimize, .target = target });
+  exe.root_module.addImport("koino", koino_pkg.module("koino"))
+  ```
+
+* Have a look at the bottom of [`parser.zig`](https://github.com/kivikakk/koino/blob/main/src/parser.zig) to see some test usage.
+
+### Using it as a CLI executable
+
+* Clone this repository:
+  ```console
+  $ git clone https://github.com/kivikakk/koino
+  ```
+* Build
+  ```console
+  $ zig build
+  ```
+* Use `./zig-out/bin/koino`
+
+### For development purposes
+
+* Clone this repository with submodules for the `cmark-gfm` dependency:
   ```console
   $ git clone --recurse-submodules https://github.com/kivikakk/koino
+  $ cd koino
   ```
-  
-* [Follow the `libpcre.zig` dependency install instructions](https://github.com/kivikakk/libpcre.zig/blob/main/README.md) for your operating system.
 
 * Build and run the spec suite.
 
@@ -22,8 +52,6 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
   $ zig build test
   $ make spec
   ```
-
-* Have a look at the bottom of [`parser.zig`](https://github.com/kivikakk/koino/blob/main/src/parser.zig) to see some test usage.
 
 
 ## Usage
