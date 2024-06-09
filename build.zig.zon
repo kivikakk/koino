@@ -8,11 +8,11 @@
             .hash = "1220fa274f41744bc60b284f9264705f772b98afd2ed219cebb6cec744422e8e2692",
         },
         .@"htmlentities.zig" = .{
-            .url = "https://github.com/lun-4/htmlentities.zig/archive/92284ab69c6050ef7069bbbfa80b5b114ae226b0.tar.gz",
-            .hash = "1220635e7e347407fd5bbff9d49a2582213b7b4a5b72ace0340eb2b1a79d90e0360d",
+            .url = "https://github.com/kivikakk/htmlentities.zig/archive/9cc3600c53ae60565d839eaf93d5c519c21e27cc.tar.gz",
+            .hash = "1220efcce051d499ab04ab1d31d6d3fd242727f90a9287cd56e6c42ba912f782282c",
         },
         .zunicode = .{
-            .url = "https://github.com/lun-4/zunicode-zigpkg/archive/f3b186e856f2fa79e6b9b9191465f9eea7042aa8.tar.gz",
+            .url = "https://github.com/kivikakk/zunicode/archive/711afa05416d1d1512bccf798a332be494d08f5f.tar.gz",
             .hash = "1220d530a8c14f65f6184e695bf04d14c97b8e341cd391c579f9e85990c6262d2fec",
         },
         .clap = .{
