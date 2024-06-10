@@ -1,0 +1,32 @@
+.{
+    .name = "koino",
+    .version = "0.1.0",
+    .minimum_zig_version = "0.12.0",
+    .dependencies = .{
+        .@"libpcre.zig" = .{
+            .url = "https://github.com/kivikakk/libpcre.zig/archive/9522ad9bcce76ce608ac62097450d4eac7436d9c.tar.gz",
+            .hash = "1220fa274f41744bc60b284f9264705f772b98afd2ed219cebb6cec744422e8e2692",
+        },
+        .@"htmlentities.zig" = .{
+            .url = "https://github.com/kivikakk/htmlentities.zig/archive/9cc3600c53ae60565d839eaf93d5c519c21e27cc.tar.gz",
+            .hash = "1220efcce051d499ab04ab1d31d6d3fd242727f90a9287cd56e6c42ba912f782282c",
+        },
+        .zunicode = .{
+            .url = "https://github.com/kivikakk/zunicode/archive/711afa05416d1d1512bccf798a332be494d08f5f.tar.gz",
+            .hash = "1220d530a8c14f65f6184e695bf04d14c97b8e341cd391c579f9e85990c6262d2fec",
+        },
+        .clap = .{
+            .url = "https://github.com/Hejsil/zig-clap/archive/1d413d9ffcbd394904fa683ca975b5adbc19e615.tar.gz",
+            .hash = "1220949d4e88864579067b6d4cdad6476c6176f27e782782c2c39b7f2c4817a10efb",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "Makefile",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
