@@ -16,8 +16,8 @@
             .hash = "1220d530a8c14f65f6184e695bf04d14c97b8e341cd391c579f9e85990c6262d2fec",
         },
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/1d413d9ffcbd394904fa683ca975b5adbc19e615.tar.gz",
-            .hash = "1220949d4e88864579067b6d4cdad6476c6176f27e782782c2c39b7f2c4817a10efb",
+            .url = "https://github.com/Hejsil/zig-clap/archive/7a51c11319b3892b81784149fb2cb2915073710c.tar.gz",
+            .hash = "1220c900c70daf3e715fad6f266ec14b1d0f5e6c2d3f34b32142f60306cb9b5e5f05",
         },
     },
 
