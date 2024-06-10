@@ -7,24 +7,32 @@ on:
 jobs:
   test-linux:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        zig: ["0.12.0", "0.13.0"]
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.12.0
+          version: ${{ matrix.zig }}
       - run: zig build
       - run: zig build test
   test-macos:
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        zig: ["0.12.0", "0.13.0"]
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: goto-bus-stop/setup-zig@2a9625d550eefc3a9b1a43d342ad655f563f8241
         with:
-          version: 0.12.0
+          version: ${{ matrix.zig }}
       - run: brew install pcre
       - run: zig build
       - run: zig build test
