@@ -1,4 +1,2 @@
-/zig-*
-koino.code-workspace
-# https://github.com/kivikakk/htmlentities.zig/issues/10
-src/entities.zig
+/.zig-cache
+/zig-out
