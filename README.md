@@ -10,8 +10,7 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
 
 ## Using koino as a library
 
-* Get Zig 0.12 https://ziglang.org/
-  * Using Zig 0.13? See [`zig-0.13.0`](https://github.com/kivikakk/koino/tree/zig-0.13.0) branch.
+* Get Zig 0.13+ https://ziglang.org/
 * Start a new project with `zig init-exe` / `zig init-lib`
 * Add koino via the zig package manager:
   ```console
