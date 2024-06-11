@@ -8,8 +8,8 @@
             .hash = "1220fa274f41744bc60b284f9264705f772b98afd2ed219cebb6cec744422e8e2692",
         },
         .@"htmlentities.zig" = .{
-            .url = "https://github.com/kivikakk/htmlentities.zig/archive/9cc3600c53ae60565d839eaf93d5c519c21e27cc.tar.gz",
-            .hash = "1220efcce051d499ab04ab1d31d6d3fd242727f90a9287cd56e6c42ba912f782282c",
+            .url = "https://github.com/kivikakk/htmlentities.zig/archive/6c6ab63c9fce8317049d332377db760a2c8932e7.tar.gz",
+            .hash = "1220740c4161d6e2c7601a86504dcb3dbd7814cac5083d0263ad0fd35b473a416325",
         },
         .zunicode = .{
             .url = "https://github.com/kivikakk/zunicode/archive/711afa05416d1d1512bccf798a332be494d08f5f.tar.gz",
