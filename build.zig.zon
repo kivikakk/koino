@@ -4,8 +4,8 @@
     .minimum_zig_version = "0.12.0",
     .dependencies = .{
         .@"libpcre.zig" = .{
-            .url = "https://github.com/kivikakk/libpcre.zig/archive/0f3e120c75c297f7d88a5c698d941a9e730a2059.tar.gz",
-            .hash = "12208c8c5b46df969207ca1458b95ebbe988892d1f0e028d1fb95bd58cf55bca6628",
+            .url = "https://github.com/kivikakk/libpcre.zig/archive/1dc32407368651bc0118b752288c3b87af12ff50.tar.gz",
+            .hash = "1220039ac1b212be156069f9ed7e066571a8da5acc8f1adc33eb1a5c3bcbb4a8b47b",
         },
         .@"htmlentities.zig" = .{
             .url = "https://github.com/kivikakk/htmlentities.zig/archive/6c6ab63c9fce8317049d332377db760a2c8932e7.tar.gz",
