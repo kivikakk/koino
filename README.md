@@ -18,7 +18,6 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
   $ zig fetch --save https://github.com/kivikakk/koino/archive/<commit hash>.tar.gz
   ```
  
-* [Follow the `libpcre.zig` dependency install instructions](https://github.com/kivikakk/libpcre.zig/blob/main/README.md) for your operating system.
 * Add the following to your `build.zig`'s `build` function:
   ```zig
   const koino_pkg = b.dependency("koino", .{ .optimize = optimize, .target = target });
