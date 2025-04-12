@@ -6,8 +6,8 @@ pub fn build(b: *std.Build) !void {
 
     var deps = std.StringHashMap(*std.Build.Module).init(b.allocator);
 
-    const pcre_pkg = b.dependency("libpcre.zig", .{ .optimize = optimize, .target = target });
-    const htmlentities_pkg = b.dependency("htmlentities.zig", .{ .optimize = optimize, .target = target });
+    const pcre_pkg = b.dependency("libpcre_zig", .{ .optimize = optimize, .target = target });
+    const htmlentities_pkg = b.dependency("htmlentities_zig", .{ .optimize = optimize, .target = target });
     const zunicode_pkg = b.dependency("zunicode", .{ .optimize = optimize, .target = target });
     const clap_pkg = b.dependency("clap", .{ .optimize = optimize, .target = target });
 
@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(&exe.root_module, &deps);
+    try addCommonRequirements(exe.root_module, &deps);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -47,7 +47,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try addCommonRequirements(&test_exe.root_module, &deps);
+    try addCommonRequirements(test_exe.root_module, &deps);
     const test_step = b.step("test", "Run all the tests");
     test_step.dependOn(&test_exe.step);
 }

@@ -125,7 +125,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
 
             try stack.append(.{ .node = input_node, .plain = plain, .phase = .Pre });
 
-            while (stack.popOrNull()) |entry| {
+            while (stack.pop()) |entry| {
                 switch (entry.phase) {
                     .Pre => {
                         var new_plain: bool = undefined;

@@ -234,7 +234,7 @@ pub const Subject = struct {
     }
 
     pub fn popBracket(self: *Subject) bool {
-        return self.brackets.popOrNull() != null;
+        return self.brackets.pop() != null;
     }
 
     fn eof(self: *Subject) bool {

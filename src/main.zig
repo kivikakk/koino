@@ -39,12 +39,10 @@ pub fn main() !void {
     var args = try parseArgs(&options, allocator);
     var parser = try Parser.init(allocator, options);
 
-    if (args.positionals.len > 0) {
-        for (args.positionals) |pos| {
-            const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
-            defer allocator.free(markdown);
-            try parser.feed(markdown);
-        }
+    if (args.positionals[0]) |pos| {
+        const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
+        defer allocator.free(markdown);
+        try parser.feed(markdown);
     } else {
         const markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
         defer allocator.free(markdown);
@@ -107,7 +105,7 @@ fn parseArgs(options: *Options, allocator: std.mem.Allocator) !ClapResult {
 
 const extensions = blk: {
     var exts: []const []const u8 = &[_][]const u8{};
-    for (@typeInfo(Options.Extensions).Struct.fields) |field| {
+    for (@typeInfo(Options.Extensions).@"struct".fields) |field| {
         exts = exts ++ [_][]const u8{field.name};
     }
     break :blk exts;

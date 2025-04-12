@@ -1,23 +1,24 @@
 .{
-    .name = "koino",
+    .name = .koino,
     .version = "0.1.0",
-    .minimum_zig_version = "0.12.0",
+    .minimum_zig_version = "0.14.0",
+    .fingerprint = 0x2af09c5b5aeed24b,
     .dependencies = .{
-        .@"libpcre.zig" = .{
-            .url = "https://github.com/kivikakk/libpcre.zig/archive/1dc32407368651bc0118b752288c3b87af12ff50.tar.gz",
-            .hash = "1220039ac1b212be156069f9ed7e066571a8da5acc8f1adc33eb1a5c3bcbb4a8b47b",
-        },
-        .@"htmlentities.zig" = .{
-            .url = "https://github.com/kivikakk/htmlentities.zig/archive/6c6ab63c9fce8317049d332377db760a2c8932e7.tar.gz",
-            .hash = "1220740c4161d6e2c7601a86504dcb3dbd7814cac5083d0263ad0fd35b473a416325",
-        },
         .zunicode = .{
             .url = "https://github.com/kivikakk/zunicode/archive/711afa05416d1d1512bccf798a332be494d08f5f.tar.gz",
             .hash = "1220d530a8c14f65f6184e695bf04d14c97b8e341cd391c579f9e85990c6262d2fec",
         },
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/1d413d9ffcbd394904fa683ca975b5adbc19e615.tar.gz",
-            .hash = "1220949d4e88864579067b6d4cdad6476c6176f27e782782c2c39b7f2c4817a10efb",
+            .url = "git+https://github.com/Hejsil/zig-clap#a4e784da8399c51d5eeb5783e6a485b960d5c1f9",
+            .hash = "clap-0.10.0-oBajB8fkAQB0JvsrWLar4YZrseSZ9irFxHB7Hvy_bvxb",
+        },
+        .libpcre_zig = .{
+            .url = "git+https://github.com/kivikakk/libpcre.zig#00b62bc8bea7da75ba61f56555ea6cbaf0dc4e26",
+            .hash = "libpcre_zig-0.1.0-Dtf6Cb04AACKHZO38w4gDrY6to4lWHxOmW6htSqrR-f9",
+        },
+        .htmlentities_zig = .{
+            .url = "git+https://github.com/lun-4/htmlentities.zig?ref=zig-014#f6a69d6e5d332848425776f6264f601658138004",
+            .hash = "htmlentities_zig-0.1.0-zV-DJKMfAwAfkPOa6meBGcQ5hHDjlPo8GxZAmI6wghPo",
         },
     },
 
