@@ -462,11 +462,11 @@ pub const Parser = struct {
 
         container.data.last_line_blank = self.blank and
             switch (container.data.value) {
-            .BlockQuote, .Heading, .ThematicBreak => false,
-            .CodeBlock => |ncb| !ncb.fenced,
-            .Item => container.first_child != null or container.data.start_line != self.line_number,
-            else => true,
-        };
+                .BlockQuote, .Heading, .ThematicBreak => false,
+                .CodeBlock => |ncb| !ncb.fenced,
+                .Item => container.first_child != null or container.data.start_line != self.line_number,
+                else => true,
+            };
 
         var tmp = container;
         while (tmp.parent) |parent| {
@@ -634,7 +634,7 @@ pub const Parser = struct {
 
         try stack.append(self.root);
 
-        while (stack.popOrNull()) |node| {
+        while (stack.pop()) |node| {
             var nch = node.first_child;
 
             while (nch) |n| {
@@ -676,7 +676,7 @@ pub const Parser = struct {
                 nch = n.next;
             }
 
-            while (children.popOrNull()) |child| try stack.append(child);
+            while (children.pop()) |child| try stack.append(child);
         }
     }
 
