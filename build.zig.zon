@@ -17,7 +17,7 @@
             .hash = "libpcre_zig-0.1.0-Dtf6Cb04AACKHZO38w4gDrY6to4lWHxOmW6htSqrR-f9",
         },
         .htmlentities_zig = .{
-            .url = "git+https://github.com/lun-4/htmlentities.zig?ref=zig-014#f6a69d6e5d332848425776f6264f601658138004",
+            .url = "git+https://github.com/kivikakk/htmlentities.zig#8bb5aad18f17724c5195f1e6f3a637e951bbcb07",
             .hash = "htmlentities_zig-0.1.0-zV-DJKMfAwAfkPOa6meBGcQ5hHDjlPo8GxZAmI6wghPo",
         },
     },
