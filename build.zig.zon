@@ -6,7 +6,7 @@
     .dependencies = .{
         .zunicode = .{
             .url = "https://github.com/kivikakk/zunicode/archive/711afa05416d1d1512bccf798a332be494d08f5f.tar.gz",
-            .hash = "1220d530a8c14f65f6184e695bf04d14c97b8e341cd391c579f9e85990c6262d2fec",
+            .hash = "zunicode-0.1.0-AAAAAIL0BQDVMKjBT2X2GE5pW_BNFMl7jjQc05HFefno",
         },
         .clap = .{
             .url = "git+https://github.com/Hejsil/zig-clap#a4e784da8399c51d5eeb5783e6a485b960d5c1f9",
