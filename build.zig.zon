@@ -13,8 +13,8 @@
             .hash = "clap-0.10.0-oBajB8fkAQB0JvsrWLar4YZrseSZ9irFxHB7Hvy_bvxb",
         },
         .libpcre_zig = .{
-            .url = "git+https://github.com/kivikakk/libpcre.zig#00b62bc8bea7da75ba61f56555ea6cbaf0dc4e26",
-            .hash = "libpcre_zig-0.1.0-Dtf6Cb04AACKHZO38w4gDrY6to4lWHxOmW6htSqrR-f9",
+            .url = "git+https://github.com/kivikakk/libpcre.zig#27fe444ed1dfe78f177dfc26ec2765ab3c96d011",
+            .hash = "libpcre_zig-0.1.0-Dtf6CbE4AAByDP78rHGEi8e_tslz7-S9fjccTMGmKdBb",
         },
         .htmlentities_zig = .{
             .url = "git+https://github.com/kivikakk/htmlentities.zig#8bb5aad18f17724c5195f1e6f3a637e951bbcb07",
