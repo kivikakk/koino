@@ -8,11 +8,8 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
 
 ## Getting started
 
-## Using koino as a library
+### Using koino as a library
 
-* Get Zig 0.12 https://ziglang.org/
-  * Using Zig 0.13? See [`zig-0.13.0`](https://github.com/kivikakk/koino/tree/zig-0.13.0) branch.
-* Start a new project with `zig init-exe` / `zig init-lib`
 * Add koino via the zig package manager:
   ```console
   $ zig fetch --save https://github.com/kivikakk/koino/archive/<commit hash>.tar.gz
@@ -26,6 +23,7 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
 
 * Have a look at the bottom of [`parser.zig`](https://github.com/kivikakk/koino/blob/main/src/parser.zig) to see some test usage.
 
+
 ### Using it as a CLI executable
 
 * Clone this repository:
@@ -38,9 +36,12 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
   ```
 * Use `./zig-out/bin/koino`
 
-### For development purposes
 
-* Clone this repository with submodules for the `cmark-gfm` dependency:
+### Development
+
+There's a `flake.nix` for building or getting a devShell if you're so-inclined.
+
+* Clone this repository (with submodules for the `cmark-gfm` dependency):
   ```console
   $ git clone --recurse-submodules https://github.com/kivikakk/koino
   $ cd koino
@@ -60,13 +61,25 @@ Command line:
 
 ```console
 $ koino --help
-Usage: koino [-hu] [-e <EXTENSION>...] [--smart]
+Usage: koino [-hu] [-e <str>...] [--header-anchors] [--smart] <str>
 
 Options:
-        -h, --help                      Display this help and exit
-        -u, --unsafe                    Render raw HTML and dangerous URLs
-        -e, --extension <EXTENSION>...  Enable an extension. (table,strikethrough,autolink,tagfilter)
-            --smart                     Use smart punctuation.
+    -h, --help
+            Display this help and exit
+
+    -u, --unsafe
+            Render raw HTML and dangerous URLs
+
+    -e, --extension <str>...
+            Enable an extension (table,strikethrough,autolink,tagfilter)
+
+        --header-anchors
+            Generate anchors for headers
+
+        --smart
+            Use smart punctuation
+
+    <str>
 ```
 
 Library:
