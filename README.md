@@ -11,7 +11,7 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
 
 * Add koino via the zig package manager:
   ```console
-  $ zig fetch --save https://github.com/kivikakk/koino/archive/<commit hash>.tar.gz
+  $ zig fetch --save git+https://nossa.ee/~talya/koino
   ```
  
 * Add the following to your `build.zig`'s `build` function:
@@ -20,14 +20,14 @@ Zig port of [Comrak](https://github.com/kivikakk/comrak).  Maintains 100% spec-c
   exe.root_module.addImport("koino", koino_pkg.module("koino"));
   ```
 
-* Have a look at the bottom of [`parser.zig`](https://github.com/kivikakk/koino/blob/main/src/parser.zig) to see some test usage.
+* Have a look at the bottom of [`parser.zig`](src/parser.zig) to see some test usage.
 
 
 ### Using it as a CLI executable
 
 * Clone this repository:
   ```console
-  $ git clone https://github.com/kivikakk/koino
+  $ git clone https://nossa.ee/~talya/koino
   ```
 * Build
   ```console
@@ -42,7 +42,7 @@ There's a `flake.nix` for building or getting a devShell if you're so-inclined.
 
 * Clone this repository (with submodules for the `cmark-gfm` dependency):
   ```console
-  $ git clone --recurse-submodules https://github.com/kivikakk/koino
+  $ git clone --recurse-submodules https://nossa.ee/~talya/koino
   $ cd koino
   ```
 
