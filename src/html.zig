@@ -325,7 +325,11 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                 },
                 .Image => |nl| {
                     if (entering) {
-                        try self.writeAll("<img src=\"");
+                        try self.writeAll("<img ");
+                        if (self.options.render.lazy_load_images) {
+                            try self.writeAll("loading=\"lazy\" ");
+                        }
+                        try self.writeAll("src=\"");
                         if (self.options.render.unsafe or !(try dangerousUrl(nl.url))) {
                             try self.escapeHref(nl.url);
                         }
