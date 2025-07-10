@@ -14,9 +14,8 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        inherit (pkgs) lib;
       in
-      rec {
+      {
         formatter.default = pkgs.nixfmt-rfc-style;
 
         packages.default = pkgs.stdenv.mkDerivation {
@@ -35,6 +34,15 @@
           '';
 
           dontInstall = true;
+        };
+
+        devShells.default = pkgs.mkShell {
+          name = "koino";
+
+          packages = [
+            pkgs.zig
+            pkgs.zls
+          ];
         };
       }
     );
