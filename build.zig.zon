@@ -17,8 +17,8 @@
             .hash = "libpcre_zig-0.1.0-Dtf6CbE4AAByDP78rHGEi8e_tslz7-S9fjccTMGmKdBb",
         },
         .htmlentities_zig = .{
-            .url = "git+https://github.com/kivikakk/htmlentities.zig#8bb5aad18f17724c5195f1e6f3a637e951bbcb07",
-            .hash = "htmlentities_zig-0.1.0-zV-DJKMfAwAfkPOa6meBGcQ5hHDjlPo8GxZAmI6wghPo",
+            .url = "git+https://nossa.ee/~talya/htmlentities.zig#1a49942505db7bd06770006f66b907bb3a088b9f",
+            .hash = "htmlentities_zig-0.1.0-zV-DJCAfAwDQMPxoEXaBrDxijlyvCK7HXhz9MIgGYj5l",
         },
     },
 
