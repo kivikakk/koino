@@ -5,16 +5,16 @@
     .fingerprint = 0x2af09c5b5aeed24b,
     .dependencies = .{
         .zunicode = .{
-            .url = "https://github.com/kivikakk/zunicode/archive/711afa05416d1d1512bccf798a332be494d08f5f.tar.gz",
-            .hash = "zunicode-0.1.0-AAAAAIL0BQDVMKjBT2X2GE5pW_BNFMl7jjQc05HFefno",
+            .url = "git+https://nossa.ee/~talya/zunicode#d5527c35892a1e448f65afd127f055251cd26b51",
+            .hash = "zunicode-0.1.0-AAAAAAn0BQAjplm0OqOuLlE2kcI8p65nBybLoZwsjBrH",
         },
         .clap = .{
             .url = "git+https://github.com/Hejsil/zig-clap#a4e784da8399c51d5eeb5783e6a485b960d5c1f9",
             .hash = "clap-0.10.0-oBajB8fkAQB0JvsrWLar4YZrseSZ9irFxHB7Hvy_bvxb",
         },
         .libpcre_zig = .{
-            .url = "git+https://github.com/kivikakk/libpcre.zig#27fe444ed1dfe78f177dfc26ec2765ab3c96d011",
-            .hash = "libpcre_zig-0.1.0-Dtf6CbE4AAByDP78rHGEi8e_tslz7-S9fjccTMGmKdBb",
+            .url = "git+https://nossa.ee/~talya/libpcre.zig#04224f0bed09888d043c6fe4352458dbd907c815",
+            .hash = "libpcre_zig-0.1.0-Dtf6CQg4AACWtDDhtI-rjGGLKdBowMQiQrK1O5sx5icv",
         },
         .htmlentities_zig = .{
             .url = "git+https://nossa.ee/~talya/htmlentities.zig#1a49942505db7bd06770006f66b907bb3a088b9f",
