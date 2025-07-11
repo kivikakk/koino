@@ -1177,3 +1177,7 @@ test "header anchors" {
         \\
     );
 }
+
+test "image lazy loading" {
+    try expectMarkdownHTML(.{ .render = .{ .lazy_load_images = true } }, "![awawa](kass.gif)", "<p><img loading=\"lazy\" src=\"kass.gif\" alt=\"awawa\" /></p>\n");
+}
