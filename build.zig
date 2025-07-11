@@ -42,14 +42,15 @@ pub fn build(b: *std.Build) !void {
     }
 
     const test_exe = b.addTest(.{
-        .name = "test",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
     try addCommonRequirements(test_exe.root_module, &deps);
+
     const test_step = b.step("test", "Run all the tests");
-    test_step.dependOn(&test_exe.step);
+    const test_run = b.addRunArtifact(test_exe);
+    test_step.dependOn(&test_run.step);
 }
 
 fn addCommonRequirements(mod: *std.Build.Module, deps: *const std.StringHashMap(*std.Build.Module)) !void {
