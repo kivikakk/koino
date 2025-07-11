@@ -1006,19 +1006,24 @@ test "convert simple emphases" {
         \\
     );
 }
+
 test "smart quotes" {
     try expectMarkdownHTML(.{ .parse = .{ .smart = true } }, "\"Hey,\" she said. \"What's 'up'?\"\n", "<p>“Hey,” she said. “What’s ‘up’?”</p>\n");
 }
+
 test "handles EOF without EOL" {
     try expectMarkdownHTML(.{}, "hello", "<p>hello</p>\n");
 }
+
 test "accepts multiple lines" {
     try expectMarkdownHTML(.{}, "hello\nthere\n", "<p>hello\nthere</p>\n");
     try expectMarkdownHTML(.{ .render = .{ .hard_breaks = true } }, "hello\nthere\n", "<p>hello<br />\nthere</p>\n");
 }
+
 test "smart hyphens" {
     try expectMarkdownHTML(.{ .parse = .{ .smart = true } }, "hyphen - en -- em --- four ---- five ----- six ------ seven -------\n", "<p>hyphen - en – em — four –– five —– six —— seven —––</p>\n");
 }
+
 test "handles tabs" {
     try expectMarkdownHTML(.{}, "\tfoo\tbaz\t\tbim\n", "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n");
     try expectMarkdownHTML(.{}, "  \tfoo\tbaz\t\tbim\n", "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n");
@@ -1026,16 +1031,20 @@ test "handles tabs" {
     try expectMarkdownHTML(.{}, "#\tFoo\n", "<h1>Foo</h1>\n");
     try expectMarkdownHTML(.{}, "*\t*\t*\t\n", "<hr />\n");
 }
+
 test "escapes" {
     try expectMarkdownHTML(.{}, "\\## foo\n", "<p>## foo</p>\n");
 }
+
 test "setext heading override pointy" {
     try expectMarkdownHTML(.{}, "<a title=\"a lot\n---\nof dashes\"/>\n", "<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n");
 }
+
 test "fenced code blocks" {
     try expectMarkdownHTML(.{}, "```\n<\n >\n```\n", "<pre><code>&lt;\n &gt;\n</code></pre>\n");
     try expectMarkdownHTML(.{}, "````\naaa\n```\n``````\n", "<pre><code>aaa\n```\n</code></pre>\n");
 }
+
 test "html blocks" {
     try expectMarkdownHTML(.{ .render = .{ .unsafe = true } },
         \\_world_.
@@ -1097,14 +1106,17 @@ test "html blocks" {
         \\
     );
 }
+
 test "links" {
     try expectMarkdownHTML(.{}, "[foo](/url)\n", "<p><a href=\"/url\">foo</a></p>\n");
     try expectMarkdownHTML(.{}, "[foo](/url \"title\")\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
 }
+
 test "link reference definitions" {
     try expectMarkdownHTML(.{}, "[foo]: /url \"title\"\n\n[foo]\n", "<p><a href=\"/url\" title=\"title\">foo</a></p>\n");
     try expectMarkdownHTML(.{}, "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n", "<p><a href=\"/url%5Cbar*baz\" title=\"foo&quot;bar\\baz\">foo</a></p>\n");
 }
+
 test "tables" {
     try expectMarkdownHTML(.{ .extensions = .{ .table = true } },
         \\| foo | bar |
@@ -1129,17 +1141,21 @@ test "tables" {
         \\
     );
 }
+
 test "strikethroughs" {
     try expectMarkdownHTML(.{ .extensions = .{ .strikethrough = true } }, "Hello ~world~ there.\n", "<p>Hello <del>world</del> there.</p>\n");
 }
+
 test "images" {
     try expectMarkdownHTML(.{}, "[![moon](moon.jpg)](/uri)\n", "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\" /></a></p>\n");
 }
+
 test "autolink" {
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "www.commonmark.org\n", "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n");
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "http://commonmark.org\n", "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n");
     try expectMarkdownHTML(.{ .extensions = .{ .autolink = true } }, "foo@bar.baz\n", "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n");
 }
+
 test "header anchors" {
     try expectMarkdownHTML(.{ .render = .{ .header_anchors = true } },
         \\# Hi.
