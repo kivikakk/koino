@@ -5,54 +5,54 @@
         "systems": "systems"
       },
       "locked": {
+        "type": "github",
         "lastModified": 1731533236,
         "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b"
       },
       "original": {
+        "type": "github",
         "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
+        "repo": "flake-utils"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1751741127,
-        "narHash": "sha256-t75Shs76NgxjZSgvvZZ9qOmz5zuBE8buUaYD28BMTxg=",
+        "type": "github",
+        "lastModified": 1757810152,
+        "narHash": "sha256-Vp9K5ol6h0J90jG7Rm4RWZsCB3x7v5VPx588TQ1dkfs=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "29e290002bfff26af1db6f64d070698019460302",
-        "type": "github"
+        "rev": "9a094440e02a699be5c57453a092a8baf569bdad"
       },
       "original": {
+        "type": "github",
         "owner": "NixOS",
-        "ref": "nixos-25.05",
         "repo": "nixpkgs",
-        "type": "github"
+        "ref": "nixos-25.05"
       }
     },
     "root": {
       "inputs": {
-        "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "flake-utils": "flake-utils"
       }
     },
     "systems": {
       "locked": {
+        "type": "github",
         "lastModified": 1681028828,
         "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
         "owner": "nix-systems",
         "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
-        "type": "github"
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e"
       },
       "original": {
+        "type": "github",
         "owner": "nix-systems",
-        "repo": "default",
-        "type": "github"
+        "repo": "default"
       }
     }
   },
