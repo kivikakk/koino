@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.array_list.Managed;
 const Parser = @import("parser.zig").Parser;
 const nodes = @import("nodes.zig");
 const scanners = @import("scanners.zig");
@@ -19,7 +20,7 @@ pub fn freeNested(allocator: std.mem.Allocator, v: [][]u8) void {
 
 fn row(allocator: std.mem.Allocator, line: []const u8) !?[][]u8 {
     const len = line.len;
-    var v = std.ArrayList([]u8).init(allocator);
+    var v = ArrayList([]u8).init(allocator);
     errdefer freeNested(allocator, v.toOwnedSlice() catch unreachable);
     var offset: usize = 0;
 
@@ -103,7 +104,7 @@ fn tryOpeningHeader(parser: *Parser, container: *nodes.AstNode, line: []const u8
     const table = try nodes.AstNode.create(parser.allocator, .{
         .value = .{ .Table = alignments },
         .start_line = parser.line_number,
-        .content = std.ArrayList(u8).init(parser.allocator),
+        .content = ArrayList(u8).init(parser.allocator),
     });
     container.append(table);
 
@@ -145,8 +146,8 @@ fn tryOpeningRow(parser: *Parser, container: *nodes.AstNode, aligns: []nodes.Tab
     return new_row;
 }
 
-fn unescapePipes(allocator: std.mem.Allocator, string: []const u8) !std.ArrayList(u8) {
-    var v = try std.ArrayList(u8).initCapacity(allocator, string.len);
+fn unescapePipes(allocator: std.mem.Allocator, string: []const u8) !ArrayList(u8) {
+    var v = try ArrayList(u8).initCapacity(allocator, string.len);
 
     for (string, 0..) |c, i| {
         if (c == '\\' and i + 1 < string.len and string[i + 1] == '|') {

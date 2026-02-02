@@ -1,5 +1,6 @@
 const std = @import("std");
 const ascii = std.ascii;
+const ArrayList = std.array_list.Managed;
 const assert = std.debug.assert;
 
 const Options = @import("options.zig").Options;
@@ -120,7 +121,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
                 phase: Phase,
             };
 
-            var stack = std.ArrayList(StackEntry).init(self.allocator);
+            var stack = ArrayList(StackEntry).init(self.allocator);
             defer stack.deinit();
 
             try stack.append(.{ .node = input_node, .plain = plain, .phase = .Pre });
@@ -418,12 +419,12 @@ pub fn HtmlFormatter(comptime Writer: type) type {
         }
 
         fn collectText(self: *Self, node: *nodes.AstNode) ![]u8 {
-            var out = std.ArrayList(u8).init(self.allocator);
+            var out = ArrayList(u8).init(self.allocator);
             try collectTextInto(&out, node);
             return out.toOwnedSlice();
         }
 
-        fn collectTextInto(out: *std.ArrayList(u8), node: *nodes.AstNode) std.mem.Allocator.Error!void {
+        fn collectTextInto(out: *ArrayList(u8), node: *nodes.AstNode) std.mem.Allocator.Error!void {
             switch (node.data.value) {
                 .Text, .Code => |literal| {
                     try out.appendSlice(literal);
@@ -541,7 +542,7 @@ pub fn HtmlFormatter(comptime Writer: type) type {
 }
 
 test "escaping works as expected" {
-    var buffer = std.ArrayList(u8).init(std.testing.allocator);
+    var buffer = ArrayList(u8).init(std.testing.allocator);
     defer buffer.deinit();
 
     var formatter = makeHtmlFormatter(buffer.writer(), std.testing.allocator, .{});

@@ -5,20 +5,20 @@
     .fingerprint = 0x2af09c5b5aeed24b,
     .dependencies = .{
         .zunicode = .{
-            .url = "git+https://nossa.ee/~talya/zunicode#d5527c35892a1e448f65afd127f055251cd26b51",
-            .hash = "zunicode-0.1.0-AAAAAAn0BQAjplm0OqOuLlE2kcI8p65nBybLoZwsjBrH",
+            .url = "git+https://github.com/mishieck/zunicode.git?ref=chore-use-zig-0.15.1#6989a8d367b87563cf83ab15ca5a4d277ec839b3",
+            .hash = "zunicode-0.1.0-Ftska3z0BQAecb-Fpt9JXeZJpTOX4ZPOLkTWS5DoUVsP",
         },
         .clap = .{
-            .url = "git+https://github.com/Hejsil/zig-clap#a4e784da8399c51d5eeb5783e6a485b960d5c1f9",
-            .hash = "clap-0.10.0-oBajB8fkAQB0JvsrWLar4YZrseSZ9irFxHB7Hvy_bvxb",
+            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.11.0.tar.gz",
+            .hash = "clap-0.11.0-oBajB-HnAQDPCKYzwF7rO3qDFwRcD39Q0DALlTSz5H7e",
         },
         .libpcre_zig = .{
-            .url = "git+https://nossa.ee/~talya/libpcre.zig#04224f0bed09888d043c6fe4352458dbd907c815",
-            .hash = "libpcre_zig-0.1.0-Dtf6CQg4AACWtDDhtI-rjGGLKdBowMQiQrK1O5sx5icv",
+            .url = "git+https://github.com/mishieck/libpcre.zig.git?ref=chore-use-zig-0.15.1#be33eefb5e047fde5cb1ac1d0dc8ae4c299b0ef5",
+            .hash = "libpcre_zig-0.1.0-Dtf6CV04AAATNyE45BulxcCWWI_QpoOK6Ofy02ck7Doq",
         },
         .htmlentities_zig = .{
-            .url = "git+https://nossa.ee/~talya/htmlentities.zig#1a49942505db7bd06770006f66b907bb3a088b9f",
-            .hash = "htmlentities_zig-0.1.0-zV-DJCAfAwDQMPxoEXaBrDxijlyvCK7HXhz9MIgGYj5l",
+            .url = "git+https://github.com/mishieck/htmlentities.zig.git?ref=chore-use-zig-0.15.1#f454c877103a992e1d9d01038dbff88ad8037efd",
+            .hash = "htmlentities_zig-0.1.0-zV-DJDYiAwAv5XJgsNlBPl79pWgiOkJ4-8OUgV95Ksb2",
         },
     },
 

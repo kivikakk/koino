@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.array_list.Managed;
 const testing = std.testing;
 const Regex = @import("libpcre").Regex;
 
@@ -412,7 +413,7 @@ test "tableRowEnd" {
 pub fn removeAnchorizeRejectedChars(allocator: std.mem.Allocator, src: []const u8) Error![]u8 {
     const re = try acquire(@src().fn_name, "[^\\p{L}\\p{M}\\p{N}\\p{Pc} -]");
 
-    var output = std.ArrayList(u8).init(allocator);
+    var output = ArrayList(u8).init(allocator);
     errdefer output.deinit();
 
     var org: usize = 0;

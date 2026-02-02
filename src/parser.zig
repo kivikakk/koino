@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const ascii = std.ascii;
+const ArrayList = std.array_list.Managed;
 
 const main = @import("main.zig");
 const strings = @import("strings.zig");
@@ -22,7 +23,7 @@ pub const Reference = struct {
 pub const Parser = struct {
     allocator: std.mem.Allocator,
     refmap: std.StringHashMap(Reference),
-    hack_refmapKeys: std.ArrayList([]u8),
+    hack_refmapKeys: ArrayList([]u8),
     root: *nodes.AstNode,
     current: *nodes.AstNode,
     options: Options,
@@ -43,13 +44,13 @@ pub const Parser = struct {
     pub fn init(allocator: std.mem.Allocator, options: Options) !Parser {
         const root = try nodes.AstNode.create(allocator, .{
             .value = .Document,
-            .content = std.ArrayList(u8).init(allocator),
+            .content = ArrayList(u8).init(allocator),
         });
 
         var parser = Parser{
             .allocator = allocator,
             .refmap = std.StringHashMap(Reference).init(allocator),
-            .hack_refmapKeys = std.ArrayList([]u8).init(allocator),
+            .hack_refmapKeys = ArrayList([]u8).init(allocator),
             .root = root,
             .current = root,
             .options = options,
@@ -73,7 +74,7 @@ pub const Parser = struct {
     pub fn feed(self: *Parser, s: []const u8) !void {
         var i: usize = 0;
         const sz = s.len;
-        var linebuf = std.ArrayList(u8).init(self.allocator);
+        var linebuf = ArrayList(u8).init(self.allocator);
         defer linebuf.deinit();
 
         while (i < sz) {
@@ -315,7 +316,7 @@ pub const Parser = struct {
                     .fence_length = matched,
                     .fence_offset = first_nonspace - offset,
                     .info = null,
-                    .literal = std.ArrayList(u8).init(self.allocator),
+                    .literal = ArrayList(u8).init(self.allocator),
                 };
                 container = try self.addChild(container, .{ .CodeBlock = ncb });
                 self.advanceOffset(line, first_nonspace + matched - offset, false);
@@ -325,7 +326,7 @@ pub const Parser = struct {
             })) {
                 const nhb = nodes.NodeHtmlBlock{
                     .block_type = @truncate(matched),
-                    .literal = std.ArrayList(u8).init(self.allocator),
+                    .literal = ArrayList(u8).init(self.allocator),
                 };
                 container = try self.addChild(container, .{ .HtmlBlock = nhb });
             } else if (!indented and switch (container.data.value) {
@@ -402,7 +403,7 @@ pub const Parser = struct {
                         .fence_length = 0,
                         .fence_offset = 0,
                         .info = null,
-                        .literal = std.ArrayList(u8).init(self.allocator),
+                        .literal = ArrayList(u8).init(self.allocator),
                     },
                 });
             } else {
@@ -444,7 +445,7 @@ pub const Parser = struct {
         const node = try nodes.AstNode.create(self.allocator, .{
             .value = value,
             .start_line = self.line_number,
-            .content = std.ArrayList(u8).init(self.allocator),
+            .content = ArrayList(u8).init(self.allocator),
         });
         parent.append(node);
         return node;
@@ -589,10 +590,10 @@ pub const Parser = struct {
 
                     try node.data.content.replaceRange(0, pos, "");
                 }
-                std.mem.swap(std.ArrayList(u8), &ncb.literal, &node.data.content);
+                std.mem.swap(ArrayList(u8), &ncb.literal, &node.data.content);
             },
             .HtmlBlock => |*nhb| {
-                std.mem.swap(std.ArrayList(u8), &nhb.literal, &node.data.content);
+                std.mem.swap(ArrayList(u8), &nhb.literal, &node.data.content);
             },
             .List => |*nl| {
                 nl.tight = true;
@@ -627,9 +628,9 @@ pub const Parser = struct {
     }
 
     fn postprocessTextNodes(self: *Parser) !void {
-        var stack = try std.ArrayList(*nodes.AstNode).initCapacity(self.allocator, 1);
+        var stack = try ArrayList(*nodes.AstNode).initCapacity(self.allocator, 1);
         defer stack.deinit();
-        var children = std.ArrayList(*nodes.AstNode).init(self.allocator);
+        var children = ArrayList(*nodes.AstNode).init(self.allocator);
         defer children.deinit();
 
         try stack.append(self.root);
@@ -686,7 +687,7 @@ pub const Parser = struct {
         }
     }
 
-    fn resolveReferenceLinkDefinitions(self: *Parser, content: *std.ArrayList(u8)) !bool {
+    fn resolveReferenceLinkDefinitions(self: *Parser, content: *ArrayList(u8)) !bool {
         var seeked: usize = 0;
         var pos: usize = undefined;
         var seek = content.items;

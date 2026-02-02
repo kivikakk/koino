@@ -25,9 +25,16 @@ pub fn build(b: *std.Build) !void {
 
     const exe = b.addExecutable(.{
         .name = "koino",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+
+            .target = target,
+            .optimize = optimize,
+
+            .imports = &.{
+                .{ .name = "test_koino", .module = mod },
+            },
+        }),
     });
     try addCommonRequirements(exe.root_module, &deps);
     b.installArtifact(exe);
@@ -41,10 +48,39 @@ pub fn build(b: *std.Build) !void {
         run_cmd.addArgs(args);
     }
 
+    const example = b.addExecutable(.{
+        .name = "koino_example",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/example.zig"),
+
+            .target = target,
+            .optimize = optimize,
+
+            .imports = &.{
+                .{ .name = "test_koino", .module = mod },
+            },
+        }),
+    });
+
+    try addCommonRequirements(example.root_module, &deps);
+    b.installArtifact(example);
+
+    const example_run_cmd = b.addRunArtifact(example);
+    example_run_cmd.step.dependOn(b.getInstallStep());
+    const example_run_step = b.step("example", "Run example");
+    example_run_step.dependOn(&example_run_cmd.step);
+
     const test_exe = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+
+            .target = target,
+            .optimize = optimize,
+
+            .imports = &.{
+                .{ .name = "test_koino", .module = mod },
+            },
+        }),
     });
     try addCommonRequirements(test_exe.root_module, &deps);
 

@@ -1,12 +1,13 @@
 const std = @import("std");
 const mem = std.mem;
+const ArrayList = std.array_list.Managed;
 const ast = @import("ast.zig");
 
 pub const Node = struct {
     value: NodeValue,
     start_line: u32 = 0,
 
-    content: std.ArrayList(u8),
+    content: ArrayList(u8),
     open: bool = true,
     last_line_blank: bool = false,
 
@@ -168,7 +169,7 @@ pub const NodeList = struct {
 
 pub const NodeHtmlBlock = struct {
     block_type: u8,
-    literal: std.ArrayList(u8),
+    literal: ArrayList(u8),
 };
 
 pub const NodeCodeBlock = struct {
@@ -177,7 +178,7 @@ pub const NodeCodeBlock = struct {
     fence_length: usize,
     fence_offset: usize,
     info: ?[]u8,
-    literal: std.ArrayList(u8),
+    literal: ArrayList(u8),
 };
 
 pub const NodeHeading = struct {

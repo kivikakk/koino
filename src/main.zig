@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const ArrayList = std.array_list.Managed;
 const assert = std.debug.assert;
 
 const clap = @import("clap");
@@ -9,6 +10,7 @@ const Parser = koino.parser.Parser;
 const Options = koino.Options;
 const nodes = koino.nodes;
 const html = koino.html;
+const MAX_BUFFER_SIZE = 64 * 1024;
 
 pub fn main() !void {
     // In debug, use the GeneralPurposeAllocator as the Parser internal allocator
@@ -40,18 +42,21 @@ pub fn main() !void {
     var parser = try Parser.init(allocator, options);
 
     if (args.positionals[0]) |pos| {
-        const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, 1024 * 1024 * 1024);
+        const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, MAX_BUFFER_SIZE);
         defer allocator.free(markdown);
         try parser.feed(markdown);
     } else {
-        const markdown = try std.io.getStdIn().reader().readAllAlloc(allocator, 1024 * 1024 * 1024);
+        var stdin_buf: [MAX_BUFFER_SIZE]u8 = undefined;
+        var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);
+        const max_bytes = MAX_BUFFER_SIZE;
+        const markdown = try stdin_reader.interface.readAlloc(allocator, max_bytes);
         defer allocator.free(markdown);
         try parser.feed(markdown);
     }
 
     var doc = try parser.finish();
     const output = blk: {
-        var arr = std.ArrayList(u8).init(allocator);
+        var arr = ArrayList(u8).init(allocator);
         errdefer arr.deinit();
         try html.print(arr.writer(), allocator, options, doc);
         break :blk try arr.toOwnedSlice();
@@ -64,7 +69,10 @@ pub fn main() !void {
         doc.deinit();
     }
 
-    try std.io.getStdOut().writer().writeAll(output);
+    var buf: [MAX_BUFFER_SIZE]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&buf);
+    try stdout_writer.interface.writeAll(output);
+    try stdout_writer.interface.flush();
 }
 
 const params = clap.parseParamsComptime("-h, --help                 Display this help and exit\n" ++
@@ -77,15 +85,16 @@ const params = clap.parseParamsComptime("-h, --help                 Display this
 const ClapResult = clap.Result(clap.Help, &params, clap.parsers.default);
 
 fn parseArgs(options: *Options, allocator: std.mem.Allocator) !ClapResult {
-    var stderr = std.io.getStdErr().writer();
+    var stderr_buf: [1024]u8 = undefined;
+    var stderr = std.fs.File.stderr().writer(&stderr_buf);
 
     const res = try clap.parse(clap.Help, &params, clap.parsers.default, .{ .allocator = allocator });
 
     if (res.args.help != 0) {
-        try stderr.writeAll("Usage: koino ");
-        try clap.usage(stderr, clap.Help, &params);
-        try stderr.writeAll("\n\nOptions:\n");
-        try clap.help(stderr, clap.Help, &params, .{});
+        try stderr.interface.writeAll("Usage: koino ");
+        try clap.usage(&stderr.interface, clap.Help, &params);
+        try stderr.interface.writeAll("\n\nOptions:\n");
+        try clap.help(&stderr.interface, clap.Help, &params, .{});
         std.process.exit(0);
     }
 
@@ -132,7 +141,7 @@ fn enableExtension(extension: []const u8, options: *Options) !void {
             return;
         }
     }
-    try std.fmt.format(std.io.getStdErr().writer(), "unknown extension: {s}\n", .{extension});
+    std.log.err("unknown extension: {s}\n", .{extension});
     std.process.exit(1);
 }
 
@@ -145,7 +154,7 @@ pub fn testMarkdownToHtml(options: Options, markdown: []const u8) ![]u8 {
     var doc = try koino.parse(gpa.allocator(), markdown, options);
     defer doc.deinit();
 
-    var result = std.ArrayList(u8).init(std.testing.allocator);
+    var result = ArrayList(u8).init(std.testing.allocator);
     errdefer result.deinit();
     try html.print(result.writer(), gpa.allocator(), options, doc);
     return result.toOwnedSlice();
