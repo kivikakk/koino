@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -16,7 +16,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        formatter.default = pkgs.nixfmt-rfc-style;
+        formatter.default = pkgs.nixfmt;
 
         packages.default = pkgs.stdenv.mkDerivation {
           name = "koino-build";

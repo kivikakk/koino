@@ -21,23 +21,23 @@
     "nixpkgs": {
       "locked": {
         "type": "github",
-        "lastModified": 1757810152,
-        "narHash": "sha256-Vp9K5ol6h0J90jG7Rm4RWZsCB3x7v5VPx588TQ1dkfs=",
+        "lastModified": 1768323494,
+        "narHash": "sha256-yBXJLE6WCtrGo7LKiB6NOt6nisBEEkguC/lq/rP3zRQ=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "9a094440e02a699be5c57453a092a8baf569bdad"
+        "rev": "2c3e5ec5df46d3aeee2a1da0bfedd74e21f4bf3a"
       },
       "original": {
         "type": "github",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "ref": "nixos-25.05"
+        "ref": "nixos-25.11"
       }
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs",
-        "flake-utils": "flake-utils"
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs"
       }
     },
     "systems": {
