@@ -47,9 +47,12 @@ pub fn main() !void {
         try parser.feed(markdown);
     } else {
         var stdin_buf: [MAX_BUFFER_SIZE]u8 = undefined;
-        var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);
-        const max_bytes = MAX_BUFFER_SIZE;
-        const markdown = try stdin_reader.interface.readAlloc(allocator, max_bytes);
+        var stdin_reader = std.fs.File.stdin().readerStreaming(&stdin_buf);
+        var alloc_writer = std.Io.Writer.Allocating.init(allocator);
+        errdefer alloc_writer.deinit();
+
+        _ = try stdin_reader.interface.streamRemaining(&alloc_writer.writer);
+        const markdown = alloc_writer.written();
         defer allocator.free(markdown);
         try parser.feed(markdown);
     }
