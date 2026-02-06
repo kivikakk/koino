@@ -1,7 +1,7 @@
 .{
     .name = .koino,
     .version = "0.1.0",
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.1",
     .fingerprint = 0x2af09c5b5aeed24b,
     .dependencies = .{
         .zunicode = .{
@@ -27,6 +27,7 @@
         "Makefile",
         "build.zig.zon",
         "src",
+        "examples",
         "LICENSE",
         "README.md",
     },
