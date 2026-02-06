@@ -51,7 +51,7 @@ pub fn build(b: *std.Build) !void {
     const example = b.addExecutable(.{
         .name = "koino_example",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("examples/example.zig"),
+            .root_source_file = b.path("examples/to-html.zig"),
 
             .target = target,
             .optimize = optimize,
