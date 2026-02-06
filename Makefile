@@ -15,7 +15,7 @@ fetch-htmlentities:
 	zig fetch --save git+https://nossa.ee/~talya/htmlentities.zig
 
 fetch-libpcre:
-	zig fetch --save git+https://nossa.ee/~talya/libpcre.zig
+	zig fetch --save git+https://github.com/kivikakk/libpcre.zig
 
 fetch-zunicode:
 	zig fetch --save git+https://github.com/mishieck/zunicode
