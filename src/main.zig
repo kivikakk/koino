@@ -10,7 +10,9 @@ const Parser = koino.parser.Parser;
 const Options = koino.Options;
 const nodes = koino.nodes;
 const html = koino.html;
+
 const MAX_BUFFER_SIZE = 64 * 1024;
+const MAX_CONTENT_SIZE = 1024 * 1024 * 1024;
 
 pub fn main() !void {
     // In debug, use the GeneralPurposeAllocator as the Parser internal allocator
@@ -42,19 +44,21 @@ pub fn main() !void {
     var parser = try Parser.init(allocator, options);
 
     if (args.positionals[0]) |pos| {
-        const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, MAX_BUFFER_SIZE);
+        const markdown = try std.fs.cwd().readFileAlloc(allocator, pos, MAX_CONTENT_SIZE);
         defer allocator.free(markdown);
         try parser.feed(markdown);
     } else {
         var stdin_buf: [MAX_BUFFER_SIZE]u8 = undefined;
         var stdin_reader = std.fs.File.stdin().readerStreaming(&stdin_buf);
+
         var alloc_writer = std.Io.Writer.Allocating.init(allocator);
         errdefer alloc_writer.deinit();
 
         _ = try stdin_reader.interface.streamRemaining(&alloc_writer.writer);
         const markdown = alloc_writer.written();
-        defer allocator.free(markdown);
         try parser.feed(markdown);
+
+        alloc_writer.deinit();
     }
 
     var doc = try parser.finish();
@@ -88,7 +92,7 @@ const params = clap.parseParamsComptime("-h, --help                 Display this
 const ClapResult = clap.Result(clap.Help, &params, clap.parsers.default);
 
 fn parseArgs(options: *Options, allocator: std.mem.Allocator) !ClapResult {
-    var stderr_buf: [1024]u8 = undefined;
+    var stderr_buf: [MAX_BUFFER_SIZE]u8 = undefined;
     var stderr = std.fs.File.stderr().writer(&stderr_buf);
 
     const res = try clap.parse(clap.Help, &params, clap.parsers.default, .{ .allocator = allocator });
@@ -98,6 +102,7 @@ fn parseArgs(options: *Options, allocator: std.mem.Allocator) !ClapResult {
         try clap.usage(&stderr.interface, clap.Help, &params);
         try stderr.interface.writeAll("\n\nOptions:\n");
         try clap.help(&stderr.interface, clap.Help, &params, .{});
+        try stderr.interface.flush();
         std.process.exit(0);
     }
 

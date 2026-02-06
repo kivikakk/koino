@@ -4,6 +4,11 @@ all:
 test:
 	zig build test
 
+exe:
+	echo hello | zig build run
+	zig build run --help
+	zig build run -- --help
+
 spec:
 	zig build
 	cd vendor/cmark-gfm/test && python3 spec_tests.py --program=../../../zig-out/bin/koino
