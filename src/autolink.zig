@@ -1,5 +1,6 @@
 const std = @import("std");
 const ascii = std.ascii;
+const ArrayList = std.array_list.Managed;
 const assert = std.debug.assert;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
@@ -77,7 +78,7 @@ pub const AutolinkProcessor = struct {
 
         link_end = autolinkDelim(self.text.*[i..], link_end);
 
-        var url = try std.ArrayList(u8).initCapacity(self.allocator, 7 + link_end);
+        var url = try ArrayList(u8).initCapacity(self.allocator, 7 + link_end);
         try url.appendSlice("http://");
         try url.appendSlice(self.text.*[i .. link_end + i]);
 
@@ -193,7 +194,7 @@ pub const AutolinkProcessor = struct {
 
         link_end = autolinkDelim(self.text.*[i..], link_end);
 
-        var url = try std.ArrayList(u8).initCapacity(self.allocator, 7 + link_end - rewind);
+        var url = try ArrayList(u8).initCapacity(self.allocator, 7 + link_end - rewind);
         try url.appendSlice("mailto:");
         try url.appendSlice(self.text.*[i - rewind .. link_end + i]);
 
@@ -303,7 +304,7 @@ pub const AutolinkProcessor = struct {
     fn makeInline(self: AutolinkProcessor, value: nodes.NodeValue) !*nodes.AstNode {
         return nodes.AstNode.create(self.allocator, .{
             .value = value,
-            .content = std.ArrayList(u8).init(self.allocator),
+            .content = ArrayList(u8).init(self.allocator),
         });
     }
 };

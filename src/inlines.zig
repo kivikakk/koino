@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const ascii = std.ascii;
+const ArrayList = std.array_list.Managed;
 const assert = std.debug.assert;
 const zunicode = @import("zunicode");
 
@@ -22,7 +23,7 @@ pub const Subject = struct {
     input: []const u8,
     pos: usize = 0,
     last_delimiter: ?*Delimiter = null,
-    brackets: std.ArrayList(Bracket),
+    brackets: ArrayList(Bracket),
     backticks: [MAX_BACKTICKS + 1]usize = [_]usize{0} ** (MAX_BACKTICKS + 1),
     scanned_for_backticks: bool = false,
     special_chars: *const [256]bool,
@@ -34,7 +35,7 @@ pub const Subject = struct {
             .refmap = refmap,
             .options = options,
             .input = input,
-            .brackets = std.ArrayList(Bracket).init(allocator),
+            .brackets = ArrayList(Bracket).init(allocator),
             .special_chars = special_chars,
             .skip_chars = skip_chars,
         };
@@ -121,7 +122,7 @@ pub const Subject = struct {
     fn makeInline(self: *Subject, value: nodes.NodeValue) !*nodes.AstNode {
         return nodes.AstNode.create(self.allocator, .{
             .value = value,
-            .content = std.ArrayList(u8).init(self.allocator),
+            .content = ArrayList(u8).init(self.allocator),
         });
     }
 
@@ -363,7 +364,7 @@ pub const Subject = struct {
     fn handleEntity(self: *Subject) !*nodes.AstNode {
         self.pos += 1;
 
-        var out = std.ArrayList(u8).init(self.allocator);
+        var out = ArrayList(u8).init(self.allocator);
         if (try strings.unescapeInto(self.input[self.pos..], &out)) |len| {
             self.pos += len;
             return try self.makeInline(.{ .Text = try out.toOwnedSlice() });
@@ -440,7 +441,7 @@ pub const Subject = struct {
         else
             [2]usize{ 2, (num_hyphens - 4) / 3 };
 
-        var text = std.ArrayList(u8).init(self.allocator);
+        var text = ArrayList(u8).init(self.allocator);
 
         while (ens_ems[1] > 0) : (ens_ems[1] -= 1)
             try text.appendSlice("—");

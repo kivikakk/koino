@@ -5,38 +5,26 @@ on:
   pull_request:
 
 jobs:
-  test-linux:
-    runs-on: ubuntu-latest
+  tests:
+    strategy:
+      matrix:
+        zig-version: ["0.15.1"]
+        runs-on: ["ubuntu-latest", "macos-latest", "windows-latest"]
+    runs-on: ${{ matrix.runs-on }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: actions/checkout@v6
+      - uses: mlugg/setup-zig@v2
         with:
-          version: 0.14.0
-      - run: zig build
-      - run: zig build test
-  test-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@2a9625d550eefc3a9b1a43d342ad655f563f8241
-        with:
-          version: 0.14.0
-      - run: zig build
-      - run: zig build test
-  test-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.14.0
+          version: ${{ matrix.zig-version }}
       - run: zig build
       - run: zig build test
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: actions/checkout@v6
         with:
-          version: 0.14.0
-      - run: zig fmt --check src/*.zig
+          submodules: recursive
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.1
+      - run: zig fmt --check build.zig src/*.zig

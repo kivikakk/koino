@@ -2,6 +2,7 @@ const std = @import("std");
 const mem = std.mem;
 const testing = std.testing;
 const ascii = std.ascii;
+const ArrayList = std.array_list.Managed;
 
 const nodes = @import("nodes.zig");
 const htmlentities = @import("htmlentities");
@@ -75,7 +76,7 @@ test "trim" {
     try testing.expectEqualStrings("abc \n zz", trim("  \nabc \n zz \n"));
 }
 
-pub fn trimIt(al: *std.ArrayList(u8)) void {
+pub fn trimIt(al: *ArrayList(u8)) void {
     const trimmed = trim(al.items);
     if (al.items.ptr == trimmed.ptr and al.items.len == trimmed.len) return;
     if (&al.items != &trimmed) {
@@ -85,7 +86,7 @@ pub fn trimIt(al: *std.ArrayList(u8)) void {
 }
 
 test "trimIt" {
-    var buf = std.ArrayList(u8).init(std.testing.allocator);
+    var buf = ArrayList(u8).init(std.testing.allocator);
     defer buf.deinit();
 
     try buf.appendSlice("abc");
@@ -132,7 +133,7 @@ test "chopTrailingHashtags" {
 }
 
 pub fn normalizeCode(allocator: mem.Allocator, s: []const u8) mem.Allocator.Error![]u8 {
-    var code = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    var code = try ArrayList(u8).initCapacity(allocator, s.len);
     errdefer code.deinit();
 
     var i: usize = 0;
@@ -186,7 +187,7 @@ test "normalizeCode" {
     });
 }
 
-pub fn removeTrailingBlankLines(line: *std.ArrayList(u8)) void {
+pub fn removeTrailingBlankLines(line: *ArrayList(u8)) void {
     var i = line.items.len - 1;
     while (true) : (i -= 1) {
         const c = line.items[i];
@@ -215,7 +216,7 @@ test "removeTrailingBlankLines" {
         .{ .in = "yep  ", .out = "yep  " },
     };
 
-    var line = std.ArrayList(u8).init(std.testing.allocator);
+    var line = ArrayList(u8).init(std.testing.allocator);
     defer line.deinit();
     for (cases) |case| {
         line.items.len = 0;
@@ -232,7 +233,7 @@ pub fn isPunct(char: u8) bool {
     };
 }
 
-fn encodeUtf8Into(in_cp: u21, al: *std.ArrayList(u8)) !void {
+fn encodeUtf8Into(in_cp: u21, al: *ArrayList(u8)) !void {
     // utf8Encode throws:
     // - Utf8CannotEncodeSurrogateHalf, which we guard against that by
     //   rewriting 0xd800..0xe0000 to 0xfffd.
@@ -250,7 +251,7 @@ fn encodeUtf8Into(in_cp: u21, al: *std.ArrayList(u8)) !void {
 const ENTITY_MIN_LENGTH: u8 = 2;
 const ENTITY_MAX_LENGTH: u8 = 32;
 
-pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
+pub fn unescapeInto(text: []const u8, out: *ArrayList(u8)) !?usize {
     if (text.len >= 3 and text[0] == '#') {
         var codepoint: u32 = 0;
         var i: usize = 0;
@@ -301,7 +302,7 @@ pub fn unescapeInto(text: []const u8, out: *std.ArrayList(u8)) !?usize {
     return null;
 }
 
-fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
+fn unescapeHtmlInto(html: []const u8, out: *ArrayList(u8)) !void {
     const size = html.len;
     var i: usize = 0;
 
@@ -333,7 +334,7 @@ fn unescapeHtmlInto(html: []const u8, out: *std.ArrayList(u8)) !void {
 }
 
 pub fn unescapeHtml(allocator: mem.Allocator, html: []const u8) ![]u8 {
-    var al = std.ArrayList(u8).init(allocator);
+    var al = ArrayList(u8).init(allocator);
     errdefer al.deinit();
     try unescapeHtmlInto(html, &al);
     return al.toOwnedSlice();
@@ -358,7 +359,7 @@ pub fn cleanAutolink(allocator: mem.Allocator, url: []const u8, kind: nodes.Auto
     if (trimmed.len == 0)
         return &[_]u8{};
 
-    var buf = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
+    var buf = try ArrayList(u8).initCapacity(allocator, trimmed.len);
     errdefer buf.deinit();
     if (kind == .Email)
         try buf.appendSlice("mailto:");
@@ -378,7 +379,7 @@ test "cleanAutolink" {
 }
 
 fn unescape(allocator: mem.Allocator, s: []const u8) ![]u8 {
-    var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    var buffer = try ArrayList(u8).initCapacity(allocator, s.len);
     errdefer buffer.deinit();
     var r: usize = 0;
 
@@ -432,7 +433,7 @@ test "cleanTitle" {
 
 pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
     const trimmed = trim(s);
-    var buffer = try std.ArrayList(u8).initCapacity(allocator, trimmed.len);
+    var buffer = try ArrayList(u8).initCapacity(allocator, trimmed.len);
     errdefer buffer.deinit();
     var last_was_whitespace = false;
 
@@ -463,7 +464,7 @@ test "normalizeLabel" {
 }
 
 pub fn toLower(allocator: mem.Allocator, s: []const u8) ![]u8 {
-    var buffer = try std.ArrayList(u8).initCapacity(allocator, s.len);
+    var buffer = try ArrayList(u8).initCapacity(allocator, s.len);
     errdefer buffer.deinit();
     var view = try std.unicode.Utf8View.init(s);
     var it = view.iterator();
