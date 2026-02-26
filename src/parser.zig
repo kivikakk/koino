@@ -20,9 +20,27 @@ pub const Reference = struct {
     title: []u8,
 };
 
+pub const RefMap = struct {
+    map: std.StringHashMap(Reference),
+    max_ref_size: usize = std.math.maxInt(usize),
+    ref_size: usize = 0,
+
+    pub fn init(allocator: std.mem.Allocator) RefMap {
+        return .{ .map = std.StringHashMap(Reference).init(allocator) };
+    }
+
+    pub fn lookup(self: *RefMap, key: []const u8) ?Reference {
+        const ref = self.map.get(key) orelse return null;
+        const size = ref.url.len + ref.title.len;
+        if (size > self.max_ref_size - self.ref_size) return null;
+        self.ref_size += size;
+        return ref;
+    }
+};
+
 pub const Parser = struct {
     allocator: std.mem.Allocator,
-    refmap: std.StringHashMap(Reference),
+    refmap: RefMap,
     hack_refmapKeys: ArrayList([]u8),
     root: *nodes.AstNode,
     current: *nodes.AstNode,
@@ -37,6 +55,8 @@ pub const Parser = struct {
     blank: bool = false,
     partially_consumed_tab: bool = false,
     last_line_length: usize = 0,
+    total_size: usize = 0,
+    thematic_break_kill_pos: usize = 0,
 
     special_chars: [256]bool = [_]bool{false} ** 256,
     skip_chars: [256]bool = [_]bool{false} ** 256,
@@ -49,7 +69,7 @@ pub const Parser = struct {
 
         var parser = Parser{
             .allocator = allocator,
-            .refmap = std.StringHashMap(Reference).init(allocator),
+            .refmap = RefMap.init(allocator),
             .hack_refmapKeys = ArrayList([]u8).init(allocator),
             .root = root,
             .current = root,
@@ -62,16 +82,17 @@ pub const Parser = struct {
     }
 
     pub fn deinit(self: *Parser) void {
-        var it = self.refmap.iterator();
+        var it = self.refmap.map.iterator();
         while (it.next()) |entry| {
             self.allocator.free(entry.key_ptr.*);
             self.allocator.free(entry.value_ptr.url);
             self.allocator.free(entry.value_ptr.title);
         }
-        self.refmap.deinit();
+        self.refmap.map.deinit();
     }
 
     pub fn feed(self: *Parser, s: []const u8) !void {
+        self.total_size +|= s.len;
         var i: usize = 0;
         const sz = s.len;
         var linebuf = ArrayList(u8).init(self.allocator);
@@ -120,35 +141,46 @@ pub const Parser = struct {
     }
 
     fn findFirstNonspace(self: *Parser, line: []const u8) void {
-        self.first_nonspace = self.offset;
-        self.first_nonspace_column = self.column;
+        if (self.first_nonspace <= self.offset) {
+            self.first_nonspace = self.offset;
+            self.first_nonspace_column = self.column;
 
-        var chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
+            var chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
 
-        while (true) {
-            if (self.first_nonspace >= line.len) {
-                break;
-            }
-            switch (line[self.first_nonspace]) {
-                ' ' => {
-                    self.first_nonspace += 1;
-                    self.first_nonspace_column += 1;
-                    chars_to_tab -= 1;
-                    if (chars_to_tab == 0) {
+            while (true) {
+                if (self.first_nonspace >= line.len) {
+                    break;
+                }
+                switch (line[self.first_nonspace]) {
+                    ' ' => {
+                        self.first_nonspace += 1;
+                        self.first_nonspace_column += 1;
+                        chars_to_tab -= 1;
+                        if (chars_to_tab == 0) {
+                            chars_to_tab = TAB_STOP;
+                        }
+                    },
+                    9 => {
+                        self.first_nonspace += 1;
+                        self.first_nonspace_column += chars_to_tab;
                         chars_to_tab = TAB_STOP;
-                    }
-                },
-                9 => {
-                    self.first_nonspace += 1;
-                    self.first_nonspace_column += chars_to_tab;
-                    chars_to_tab = TAB_STOP;
-                },
-                else => break,
+                    },
+                    else => break,
+                }
             }
         }
 
         self.indent = self.first_nonspace_column - self.column;
         self.blank = self.first_nonspace < line.len and strings.isLineEndChar(line[self.first_nonspace]);
+    }
+
+    fn scanThematicBreak(self: *Parser, line: []const u8, matched: *usize) !bool {
+        if (self.thematic_break_kill_pos > self.first_nonspace) return false;
+        const result = try scanners.unwrap(scanners.thematicBreak(line[self.first_nonspace..]), matched);
+        if (!result) {
+            self.thematic_break_kill_pos = self.first_nonspace + 1;
+        }
+        return result;
     }
 
     fn processLine(self: *Parser, input: []const u8) !void {
@@ -165,7 +197,10 @@ pub const Parser = struct {
 
         self.offset = 0;
         self.column = 0;
+        self.first_nonspace = 0;
+        self.first_nonspace_column = 0;
         self.blank = false;
+        self.thematic_break_kill_pos = 0;
         self.partially_consumed_tab = false;
 
         if (self.line_number == 0 and line.len >= 3 and std.mem.eql(u8, line[0..3], "\u{feff}")) {
@@ -350,7 +385,7 @@ pub const Parser = struct {
             } else if (!indented and !(switch (container.data.value) {
                 .Paragraph => !all_matched,
                 else => false,
-            }) and try scanners.unwrap(scanners.thematicBreak(line[self.first_nonspace..]), &matched)) {
+            }) and try self.scanThematicBreak(line, &matched)) {
                 container = try self.addChild(container, .ThematicBreak);
                 const adv = line.len - 1 - self.offset;
                 self.advanceOffset(line, adv, false);
@@ -553,6 +588,7 @@ pub const Parser = struct {
         }
 
         _ = try self.finalize(self.root);
+        self.refmap.max_ref_size = @max(100_000, self.total_size);
         try self.processInlines();
     }
 
@@ -756,7 +792,7 @@ pub const Parser = struct {
         const normalized = try strings.normalizeLabel(self.allocator, lab);
         if (normalized.len > 0) {
             // refmap takes ownership of `normalized'.
-            const result = try subj.refmap.getOrPut(normalized);
+            const result = try subj.refmap.map.getOrPut(normalized);
             if (!result.found_existing) {
                 result.value_ptr.* = Reference{
                     .url = try strings.cleanUrl(self.allocator, url),
@@ -789,7 +825,7 @@ pub const Parser = struct {
         var subj = inlines.Subject.init(self.allocator, &self.refmap, &self.options, &self.special_chars, &self.skip_chars, content);
         defer subj.deinit();
         while (try subj.parseInline(node)) {}
-        try subj.processEmphasis(null);
+        try subj.processEmphasis(0);
         while (subj.popBracket()) {}
     }
 

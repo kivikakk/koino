@@ -148,7 +148,6 @@ pub const AutolinkProcessor = struct {
         const size = self.text.len;
 
         var rewind: usize = 0;
-        var ns: usize = 0;
         while (rewind < i) {
             const c = self.text.*[i - rewind - 1];
             if (ascii.isAlphanumeric(c) or EMAIL_OK_SET[c]) {
@@ -156,19 +155,14 @@ pub const AutolinkProcessor = struct {
                 continue;
             }
 
-            if (c == '/') {
-                ns += 1;
-            }
-
             break;
         }
 
-        if (rewind == 0 or ns > 0) {
+        if (rewind == 0) {
             return null;
         }
 
-        var link_end: usize = 0;
-        var nb: usize = 0;
+        var link_end: usize = 1;
         var np: usize = 0;
 
         while (link_end < size - i) {
@@ -177,7 +171,7 @@ pub const AutolinkProcessor = struct {
             if (ascii.isAlphanumeric(c)) {
                 // empty
             } else if (c == '@') {
-                nb += 1;
+                return null;
             } else if (c == '.' and link_end < size - i - 1 and ascii.isAlphanumeric(self.text.*[i + link_end + 1])) {
                 np += 1;
             } else if (c != '-' and c != '_') {
@@ -187,11 +181,15 @@ pub const AutolinkProcessor = struct {
             link_end += 1;
         }
 
-        if (link_end < 2 or nb != 1 or np == 0 or (!ascii.isAlphabetic(self.text.*[i + link_end - 1]) and self.text.*[i + link_end - 1] != '.')) {
+        if (link_end < 2 or np == 0 or (!ascii.isAlphabetic(self.text.*[i + link_end - 1]) and self.text.*[i + link_end - 1] != '.')) {
             return null;
         }
 
         link_end = autolinkDelim(self.text.*[i..], link_end);
+
+        if (link_end == 0) {
+            return null;
+        }
 
         var url = try ArrayList(u8).initCapacity(self.allocator, 7 + link_end - rewind);
         try url.appendSlice("mailto:");

@@ -8,7 +8,9 @@ const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
 const Options = @import("options.zig").Options;
 const scanners = @import("scanners.zig");
-const Reference = @import("parser.zig").Reference;
+const parser_mod = @import("parser.zig");
+const Reference = parser_mod.Reference;
+const RefMap = parser_mod.RefMap;
 
 const MAX_BACKTICKS = 80;
 const MAX_LINK_LABEL_LENGTH = 1000;
@@ -17,7 +19,7 @@ pub const ParseError = error{ OutOfMemory, InvalidUtf8 };
 
 pub const Subject = struct {
     allocator: mem.Allocator,
-    refmap: *std.StringHashMap(Reference),
+    refmap: *RefMap,
     options: *const Options,
     input: []const u8,
     pos: usize = 0,
@@ -25,10 +27,11 @@ pub const Subject = struct {
     brackets: ArrayList(Bracket),
     backticks: [MAX_BACKTICKS + 1]usize = [_]usize{0} ** (MAX_BACKTICKS + 1),
     scanned_for_backticks: bool = false,
+    no_link_openers: bool = true,
     special_chars: *const [256]bool,
     skip_chars: *const [256]bool,
 
-    pub fn init(allocator: mem.Allocator, refmap: *std.StringHashMap(Reference), options: *const Options, special_chars: *const [256]bool, skip_chars: *const [256]bool, input: []const u8) Subject {
+    pub fn init(allocator: mem.Allocator, refmap: *RefMap, options: *const Options, special_chars: *const [256]bool, skip_chars: *const [256]bool, input: []const u8) Subject {
         const s = Subject{
             .allocator = allocator,
             .refmap = refmap,
@@ -136,20 +139,12 @@ pub const Subject = struct {
         return inl;
     }
 
-    pub fn processEmphasis(self: *Subject, stack_bottom: ?*Delimiter) !void {
+    pub fn processEmphasis(self: *Subject, stack_bottom: usize) !void {
         var closer = self.last_delimiter;
 
-        var openers_bottom: [3][128]?*Delimiter = [_][128]?*Delimiter{[_]?*Delimiter{null} ** 128} ** 3;
-        for (&openers_bottom) |*i| {
-            i['*'] = stack_bottom;
-            i['_'] = stack_bottom;
-            i['\''] = stack_bottom;
-            i['"'] = stack_bottom;
-            if (self.options.extensions.strikethrough)
-                i['~'] = stack_bottom;
-        }
+        var openers_bottom: [3][128]usize = [_][128]usize{[_]usize{stack_bottom} ** 128} ** 3;
 
-        while (closer != null and closer.?.prev != stack_bottom) {
+        while (closer != null and closer.?.prev != null and closer.?.prev.?.position > stack_bottom) {
             closer = closer.?.prev;
         }
 
@@ -158,7 +153,7 @@ pub const Subject = struct {
                 var opener = closer.?.prev;
                 var opener_found = false;
 
-                while (opener != null and opener != openers_bottom[closer.?.length % 3][closer.?.delim_char]) {
+                while (opener != null and opener.?.position > openers_bottom[closer.?.length % 3][closer.?.delim_char]) {
                     if (opener.?.can_open and opener.?.delim_char == closer.?.delim_char) {
                         const odd_match = (closer.?.can_open or opener.?.can_close) and ((opener.?.length + closer.?.length) % 3 == 0) and !(opener.?.length % 3 == 0 and closer.?.length % 3 == 0);
                         if (!odd_match) {
@@ -204,7 +199,7 @@ pub const Subject = struct {
                 if (!opener_found) {
                     const ix = old_closer.?.length % 3;
                     openers_bottom[ix][old_closer.?.delim_char] =
-                        old_closer.?.prev;
+                        if (old_closer.?.prev) |p| p.position else stack_bottom;
 
                     if (!old_closer.?.can_open) {
                         self.removeDelimiter(old_closer.?);
@@ -215,7 +210,7 @@ pub const Subject = struct {
             }
         }
 
-        while (self.last_delimiter != null and self.last_delimiter != stack_bottom) {
+        while (self.last_delimiter != null and self.last_delimiter.?.position > stack_bottom) {
             self.removeDelimiter(self.last_delimiter.?);
         }
     }
@@ -541,6 +536,7 @@ pub const Subject = struct {
             .can_close = can_close,
             .prev = self.last_delimiter,
             .next = null,
+            .position = self.pos,
         };
         if (delimiter.prev) |prev| {
             prev.next = delimiter;
@@ -612,12 +608,13 @@ pub const Subject = struct {
         const len = self.brackets.items.len;
         if (len > 0)
             self.brackets.items[len - 1].bracket_after = true;
+        if (kind == .Link)
+            self.no_link_openers = false;
         try self.brackets.append(.{
-            .previous_delimiter = self.last_delimiter,
+            .delimiter_position = if (self.last_delimiter) |d| d.position else 0,
             .inl_text = inl_text,
             .position = self.pos,
             .kind = kind,
-            .active = true,
             .bracket_after = false,
         });
     }
@@ -631,12 +628,12 @@ pub const Subject = struct {
             return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "]") });
         }
 
-        if (!self.brackets.items[brackets_len - 1].active) {
+        const kind = self.brackets.items[brackets_len - 1].kind;
+
+        if (kind != .Image and self.no_link_openers) {
             _ = self.brackets.pop();
             return try self.makeInline(.{ .Text = try self.allocator.dupe(u8, "]") });
         }
-
-        const kind = self.brackets.items[brackets_len - 1].kind;
         const after_link_text_pos = self.pos;
 
         var sps: usize = 0;
@@ -678,7 +675,7 @@ pub const Subject = struct {
 
         const normalized = try strings.normalizeLabel(self.allocator, label orelse "");
         defer self.allocator.free(normalized);
-        const maybe_ref = if (label != null) self.refmap.get(normalized) else null;
+        const maybe_ref = if (label != null) self.refmap.lookup(normalized) else null;
 
         if (maybe_ref) |ref| {
             try self.closeBracketMatch(kind, try self.allocator.dupe(u8, ref.url), try self.allocator.dupe(u8, ref.title));
@@ -748,23 +745,12 @@ pub const Subject = struct {
             inl.append(tmp);
         }
         self.brackets.items[brackets_len - 1].inl_text.detachDeinit();
-        const previous_delimiter = self.brackets.items[brackets_len - 1].previous_delimiter;
-        try self.processEmphasis(previous_delimiter);
+        try self.processEmphasis(self.brackets.items[brackets_len - 1].delimiter_position);
         _ = self.brackets.pop();
         brackets_len -= 1;
 
         if (kind == .Link) {
-            var i: i32 = @intCast(brackets_len);
-            i -= 1;
-            while (i >= 0) : (i -= 1) {
-                if (self.brackets.items[@intCast(i)].kind == .Link) {
-                    if (!self.brackets.items[@intCast(i)].active) {
-                        break;
-                    } else {
-                        self.brackets.items[@intCast(i)].active = false;
-                    }
-                }
-            }
+            self.no_link_openers = true;
         }
     }
 
@@ -849,14 +835,14 @@ const Delimiter = struct {
     can_close: bool,
     prev: ?*Delimiter,
     next: ?*Delimiter,
+    position: usize,
 };
 
 const Bracket = struct {
-    previous_delimiter: ?*Delimiter,
+    delimiter_position: usize,
     inl_text: *nodes.AstNode,
     position: usize,
     kind: BracketKind,
-    active: bool,
     bracket_after: bool,
 };
 
