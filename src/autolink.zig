@@ -4,7 +4,6 @@ const ArrayList = std.array_list.Managed;
 const assert = std.debug.assert;
 const nodes = @import("nodes.zig");
 const strings = @import("strings.zig");
-const zunicode = @import("zunicode");
 
 pub const AutolinkProcessor = struct {
     allocator: std.mem.Allocator,
@@ -247,7 +246,7 @@ pub const AutolinkProcessor = struct {
     }
 
     fn isValidHostchar(c: u21) bool {
-        return !zunicode.isSpace(c) and !zunicode.isPunct(c);
+        return !strings.isUnicodeWhitespace(c) and !strings.isUnicodePunctuation(c);
     }
 
     const LINK_END_ASSORTMENT = strings.createMap("?!.,:*_~'\"");

@@ -8,12 +8,19 @@ pub fn build(b: *std.Build) !void {
 
     const pcre_pkg = b.dependency("libpcre_zig", .{ .optimize = optimize, .target = target });
     const htmlentities_pkg = b.dependency("htmlentities_zig", .{ .optimize = optimize, .target = target });
-    const zunicode_pkg = b.dependency("zunicode", .{ .optimize = optimize, .target = target });
+    const uucode_pkg = b.dependency("uucode", .{
+        .optimize = optimize,
+        .target = target,
+        .fields = @as([]const []const u8, &.{
+            "general_category",
+            "simple_lowercase_mapping",
+        }),
+    });
     const clap_pkg = b.dependency("clap", .{ .optimize = optimize, .target = target });
 
     try deps.put("clap", clap_pkg.module("clap"));
     try deps.put("libpcre", pcre_pkg.module("libpcre"));
-    try deps.put("zunicode", zunicode_pkg.module("zunicode"));
+    try deps.put("uucode", uucode_pkg.module("uucode"));
     try deps.put("htmlentities", htmlentities_pkg.module("htmlentities"));
 
     const mod = b.addModule("koino", .{
