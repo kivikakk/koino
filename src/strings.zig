@@ -1,12 +1,42 @@
 const std = @import("std");
+const htmlentities = @import("htmlentities");
+const uucode = @import("uucode");
 const mem = std.mem;
 const testing = std.testing;
 const ascii = std.ascii;
 const ArrayList = std.array_list.Managed;
 
 const nodes = @import("nodes.zig");
-const htmlentities = @import("htmlentities");
-const zunicode = @import("zunicode");
+
+/// "A Unicode whitespace character is any code point in the Unicode Zs general
+/// category, or a tab (U+0009), carriage return (U+000D), newline (U+000A), or
+/// form feed (U+000C)."
+pub fn isUnicodeWhitespace(cp: u21) bool {
+    return switch (cp) {
+        0x09, 0x0A, 0x0C, 0x0D => true,
+        else => uucode.get(.general_category, cp) == .separator_space,
+    };
+}
+
+/// "A Unicode punctuation character is an ASCII punctuation character or
+/// anything in the Unicode categories Pc, Pd, Pe, Pf, Pi, Po, or Ps."
+pub fn isUnicodePunctuation(cp: u21) bool {
+    if (cp < 128) return switch (@as(u8, @intCast(cp))) {
+        '!'...'/', ':'...'@', '['...'`', '{'...'~' => true,
+        else => false,
+    };
+    return switch (uucode.get(.general_category, cp)) {
+        .punctuation_connector,
+        .punctuation_dash,
+        .punctuation_open,
+        .punctuation_close,
+        .punctuation_initial_quote,
+        .punctuation_final_quote,
+        .punctuation_other,
+        => true,
+        else => false,
+    };
+}
 
 pub fn isLineEndChar(ch: u8) bool {
     return switch (ch) {
@@ -440,16 +470,14 @@ pub fn normalizeLabel(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var view = std.unicode.Utf8View.initUnchecked(trimmed);
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| {
-        const rune: i32 = @intCast(cp);
-        if (zunicode.isSpace(rune)) {
+        if (isUnicodeWhitespace(cp)) {
             if (!last_was_whitespace) {
                 last_was_whitespace = true;
                 try buffer.append(' ');
             }
         } else {
             last_was_whitespace = false;
-            const lower = zunicode.toLower(rune);
-            try encodeUtf8Into(@intCast(lower), &buffer);
+            try encodeUtf8Into(uucode.get(.simple_lowercase_mapping, cp), &buffer);
         }
     }
     return buffer.toOwnedSlice();
@@ -469,9 +497,7 @@ pub fn toLower(allocator: mem.Allocator, s: []const u8) ![]u8 {
     var view = try std.unicode.Utf8View.init(s);
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| {
-        const rune: i32 = @intCast(cp);
-        const lower = zunicode.toLower(rune);
-        try encodeUtf8Into(@intCast(lower), &buffer);
+        try encodeUtf8Into(uucode.get(.simple_lowercase_mapping, cp), &buffer);
     }
     return buffer.toOwnedSlice();
 }

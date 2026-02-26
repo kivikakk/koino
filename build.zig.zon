@@ -4,10 +4,6 @@
     .minimum_zig_version = "0.15.1",
     .fingerprint = 0x2af09c5b5aeed24b,
     .dependencies = .{
-        .zunicode = .{
-            .url = "git+https://github.com/mishieck/zunicode#e765542e914737d313b4a56e946e5adb3d0544b9",
-            .hash = "zunicode-0.1.0-Ftska3z0BQAecb-Fpt9JXeZJpTOX4ZPOLkTWS5DoUVsP",
-        },
         .clap = .{
             .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.11.0.tar.gz",
             .hash = "clap-0.11.0-oBajB-HnAQDPCKYzwF7rO3qDFwRcD39Q0DALlTSz5H7e",
@@ -19,6 +15,10 @@
         .htmlentities_zig = .{
             .url = "git+https://nossa.ee/~talya/htmlentities.zig#50cb7d848e81389c71fc383534ece76a3fc36284",
             .hash = "htmlentities_zig-0.1.0-zV-DJDYiAwAv5XJgsNlBPl79pWgiOkJ4-8OUgV95Ksb2",
+        },
+        .uucode = .{
+            .url = "git+https://github.com/jacobsandlund/uucode#57efdfb7eeb04636aa1069ecb8a65b9c2fcaf4cc",
+            .hash = "uucode-0.2.0-ZZjBPl1XVACasBRHQowdN6_UB_jkKpOMgKSkGNEB1vSk",
         },
     },
 

@@ -8,12 +8,19 @@ pub fn build(b: *std.Build) !void {
 
     const pcre_pkg = b.dependency("libpcre_zig", .{ .optimize = optimize, .target = target });
     const htmlentities_pkg = b.dependency("htmlentities_zig", .{ .optimize = optimize, .target = target });
-    const zunicode_pkg = b.dependency("zunicode", .{ .optimize = optimize, .target = target });
+    const uucode_pkg = b.dependency("uucode", .{
+        .optimize = optimize,
+        .target = target,
+        .fields = @as([]const []const u8, &.{
+            "general_category",
+            "simple_lowercase_mapping",
+        }),
+    });
     const clap_pkg = b.dependency("clap", .{ .optimize = optimize, .target = target });
 
     try deps.put("clap", clap_pkg.module("clap"));
     try deps.put("libpcre", pcre_pkg.module("libpcre"));
-    try deps.put("zunicode", zunicode_pkg.module("zunicode"));
+    try deps.put("uucode", uucode_pkg.module("uucode"));
     try deps.put("htmlentities", htmlentities_pkg.module("htmlentities"));
 
     const mod = b.addModule("koino", .{
@@ -23,8 +30,11 @@ pub fn build(b: *std.Build) !void {
     });
     try addCommonRequirements(mod, &deps);
 
+    // Workaround: uucode's generated tables trigger a crash in Zig's
+    // self-hosted x86_64 backend. Force LLVM until this is resolved upstream.
     const exe = b.addExecutable(.{
         .name = "koino",
+        .use_llvm = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
 
@@ -50,6 +60,7 @@ pub fn build(b: *std.Build) !void {
 
     const example = b.addExecutable(.{
         .name = "koino_example",
+        .use_llvm = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("examples/to-html.zig"),
 
@@ -71,6 +82,7 @@ pub fn build(b: *std.Build) !void {
     example_run_step.dependOn(&example_run_cmd.step);
 
     const test_exe = b.addTest(.{
+        .use_llvm = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
 
