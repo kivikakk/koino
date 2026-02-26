@@ -66,12 +66,18 @@ pub fn tryOpeningBlock(parser: *Parser, container: *nodes.AstNode, line: []const
 }
 
 fn tryOpeningHeader(parser: *Parser, container: *nodes.AstNode, line: []const u8, replace: *bool) !?*nodes.AstNode {
+    if (container.data.table_visited) {
+        replace.* = false;
+        return container;
+    }
+
     if ((try scanners.tableStart(line[parser.first_nonspace..])) == null) {
         replace.* = false;
         return container;
     }
 
     const header_row = (try row(parser.allocator, container.data.content.items)) orelse {
+        container.data.table_visited = true;
         replace.* = false;
         return container;
     };
@@ -81,6 +87,7 @@ fn tryOpeningHeader(parser: *Parser, container: *nodes.AstNode, line: []const u8
     defer freeNested(parser.allocator, marker_row);
 
     if (header_row.len != marker_row.len) {
+        container.data.table_visited = true;
         replace.* = false;
         return container;
     }

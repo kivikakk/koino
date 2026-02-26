@@ -10,6 +10,7 @@ pub const Node = struct {
     content: ArrayList(u8),
     open: bool = true,
     last_line_blank: bool = false,
+    table_visited: bool = false,
 
     pub fn deinit(self: *Node, allocator: mem.Allocator) void {
         self.content.deinit();
