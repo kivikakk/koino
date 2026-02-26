@@ -30,8 +30,11 @@ pub fn build(b: *std.Build) !void {
     });
     try addCommonRequirements(mod, &deps);
 
+    // Workaround: uucode's generated tables trigger a crash in Zig's
+    // self-hosted x86_64 backend. Force LLVM until this is resolved upstream.
     const exe = b.addExecutable(.{
         .name = "koino",
+        .use_llvm = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
 
@@ -57,6 +60,7 @@ pub fn build(b: *std.Build) !void {
 
     const example = b.addExecutable(.{
         .name = "koino_example",
+        .use_llvm = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("examples/to-html.zig"),
 
@@ -78,6 +82,7 @@ pub fn build(b: *std.Build) !void {
     example_run_step.dependOn(&example_run_cmd.step);
 
     const test_exe = b.addTest(.{
+        .use_llvm = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
 
